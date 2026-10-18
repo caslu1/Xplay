@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="android:Theme.Material">
+        <item name="android:colorPrimary">#1E1E2E</item>
+        <item name="android:colorPrimaryDark">#11111B</item>
+        <item name="android:colorAccent">#E8463A</item>
+        <item name="android:windowBackground">@color/bg</item>
+    </style>
+
+    <style name="PlayerTheme" parent="android:Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">@color/black</item>
+    </style>
+</resources>
