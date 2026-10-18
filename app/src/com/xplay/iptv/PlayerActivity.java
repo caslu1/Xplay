@@ -73,6 +73,18 @@ public class PlayerActivity extends Activity {
     private final List<String> nextUrls = new ArrayList<String>();
     private final List<String> nextSubs = new ArrayList<String>();
     private boolean paused, finished, seeking;
+    /** Pending seek position while the remote keys are being pressed, or -1. */
+    private int seekTarget = -1;
+    private int retries;
+    private final Runnable applySeek = new Runnable() {
+        public void run() { if (seekTarget >= 0) seekNow(seekTarget); }
+    };
+    private final Runnable startLive = new Runnable() {
+        public void run() {
+            retries = 0;
+            video.setVideoURI(Uri.parse(channel.url));
+        }
+    };
     private float touchY, touchX;
     private MediaPlayer player;
 
@@ -154,6 +166,9 @@ public class PlayerActivity extends Activity {
             public void onPrepared(MediaPlayer mp) {
                 player = mp;
                 loading.setVisibility(View.GONE);
+                mp.setOnSeekCompleteListener(new MediaPlayer.OnSeekCompleteListener() {
+                    public void onSeekComplete(MediaPlayer m) { loading.setVisibility(View.GONE); }
+                });
                 if (!live) {
                     resumePosition();
                     mp.setOnTimedTextListener(new MediaPlayer.OnTimedTextListener() {
@@ -178,6 +193,15 @@ public class PlayerActivity extends Activity {
         });
         video.setOnErrorListener(new MediaPlayer.OnErrorListener() {
             public boolean onError(MediaPlayer mp, int what, int extra) {
+                if (retries++ < 1) {
+                    handler.postDelayed(new Runnable() {
+                        public void run() {
+                            video.stopPlayback();
+                            video.setVideoURI(Uri.parse(live ? channel.url : vodUrl));
+                        }
+                    }, 800);
+                    return true;
+                }
                 loading.setVisibility(View.GONE);
                 message.setText(live ? "Canal indisponível no momento" : "Não foi possível reproduzir este conteúdo");
                 showOverlay();
@@ -259,7 +283,7 @@ public class PlayerActivity extends Activity {
         ImageView rew = roundButton(R.drawable.ic_rewind, 60, "Voltar 10 segundos");
         playPause = roundButton(R.drawable.ic_pause, 84, "Reproduzir ou pausar");
         playPause.setBackground(Ui.selectable(this, 0x99000000, 0xCCE8B84A, Ui.dp(this, 42), Palette.GOLD));
-        ImageView fwd = roundButton(R.drawable.ic_forward, 60, "Avançar 30 segundos");
+        ImageView fwd = roundButton(R.drawable.ic_forward, 60, "Avançar 10 segundos");
         center.addView(rew, Ui.lp(Ui.dp(this, 60), Ui.dp(this, 60)));
         LinearLayout.LayoutParams pl = Ui.lp(Ui.dp(this, 84), Ui.dp(this, 84));
         pl.leftMargin = Ui.dp(this, 44);
@@ -271,7 +295,7 @@ public class PlayerActivity extends Activity {
             public void onClick(View v) { seekBy(-10000); }
         });
         fwd.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { seekBy(30000); }
+            public void onClick(View v) { seekBy(10000); }
         });
         playPause.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { togglePlay(); }
@@ -296,10 +320,6 @@ public class PlayerActivity extends Activity {
 
         LinearLayout buttons = Ui.row(this);
         buttons.addView(new View(this), Ui.spacer());
-        View audio = textButton("Áudio");
-        View subs = textButton("Legendas");
-        buttons.addView(audio);
-        buttons.addView(subs);
         nextButton = textButton("Próximo episódio ›");
         buttons.addView(nextButton);
         LinearLayout.LayoutParams bl = Ui.lp(-1, -2);
@@ -307,12 +327,6 @@ public class PlayerActivity extends Activity {
         bottom.addView(buttons, bl);
         overlay.addView(bottom, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
 
-        audio.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { chooseTrack(MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_AUDIO); }
-        });
-        subs.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { chooseTrack(MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_TIMEDTEXT); }
-        });
         nextButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { playNext(); }
         });
@@ -322,8 +336,7 @@ public class PlayerActivity extends Activity {
             }
             public void onStartTrackingTouch(SeekBar s) { seeking = true; }
             public void onStopTrackingTouch(SeekBar s) {
-                seeking = false;
-                video.seekTo((int) ((long) video.getDuration() * s.getProgress() / 1000));
+                seekNow((int) ((long) video.getDuration() * s.getProgress() / 1000));
                 showOverlay();
             }
         });
@@ -350,63 +363,6 @@ public class PlayerActivity extends Activity {
         return t;
     }
 
-    /** Lists the audio or subtitle tracks the stream offers and switches to the chosen one. */
-    private void chooseTrack(final int type) {
-        if (player == null) return;
-        final MediaPlayer.TrackInfo[] tracks;
-        try {
-            tracks = player.getTrackInfo();
-        } catch (Exception e) {
-            Toast.makeText(this, "Faixas indisponíveis", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        final List<Integer> ids = new ArrayList<Integer>();
-        List<String> labels = new ArrayList<String>();
-        boolean subs = type == MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_TIMEDTEXT;
-        if (subs) {
-            ids.add(-1);
-            labels.add("Desligadas");
-        }
-        for (int i = 0; i < tracks.length; i++) {
-            int t = tracks[i].getTrackType();
-            boolean match = t == type || (subs && t == MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_SUBTITLE);
-            if (!match) continue;
-            String lang = tracks[i].getLanguage();
-            String name = lang == null || lang.equals("und") || lang.isEmpty()
-                    ? (subs ? "Legenda " : "Áudio ") + (ids.size() + (subs ? 0 : 1))
-                    : new Locale(lang).getDisplayLanguage(new Locale("pt", "BR"));
-            ids.add(i);
-            labels.add(name);
-        }
-        if (ids.size() <= (subs ? 1 : 0)) {
-            Toast.makeText(this, subs ? "Este conteúdo não tem legendas" : "Este conteúdo tem só um áudio",
-                    Toast.LENGTH_SHORT).show();
-            return;
-        }
-        new AlertDialog.Builder(this)
-                .setTitle(subs ? "Legendas" : "Áudio")
-                .setItems(labels.toArray(new String[0]), new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface d, int which) {
-                        int id = ids.get(which);
-                        try {
-                            if (id < 0) {
-                                for (int i = 0; i < tracks.length; i++) {
-                                    if (tracks[i].getTrackType() == MediaPlayer.TrackInfo.MEDIA_TRACK_TYPE_TIMEDTEXT) {
-                                        player.deselectTrack(i);
-                                    }
-                                }
-                                subtitleText.setVisibility(View.GONE);
-                            } else {
-                                player.selectTrack(id);
-                            }
-                        } catch (Exception e) {
-                            Toast.makeText(PlayerActivity.this, "Não foi possível trocar a faixa", Toast.LENGTH_SHORT).show();
-                        }
-                    }
-                })
-                .show();
-    }
-
     private void playNext() {
         if (nextUrls.isEmpty()) return;
         saveProgress();
@@ -426,11 +382,33 @@ public class PlayerActivity extends Activity {
         position.setText(time(pos));
     }
 
+    /**
+     * Repeated presses add up (shown on the bar right away) and the player seeks once they stop;
+     * seeking on every press made the position jump back while the stream was still buffering.
+     */
     private void seekBy(int ms) {
         int dur = video.getDuration();
-        if (dur <= 0) return;
-        video.seekTo(Math.max(0, Math.min(dur - 1000, video.getCurrentPosition() + ms)));
+        if (dur <= 0) {
+            Toast.makeText(this, "Este vídeo ainda está carregando ou não permite avançar", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        int from = seekTarget >= 0 ? seekTarget : video.getCurrentPosition();
+        seekTarget = Math.max(0, Math.min(dur - 2000, from + ms));
+        seeking = true;
+        seek.setProgress((int) ((long) seekTarget * 1000 / dur));
+        position.setText(time(seekTarget) + (ms > 0 ? "  ▶▶" : "  ◀◀"));
+        handler.removeCallbacks(applySeek);
+        handler.postDelayed(applySeek, 700);
         showOverlay();
+    }
+
+    private void seekNow(int target) {
+        seekTarget = -1;
+        seeking = false;
+        loading.setVisibility(View.VISIBLE);
+        video.seekTo(target);
+        if (!video.isPlaying()) video.start();
+        updatePlayPause();
     }
 
     private void togglePlay() {
@@ -478,12 +456,15 @@ public class PlayerActivity extends Activity {
         if (live) {
             Repo.current = channel;
             Repo.prefs().edit().putString("last_channel", channel.url).apply();
-            video.setVideoURI(Uri.parse(channel.url));
             liveInfo.bind(channel, Adult.channels());
+            handler.removeCallbacks(startLive);
+            handler.postDelayed(startLive, 350);
         } else {
             vodSubView.setText(vodSubtitle == null ? "" : vodSubtitle);
             vodSubView.setVisibility(vodSubtitle == null ? View.GONE : View.VISIBLE);
             nextButton.setVisibility(nextUrls.isEmpty() ? View.GONE : View.VISIBLE);
+            retries = 0;
+            seekTarget = -1;
             video.setVideoURI(Uri.parse(vodUrl));
         }
         showOverlay();
@@ -551,13 +532,9 @@ public class PlayerActivity extends Activity {
                     return true;
                 case KeyEvent.KEYCODE_DPAD_LEFT:
                 case KeyEvent.KEYCODE_DPAD_RIGHT:
-                    if (!visible) {
-                        // With the controls hidden, left/right seek like on most TV players.
-                        seekBy(keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? -10000 : 10000);
-                        return true;
-                    }
-                    showOverlay();
-                    break;
+                    // ◀ ▶ always rewind / fast-forward 10 s, like on most TV players.
+                    seekBy(keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? -10000 : 10000);
+                    return true;
                 case KeyEvent.KEYCODE_DPAD_UP:
                 case KeyEvent.KEYCODE_DPAD_DOWN:
                 case KeyEvent.KEYCODE_DPAD_CENTER:

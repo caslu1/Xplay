@@ -35,6 +35,45 @@ public final class Variants {
         return n.isEmpty() ? (name == null ? "" : name.toLowerCase(Locale.ROOT)) : n;
     }
 
+    private static final Pattern TAG_UHD = Pattern.compile("(?i)\\b(4k|8k|uhd)\\b");
+    private static final Pattern TAG_FHD = Pattern.compile("(?i)\\b(fhd|full ?hd|1080p?)\\b");
+    private static final Pattern TAG_HD = Pattern.compile("(?i)\\b(hd|720p?)\\b");
+    private static final Pattern TAG_SD = Pattern.compile("(?i)\\b(sd|480p?)\\b");
+    private static final Pattern TAG_EXTRA = Pattern.compile("(?i)\\b(h\\.?265|hevc|alt|backup)\\b|[\\[(]");
+
+    /** Lower is preferred: plain HD first, then FHD, SD, untagged, 4K, and backups last. */
+    static int rank(Channel c) {
+        String n = c.name;
+        int extra = TAG_EXTRA.matcher(n).find() ? 10 : 0;
+        if (TAG_UHD.matcher(n).find()) return 4 + extra;
+        if (TAG_FHD.matcher(n).find()) return 1 + extra;
+        if (TAG_HD.matcher(n).find()) return extra;
+        if (TAG_SD.matcher(n).find()) return 2 + extra;
+        return 3 + extra;
+    }
+
+    /**
+     * One entry per channel name: the HD version stands for its SD / FHD / 4K siblings, kept at the
+     * position where the name first appears.
+     */
+    public static List<Channel> collapse(List<Channel> channels) {
+        java.util.LinkedHashMap<String, Channel> best = new java.util.LinkedHashMap<String, Channel>();
+        for (Channel c : channels) {
+            String key = baseOf(c);
+            Channel cur = best.get(key);
+            if (cur == null || rank(c) < rank(cur)) best.put(key, c);
+        }
+        return new ArrayList<Channel>(best.values());
+    }
+
+    /** Group name without the redundant word "canais" ("CANAIS | ESPORTES" → "ESPORTES"). */
+    public static String cleanGroup(String g) {
+        if (g == null) return "";
+        String s = g.replaceAll("(?i)\\bcana(is|l)\\b", " ").replaceAll("^[\\s|:•\\-–]+|[\\s|:•\\-–]+$", "")
+                .replaceAll("\\s{2,}", " ").trim();
+        return s.isEmpty() ? g.trim() : s;
+    }
+
     /** Every channel in pool with the same base name as c (c included), in pool order. */
     public static List<Channel> of(Channel c, List<Channel> pool) {
         String key = baseOf(c);

@@ -1,6 +1,6 @@
 {
-  "versionCode": 10,
-  "versionName": "2.6",
-  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-2.6.apk",
-  "notes": "Canal toca pequeno no 1º toque e abre em tela cheia no 2º. Na tela cheia: arraste para os lados (ou ◀ ▶) para trocar a qualidade e ▲ ▼ para trocar de canal, com painel novo de número, nome e programação. A programação da tela pequena acompanha o canal destacado. Jogos de hoje com ao vivo e próximos, sem jogos encerrados. Filmes e séries: uma tecla por fileira no controle. Sem Elenco e produção. Nova tela de carregamento."
+  "versionCode": 11,
+  "versionName": "2.7",
+  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-2.7.apk",
+  "notes": "Troca rápida de canais sem erro (carrega quando você para e tenta de novo sozinho). Seta para a esquerda volta às categorias. Categorias sem a palavra Canais. Um canal por nome na lista, abrindo sempre em HD; as outras qualidades ficam no player. Contorno dourado das capas não corta mais. Player de filmes e séries: avançar e voltar funcionando, sem Legendas e Áudio."
 }

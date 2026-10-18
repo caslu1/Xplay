@@ -63,7 +63,7 @@ public class CategoryActivity extends Activity {
         grid.setStretchMode(GridView.STRETCH_SPACING_UNIFORM);
         grid.setVerticalSpacing(Ui.dp(this, 12));
         grid.setSelector(new android.graphics.drawable.ColorDrawable(0));
-        grid.setPadding(Ui.dp(this, 8), Ui.dp(this, 8), Ui.dp(this, 8), Ui.dp(this, 16));
+        grid.setPadding(Ui.dp(this, 12), Ui.dp(this, 14), Ui.dp(this, 12), Ui.dp(this, 20));
         grid.setClipToPadding(false);
         adapter = new BaseAdapter() {
             public int getCount() { return items.size(); }

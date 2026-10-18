@@ -230,7 +230,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
         grid.setStretchMode(GridView.STRETCH_SPACING_UNIFORM);
         grid.setVerticalSpacing(Ui.dp(this, 12));
         grid.setSelector(new android.graphics.drawable.ColorDrawable(0));
-        grid.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 16));
+        grid.setPadding(Ui.dp(this, 12), Ui.dp(this, 14), Ui.dp(this, 12), Ui.dp(this, 20));
         grid.setClipToPadding(false);
         searchAdapter = new BaseAdapter() {
             public int getCount() { return searchResults.size(); }
@@ -812,7 +812,9 @@ public class VodActivity extends Activity implements TopBar.Listener {
         HorizontalScrollView hs = new HorizontalScrollView(VodActivity.this);
         hs.setHorizontalScrollBarEnabled(false);
         LinearLayout strip = Ui.row(VodActivity.this);
-        strip.setPadding(Ui.dp(VodActivity.this, 6), 0, Ui.dp(VodActivity.this, 12), 0);
+        // Room around the posters so the focused one (slightly enlarged, gold ring) is never clipped.
+        strip.setPadding(Ui.dp(VodActivity.this, 10), Ui.dp(VodActivity.this, 10), Ui.dp(VodActivity.this, 14),
+                Ui.dp(VodActivity.this, 10));
         hs.addView(strip);
         row.addView(hs, Ui.lp(-1, -2));
         return row;

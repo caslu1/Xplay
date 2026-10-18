@@ -121,6 +121,7 @@ public class DetailActivity extends Activity {
             hs.setHorizontalScrollBarEnabled(false);
             LinearLayout strip = Ui.row(this);
             strip.setGravity(Gravity.TOP);
+            strip.setPadding(Ui.dp(this, 8), Ui.dp(this, 10), Ui.dp(this, 12), Ui.dp(this, 10));
             hs.addView(strip);
             int w = Ui.posterDp(this);
             for (VodItem v : related) {

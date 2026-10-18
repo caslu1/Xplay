@@ -51,6 +51,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     private final Handler handler = new Handler();
 
     private boolean showingChannels;
+    private final java.util.Map<String, Integer> counts = new java.util.HashMap<String, Integer>();
     private String groupTitle;
     private List<String> groups = new ArrayList<String>();
     private List<Channel> channelItems = new ArrayList<Channel>();
@@ -88,6 +89,11 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     };
     private final Runnable jumpToTyped = new Runnable() {
         public void run() { jumpTo(typedNumber); }
+    };
+    private int retries;
+    /** Starts the player once zapping pauses, so racing through channels does not error out. */
+    private final Runnable startPlayback = new Runnable() {
+        public void run() { startPreview(); }
     };
     private final Runnable showHighlighted = new Runnable() {
         public void run() { if (highlighted != null) showEpg(highlighted); }
@@ -160,7 +166,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         backButton = Ui.iconButton(this, R.drawable.ic_back, Palette.TEXT, Palette.GOLD);
         backButton.setContentDescription("Voltar");
         header.addView(backButton, Ui.lp(Ui.dp(this, 44), Ui.dp(this, 44)));
-        headerTitle = Ui.text(this, "GRUPOS DE CANAIS", 16, Palette.TEXT, true);
+        headerTitle = Ui.text(this, "CATEGORIAS", 16, Palette.TEXT, true);
         headerTitle.setSingleLine(true);
         headerTitle.setEllipsize(TextUtils.TruncateAt.END);
         headerTitle.setPadding(Ui.dp(this, 10), 0, Ui.dp(this, 6), 0);
@@ -279,6 +285,13 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         });
         preview.setOnErrorListener(new MediaPlayer.OnErrorListener() {
             public boolean onError(MediaPlayer mp, int what, int extra) {
+                // Streams often fail on the first try right after a switch; retry once before giving up.
+                if (retries++ < 1) {
+                    handler.postDelayed(new Runnable() {
+                        public void run() { load(); }
+                    }, 800);
+                    return true;
+                }
                 previewLoading.setVisibility(View.GONE);
                 previewMessage.setText("Canal indisponível no momento");
                 return true;
@@ -460,7 +473,8 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         groups.add(ALL);
         groups.add(FAVS);
         for (String g : Repo.liveGroups) if (Adult.listed() || !Adult.isAdultName(g)) groups.add(g);
-        headerTitle.setText("GRUPOS DE CANAIS");
+        headerTitle.setText("CATEGORIAS");
+        counts.clear();
         backButton.setVisibility(View.GONE);
         adapter.notifyDataSetChanged();
         list.setSelection(0);
@@ -486,7 +500,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         } else {
             for (Channel c : Repo.channels) if (group.equals(c.group)) out.add(c);
         }
-        showChannels(group, out);
+        showChannels(group, Variants.collapse(out));
         if (out.isEmpty() && FAVS.equals(group)) {
             Toast.makeText(this, "Segure o dedo (ou OK) em um canal para favoritar", Toast.LENGTH_LONG).show();
         }
@@ -496,7 +510,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         showingChannels = true;
         groupTitle = title;
         channelItems = items;
-        headerTitle.setText(title.toUpperCase(Locale.getDefault()));
+        headerTitle.setText(Variants.cleanGroup(title).toUpperCase(Locale.getDefault()));
         backButton.setVisibility(View.VISIBLE);
         adapter.notifyDataSetChanged();
         int idx = playing == null ? -1 : items.indexOf(playing);
@@ -527,7 +541,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                         for (Channel c : Adult.channels()) {
                             if (c.name.toLowerCase(Locale.ROOT).contains(q)) out.add(c);
                         }
-                        showChannels("Busca: " + raw, out);
+                        showChannels("Busca: " + raw, Variants.collapse(out));
                         if (out.isEmpty()) Toast.makeText(LiveActivity.this, "Nenhum canal encontrado",
                                 Toast.LENGTH_SHORT).show();
                     }
@@ -552,11 +566,23 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         showEpg(c);
         fillOverlay();
         // On first launch onResume starts the preview.
-        if (startNow) startPreview();
+        if (startNow) {
+            preview.stopPlayback();
+            previewLoading.setVisibility(View.VISIBLE);
+            previewMessage.setText("");
+            handler.removeCallbacks(startPlayback);
+            handler.postDelayed(startPlayback, 350);
+        }
     }
 
     private void startPreview() {
         if (playing == null) return;
+        handler.removeCallbacks(startPlayback);
+        retries = 0;
+        load();
+    }
+
+    private void load() {
         previewLoading.setVisibility(View.VISIBLE);
         previewMessage.setText("");
         preview.stopPlayback();
@@ -637,6 +663,10 @@ public class LiveActivity extends Activity implements TopBar.Listener {
             }
             handler.removeCallbacks(jumpToTyped);
             handler.postDelayed(jumpToTyped, 1500);
+            return true;
+        }
+        if (!fullscreen && showingChannels && keyCode == KeyEvent.KEYCODE_DPAD_LEFT && list.hasFocus()) {
+            showGroups();
             return true;
         }
         if (fullscreen) {
@@ -880,7 +910,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
             } else {
                 String g = groups.get(pos);
                 h.number.setVisibility(View.GONE);
-                h.name.setText(g.toUpperCase(Locale.getDefault()));
+                h.name.setText(Variants.cleanGroup(g).toUpperCase(Locale.getDefault()));
                 h.name.setTextColor(Palette.TEXT);
                 boolean locked = Adult.isAdultName(g) && !Adult.visible();
                 h.extra.setText((locked ? "🔒  " : "") + count(g));
@@ -892,14 +922,16 @@ public class LiveActivity extends Activity implements TopBar.Listener {
             return h.card;
         }
 
+        /** Channels a group shows once qualities are merged; computed once per group. */
         private String count(String g) {
-            if (ALL.equals(g)) return String.valueOf(Adult.channels().size());
-            int n = 0;
-            if (FAVS.equals(g)) {
-                for (Channel c : Adult.channels()) if (Repo.isFav(Repo.liveKey(c))) n++;
-            } else {
-                for (Channel c : Repo.channels) if (g.equals(c.group)) n++;
+            Integer cached = counts.get(g);
+            if (cached != null) return String.valueOf(cached);
+            List<Channel> in = new ArrayList<Channel>();
+            for (Channel c : ALL.equals(g) || FAVS.equals(g) ? Adult.channels() : Repo.channels) {
+                if (ALL.equals(g) || (FAVS.equals(g) ? Repo.isFav(Repo.liveKey(c)) : g.equals(c.group))) in.add(c);
             }
+            int n = Variants.collapse(in).size();
+            counts.put(g, n);
             return String.valueOf(n);
         }
     }
