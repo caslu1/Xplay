@@ -1,13 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="android:Theme.Material">
-        <item name="android:colorPrimary">#1E1E2E</item>
-        <item name="android:colorPrimaryDark">#11111B</item>
-        <item name="android:colorAccent">#E8463A</item>
-        <item name="android:windowBackground">@color/bg</item>
+    <style name="AppTheme" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorPrimary">@color/black</item>
+        <item name="android:colorPrimaryDark">@color/black</item>
+        <item name="android:colorAccent">@color/gold</item>
+        <item name="android:windowBackground">@color/black</item>
+        <item name="android:statusBarColor">@color/black</item>
+        <item name="android:navigationBarColor">@color/black</item>
+    </style>
+
+    <style name="FullTheme" parent="AppTheme">
+        <item name="android:windowFullscreen">true</item>
+    </style>
+
+    <style name="VodTheme" parent="AppTheme">
+        <item name="android:colorAccent">@color/blue</item>
+        <item name="android:windowBackground">@color/vod_bg</item>
+        <item name="android:statusBarColor">@color/vod_bg</item>
+        <item name="android:navigationBarColor">@color/nav_bg</item>
     </style>
 
     <style name="PlayerTheme" parent="android:Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:colorAccent">@color/gold</item>
         <item name="android:windowBackground">@color/black</item>
     </style>
 </resources>
