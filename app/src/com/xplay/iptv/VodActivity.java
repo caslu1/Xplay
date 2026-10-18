@@ -57,6 +57,8 @@ public class VodActivity extends Activity implements TopBar.Listener {
     private TextView searchHint;
     private final List<VodItem> searchResults = new ArrayList<VodItem>();
     private BaseAdapter searchAdapter;
+    private ImageView heroArt;
+    private TextView heroTitle, heroMeta, heroHint;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -81,6 +83,11 @@ public class VodActivity extends Activity implements TopBar.Listener {
         super.onResume();
         // Favorites may have changed on the detail screen.
         if (topBar == null) return;
+        if (heroTitle != null) {
+            Posters.focusListener = new Posters.FocusListener() {
+                public void focused(VodItem v) { showHero(v); }
+            };
+        }
         if (page == TopBar.FAVORITES) buildFavorites();
         else if ((page == TopBar.MOVIES && Repo.movies != null) || (page == TopBar.SERIES && Repo.series != null)) {
             int first = sectionsList.getFirstVisiblePosition();
@@ -123,6 +130,8 @@ public class VodActivity extends Activity implements TopBar.Listener {
 
     private LinearLayout buildHome() {
         LinearLayout home = Ui.column(this);
+        if (Ui.isTv(this)) home.addView(buildHero(), Ui.lp(-1,
+                (int) (getResources().getDisplayMetrics().heightPixels * 0.30f)));
         FrameLayout body = new FrameLayout(this);
         sectionsList = new ListView(this);
         sectionsList.setDivider(null);
@@ -139,6 +148,57 @@ public class VodActivity extends Activity implements TopBar.Listener {
         body.addView(emptyText, new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER));
         home.addView(body, new LinearLayout.LayoutParams(-1, 0, 1f));
         return home;
+    }
+
+    /** Stremio-like preview of the focused title, shown on TVs above the rows. */
+    private View buildHero() {
+        FrameLayout hero = new FrameLayout(this);
+        heroArt = new ImageView(this);
+        heroArt.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        heroArt.setAlpha(0.6f);
+        hero.addView(heroArt, new FrameLayout.LayoutParams(-1, -1));
+        View shade = new View(this);
+        shade.setBackground(new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[] {0xF2000000, 0xB3000000, 0x33000000}));
+        hero.addView(shade, new FrameLayout.LayoutParams(-1, -1));
+        View fade = new View(this);
+        fade.setBackground(new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP, new int[] {Palette.BLACK, 0}));
+        hero.addView(fade, new FrameLayout.LayoutParams(-1, Ui.dp(this, 40), Gravity.BOTTOM));
+        LinearLayout text = Ui.column(this);
+        text.setGravity(Gravity.CENTER_VERTICAL);
+        text.setPadding(Ui.dp(this, 32), 0, Ui.dp(this, 32), 0);
+        heroTitle = Ui.text(this, "", 30, Palette.TEXT, true);
+        heroTitle.setMaxLines(1);
+        heroTitle.setEllipsize(TextUtils.TruncateAt.END);
+        text.addView(heroTitle);
+        heroMeta = Ui.text(this, "", 16, Palette.GOLD, true);
+        text.addView(heroMeta);
+        heroHint = Ui.text(this, "OK para ver detalhes  •  ◀ ▶ para navegar", 13, Palette.TEXT_DIM, false);
+        heroHint.setPadding(0, Ui.dp(this, 8), 0, 0);
+        text.addView(heroHint);
+        hero.addView(text, new FrameLayout.LayoutParams(Ui.dp(this, 560), -1, Gravity.START));
+        return hero;
+    }
+
+    private void showHero(VodItem v) {
+        if (heroTitle == null) return;
+        ImageLoader.loadBlurred(v.poster, heroArt);
+        heroTitle.setText(v.name);
+        java.util.Map<String, String> cats = v.series ? Repo.seriesCategories : Repo.movieCategories;
+        String cat = cats == null ? null : cats.get(v.categoryId);
+        StringBuilder meta = new StringBuilder();
+        if (v.ratingText() != null) meta.append("★ ").append(v.ratingText()).append("   ");
+        meta.append(v.series ? "Série" : "Filme");
+        if (cat != null) meta.append("  •  ").append(cat);
+        heroMeta.setText(meta);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        Posters.focusListener = null;
     }
 
     private LinearLayout buildSearch() {
@@ -253,6 +313,33 @@ public class VodActivity extends Activity implements TopBar.Listener {
         settings.setBackground(Ui.round(Palette.SURFACE_HI, Ui.dp(this, 16)));
         settings.setPadding(Ui.dp(this, 20), Ui.dp(this, 8), Ui.dp(this, 20), Ui.dp(this, 16));
         infoRow(settings, "Versão do app", Updater.currentName(this));
+        final TextView adultButton = (TextView) button(adultLabel(), false);
+        adultButton.setTextColor(Palette.TEXT);
+        LinearLayout.LayoutParams abl = Ui.lp(-1, -2);
+        abl.topMargin = Ui.dp(this, 8);
+        settings.addView(adultButton, abl);
+        adultButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                final boolean hide = !Adult.hidden();
+                Adult.askPin(VodActivity.this, hide ? "Ocultar conteúdo adulto" : "Mostrar conteúdo adulto",
+                        new Runnable() {
+                            public void run() {
+                                Adult.setHidden(hide);
+                                adultButton.setText(adultLabel());
+                                Toast.makeText(VodActivity.this, hide ? "Conteúdo adulto oculto em todo o app"
+                                        : "Conteúdo adulto visível (pede senha)", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+            }
+        });
+        TextView pinButton = (TextView) button("ALTERAR SENHA DO CONTEÚDO ADULTO", false);
+        pinButton.setTextColor(Palette.TEXT);
+        LinearLayout.LayoutParams pbl = Ui.lp(-1, -2);
+        pbl.topMargin = Ui.dp(this, 8);
+        settings.addView(pinButton, pbl);
+        pinButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { changePin(); }
+        });
         View update = button("VERIFICAR ATUALIZAÇÕES", true);
         LinearLayout.LayoutParams ul = Ui.lp(-1, -2);
         ul.topMargin = Ui.dp(this, 8);
@@ -270,6 +357,42 @@ public class VodActivity extends Activity implements TopBar.Listener {
             public void onClick(View v) { confirmLogout(); }
         });
         return scroll;
+    }
+
+    private static String adultLabel() {
+        return Adult.hidden() ? "CONTEÚDO ADULTO: OCULTO  (tocar para mostrar)"
+                : "CONTEÚDO ADULTO: COM SENHA  (tocar para ocultar)";
+    }
+
+    private void changePin() {
+        Adult.askPin(this, "Senha atual", new Runnable() {
+            public void run() {
+                final android.widget.EditText input = new android.widget.EditText(VodActivity.this);
+                input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                        | android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD);
+                input.setGravity(Gravity.CENTER);
+                input.setTextSize(24);
+                LinearLayout box = new LinearLayout(VodActivity.this);
+                box.setPadding(Ui.dp(VodActivity.this, 24), Ui.dp(VodActivity.this, 8), Ui.dp(VodActivity.this, 24), 0);
+                box.addView(input, new LinearLayout.LayoutParams(-1, -2));
+                new AlertDialog.Builder(VodActivity.this)
+                        .setTitle("Nova senha (4 números ou mais)")
+                        .setView(box)
+                        .setPositiveButton("Salvar", new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface d, int w) {
+                                String pin = input.getText().toString();
+                                if (pin.length() < 4) {
+                                    Toast.makeText(VodActivity.this, "Use pelo menos 4 números", Toast.LENGTH_SHORT).show();
+                                    return;
+                                }
+                                Adult.setPin(pin);
+                                Toast.makeText(VodActivity.this, "Senha alterada", Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .setNegativeButton("Cancelar", null)
+                        .show();
+            }
+        });
     }
 
     private View button(String label, boolean primary) {
@@ -381,8 +504,14 @@ public class VodActivity extends Activity implements TopBar.Listener {
             l.add(v);
         }
 
+        List<VodItem> visibleAll = Adult.filter(all);
         List<Section> out = new ArrayList<Section>();
-        List<org.json.JSONObject> resume = Repo.continueList(isSeries);
+        List<org.json.JSONObject> resume = new ArrayList<org.json.JSONObject>();
+        for (org.json.JSONObject e : Repo.continueList(isSeries)) {
+            String key = e.optString("key");
+            VodItem v = Repo.findVod(isSeries, key.substring(key.indexOf(':') + 1));
+            if (v == null || Adult.visible() || !Adult.isAdult(v)) resume.add(e);
+        }
         if (!resume.isEmpty()) {
             Section c = new Section("Continuar assistindo", null);
             c.resume = resume;
@@ -395,18 +524,21 @@ public class VodActivity extends Activity implements TopBar.Listener {
         java.util.Set<String> usedArt = new java.util.HashSet<String>();
         for (Map.Entry<String, List<VodItem>> e : byCat.entrySet()) {
             if (e.getValue().isEmpty()) continue;
+            boolean adult = Adult.isAdultName(cats.get(e.getKey()));
+            if (adult && Adult.hidden()) continue;
             genres.genres.add(e);
-            genres.genreArt.add(pickArt(e.getValue(), usedArt));
+            // Locked adult tiles never show their artwork.
+            genres.genreArt.add(adult && !Adult.visible() ? null : pickArt(e.getValue(), usedArt));
         }
         genres.catNames = cats;
         if (!genres.genres.isEmpty()) out.add(genres);
 
-        List<VodItem> recent = new ArrayList<VodItem>(all);
+        List<VodItem> recent = new ArrayList<VodItem>(visibleAll);
         Collections.sort(recent, new Comparator<VodItem>() {
             public int compare(VodItem a, VodItem b) { return Long.compare(b.added, a.added); }
         });
         out.add(new Section("Adicionados recentemente", recent.subList(0, Math.min(100, recent.size()))));
-        List<VodItem> top = new ArrayList<VodItem>(all);
+        List<VodItem> top = new ArrayList<VodItem>(visibleAll);
         Collections.sort(top, new Comparator<VodItem>() {
             public int compare(VodItem a, VodItem b) { return Double.compare(b.rating, a.rating); }
         });
@@ -414,8 +546,10 @@ public class VodActivity extends Activity implements TopBar.Listener {
         for (Map.Entry<String, List<VodItem>> e : byCat.entrySet()) {
             if (e.getValue().isEmpty()) continue;
             String name = cats.get(e.getKey());
+            if (Adult.isAdultName(name) && !Adult.visible()) continue;
             out.add(new Section(name == null ? "Outros" : name, e.getValue()));
         }
+        if (heroTitle != null && !visibleAll.isEmpty()) showHero(top.isEmpty() ? visibleAll.get(0) : top.get(0));
         sections.items = out;
         sections.notifyDataSetChanged();
         sectionsList.setSelection(0);
@@ -438,11 +572,11 @@ public class VodActivity extends Activity implements TopBar.Listener {
         if (Repo.movies == null || Repo.series == null) return;
         List<Section> out = new ArrayList<Section>();
         List<Channel> favChannels = new ArrayList<Channel>();
-        for (Channel c : Repo.channels) if (Repo.isFav(Repo.liveKey(c))) favChannels.add(c);
+        for (Channel c : Adult.channels()) if (Repo.isFav(Repo.liveKey(c))) favChannels.add(c);
         List<VodItem> favMovies = new ArrayList<VodItem>();
-        for (VodItem v : Repo.movies) if (Repo.isFav(v.favKey())) favMovies.add(v);
+        for (VodItem v : Adult.filter(Repo.movies)) if (Repo.isFav(v.favKey())) favMovies.add(v);
         List<VodItem> favSeries = new ArrayList<VodItem>();
-        for (VodItem v : Repo.series) if (Repo.isFav(v.favKey())) favSeries.add(v);
+        for (VodItem v : Adult.filter(Repo.series)) if (Repo.isFav(v.favKey())) favSeries.add(v);
         if (!favChannels.isEmpty()) {
             Section s = new Section("Canais favoritos", null);
             s.channels = favChannels;
@@ -461,11 +595,11 @@ public class VodActivity extends Activity implements TopBar.Listener {
         String q = searchInput.getText().toString().trim().toLowerCase(Locale.ROOT);
         searchResults.clear();
         if (q.length() >= 2) {
-            for (VodItem v : Repo.movies) {
+            for (VodItem v : Adult.filter(Repo.movies)) {
                 if (v.name.toLowerCase(Locale.ROOT).contains(q)) searchResults.add(v);
                 if (searchResults.size() >= 150) break;
             }
-            for (VodItem v : Repo.series) {
+            for (VodItem v : Adult.filter(Repo.series)) {
                 if (searchResults.size() >= 300) break;
                 if (v.name.toLowerCase(Locale.ROOT).contains(q)) searchResults.add(v);
             }
@@ -583,7 +717,12 @@ public class VodActivity extends Activity implements TopBar.Listener {
         public View getView(int pos, View convert, ViewGroup parent) {
             LinearLayout row;
             if (convert == null) {
-                row = Ui.column(VodActivity.this);
+                // The ListView "selects" whole rows on the remote; only the focused poster should light up.
+                row = new LinearLayout(VodActivity.this) {
+                    @Override
+                    public void dispatchSetSelected(boolean selected) {}
+                };
+                row.setOrientation(LinearLayout.VERTICAL);
                 row.setPadding(0, Ui.dp(VodActivity.this, 12), 0, Ui.dp(VodActivity.this, 6));
                 LinearLayout header = Ui.row(VodActivity.this);
                 header.setPadding(Ui.dp(VodActivity.this, 12), 0, Ui.dp(VodActivity.this, 8), Ui.dp(VodActivity.this, 8));
@@ -625,8 +764,16 @@ public class VodActivity extends Activity implements TopBar.Listener {
                 for (int i = 0; i < s.genres.size(); i++) {
                     final Map.Entry<String, List<VodItem>> e = s.genres.get(i);
                     final String name = s.catNames.get(e.getKey()) == null ? "Outros" : s.catNames.get(e.getKey());
-                    View tile = Posters.genreTile(VodActivity.this, name, i, s.genreArt.get(i), new View.OnClickListener() {
-                        public void onClick(View v) { CategoryActivity.start(VodActivity.this, name, e.getValue()); }
+                    final boolean adult = Adult.isAdultName(name);
+                    String label = adult && !Adult.visible() ? "🔒 " + name : name;
+                    View tile = Posters.genreTile(VodActivity.this, label, i, s.genreArt.get(i), new View.OnClickListener() {
+                        public void onClick(View v) {
+                            Runnable open = new Runnable() {
+                                public void run() { CategoryActivity.start(VodActivity.this, name, e.getValue()); }
+                            };
+                            if (adult) Adult.unlock(VodActivity.this, open);
+                            else open.run();
+                        }
                     });
                     LinearLayout.LayoutParams lp = Ui.lp(Ui.dp(VodActivity.this, 190), Ui.dp(VodActivity.this, 84));
                     lp.rightMargin = Ui.dp(VodActivity.this, 10);

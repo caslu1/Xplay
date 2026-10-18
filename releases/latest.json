@@ -1,6 +1,6 @@
 {
-  "versionCode": 8,
-  "versionName": "2.4",
-  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-2.4.apk",
-  "notes": "Página de filmes e séries refeita (temporadas, episódios e relacionados), botão Continuar e atualização automática dentro do app."
+  "versionCode": 9,
+  "versionName": "2.5",
+  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-2.5.apk",
+  "notes": "Canal abre direto em tela cheia sem recarregar, com as outras qualidades do canal (SD/HD/FHD/4K). Canais numerados (digite o número no controle). Esportes mostra só Jogos de hoje por horário. Conteúdo adulto com senha 0000 e opção de ocultar nas Configurações. Player de filmes e séries com áudio, legendas e próximo episódio. Destaque estilo Stremio na TV e seleção das capas corrigida."
 }

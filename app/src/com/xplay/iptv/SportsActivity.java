@@ -38,6 +38,23 @@ public class SportsActivity extends Activity implements TopBar.Listener {
                     + "motor|tenis|tennis|golf|ppv|pay.per.view|espn|dazn|campeonato|copa|libertadores|"
                     + "brasileirao|champions|liga|jogos|eleven|fox sports|tnt sports|band sports|sportv");
 
+    private static final Pattern TODAY = Pattern.compile(
+            "jogos? (de |do )?(hoje|dia)|agenda|eventos? (de |do )?(hoje|dia)|ao vivo hoje|hoje");
+    private static final Pattern TIME = Pattern.compile("\\b([01]?\\d|2[0-3])\\s*[:hH]\\s*([0-5]\\d)\\b");
+
+    private TextView heading, headingNote;
+
+    /** Kick-off time written in the name ("Flamengo x Palmeiras 21:30"), or null. */
+    private static String kickoff(Channel c) {
+        java.util.regex.Matcher m = TIME.matcher(c.name);
+        return m.find() ? String.format(Locale.US, "%02d:%s", Integer.parseInt(m.group(1)), m.group(2)) : null;
+    }
+
+    private static int minutes(Channel c) {
+        String k = kickoff(c);
+        return k == null ? 9999 : Integer.parseInt(k.substring(0, 2)) * 60 + Integer.parseInt(k.substring(3));
+    }
+
     private final SimpleDateFormat clock = new SimpleDateFormat("HH:mm", Locale.getDefault());
 
     private List<Channel> all = new ArrayList<Channel>();
@@ -66,11 +83,22 @@ public class SportsActivity extends Activity implements TopBar.Listener {
             finish();
             return;
         }
-        for (Channel c : Repo.channels) {
-            if (SPORTS.matcher(plain(c.group)).find() || SPORTS.matcher(plain(c.name)).find()) all.add(c);
+        // Only the "Jogos de hoje" folder; other sports channels just when the list has no such folder.
+        for (Channel c : Adult.channels()) if (TODAY.matcher(plain(c.group)).find()) all.add(c);
+        boolean today = !all.isEmpty();
+        if (!today) {
+            for (Channel c : Adult.channels()) {
+                if (SPORTS.matcher(plain(c.group)).find() || SPORTS.matcher(plain(c.name)).find()) all.add(c);
+            }
         }
+        java.util.Collections.sort(all, new java.util.Comparator<Channel>() {
+            public int compare(Channel a, Channel b) { return Integer.compare(minutes(a), minutes(b)); }
+        });
         for (Channel c : all) if (!groups.contains(c.group)) groups.add(c.group);
         buildUi();
+        heading.setText(today ? "JOGOS DE HOJE" : "ESPORTES");
+        headingNote.setText(today ? all.size() + " transmissões"
+                : "Sua lista não tem a pasta \"Jogos de hoje\"; mostrando canais de esportes");
         selectGroup(null);
         if (!all.isEmpty()) {
             Channel start = all.contains(Repo.current) ? Repo.current : all.get(0);
@@ -110,11 +138,22 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         rl.leftMargin = Ui.dp(this, 20);
         body.addView(right, rl);
 
+        LinearLayout head = Ui.row(this);
+        heading = Ui.text(this, "", 20, Palette.TEXT, true);
+        head.addView(heading);
+        headingNote = Ui.text(this, "", 13, Palette.TEXT_DIM, false);
+        headingNote.setPadding(Ui.dp(this, 12), 0, 0, 0);
+        headingNote.setSingleLine(true);
+        headingNote.setEllipsize(TextUtils.TruncateAt.END);
+        head.addView(headingNote, Ui.weight(1));
+        right.addView(head, Ui.lp(-1, -2));
         HorizontalScrollView hs = new HorizontalScrollView(this);
         hs.setHorizontalScrollBarEnabled(false);
         chips = Ui.row(this);
         hs.addView(chips);
-        right.addView(hs, Ui.lp(-1, -2));
+        LinearLayout.LayoutParams hl = Ui.lp(-1, -2);
+        hl.topMargin = Ui.dp(this, 8);
+        right.addView(hs, hl);
 
         grid = new GridView(this);
         grid.setNumColumns(GridView.AUTO_FIT);
@@ -132,8 +171,8 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         grid.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             public void onItemClick(AdapterView<?> parent, View v, int pos, long id) {
                 Channel c = shown.get(pos);
-                if (c == playing) openFullscreen();
-                else select(c, true);
+                if (c != playing) select(c, false);
+                openFullscreen();
             }
         });
         grid.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
@@ -252,6 +291,8 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         shown = new ArrayList<Channel>();
         for (Channel c : all) if (g == null || g.equals(c.group)) shown.add(c);
         chips.removeAllViews();
+        // Folder chips only make sense when there is more than one folder.
+        ((View) chips.getParent()).setVisibility(groups.size() > 1 ? View.VISIBLE : View.GONE);
         addChip(null, "Todos");
         for (String name : groups) addChip(name, name);
         adapter.notifyDataSetChanged();
@@ -364,6 +405,9 @@ public class SportsActivity extends Activity implements TopBar.Listener {
                     Palette.GOLD));
             h.name.setText(c.name);
             h.name.setTextColor(on ? Palette.GOLD : Palette.TEXT);
+            String k = kickoff(c);
+            h.time.setText(k == null ? "--:--" : k);
+            h.time.setVisibility(View.VISIBLE);
             h.fav.setVisibility(Repo.isFav(Repo.liveKey(c)) ? View.VISIBLE : View.GONE);
             ImageLoader.load(c.logo, h.logo, Ui.dp(SportsActivity.this, 56), R.drawable.ic_launcher);
             Xtream.Program now = Epg.now(c);
@@ -393,7 +437,7 @@ public class SportsActivity extends Activity implements TopBar.Listener {
     private final class Card {
         final LinearLayout root;
         final ImageView logo;
-        final TextView name, now, live, fav;
+        final TextView name, now, live, fav, time;
         final ProgressBar progress;
 
         Card() {
@@ -402,9 +446,15 @@ public class SportsActivity extends Activity implements TopBar.Listener {
             int p = Ui.dp(a, 12);
             root.setPadding(p, p, p, p);
             root.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1, Ui.dp(a, 88)));
+            time = Ui.text(a, "", 15, Palette.BLACK, true);
+            time.setGravity(Gravity.CENTER);
+            time.setBackground(Ui.round(Palette.GOLD, Ui.dp(a, 8)));
+            LinearLayout.LayoutParams tl = Ui.lp(Ui.dp(a, 58), Ui.dp(a, 32));
+            tl.rightMargin = Ui.dp(a, 10);
+            root.addView(time, tl);
             logo = new ImageView(a);
             logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            root.addView(logo, Ui.lp(Ui.dp(a, 56), Ui.dp(a, 42)));
+            root.addView(logo, Ui.lp(Ui.dp(a, 48), Ui.dp(a, 38)));
             LinearLayout col = Ui.column(a);
             col.setPadding(Ui.dp(a, 12), 0, 0, 0);
             LinearLayout top = Ui.row(a);

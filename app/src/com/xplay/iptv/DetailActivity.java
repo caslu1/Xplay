@@ -327,7 +327,7 @@ public class DetailActivity extends Activity {
 
     /** Same category first; filled up with the best-rated titles when the category is small. */
     private List<VodItem> related() {
-        List<VodItem> pool = item.series ? Repo.series : Repo.movies;
+        List<VodItem> pool = Adult.filter(item.series ? Repo.series : Repo.movies);
         List<VodItem> out = new ArrayList<VodItem>();
         if (pool == null) return out;
         for (VodItem v : pool) {
@@ -701,8 +701,16 @@ public class DetailActivity extends Activity {
     private void playMain() {
         JSONObject resume = resumeEntry();
         if (resume != null) {
-            play(resume.optString("url"), resume.optString("title", item.name),
-                    resume.has("sub") ? resume.optString("sub") : null);
+            String url = resume.optString("url");
+            for (int s = 0; item.series && s < seasons.size(); s++) {
+                for (int i = 0; i < seasons.get(s).size(); i++) {
+                    if (url.equals(episodeUrl(seasons.get(s).get(i)))) {
+                        playEpisode(s, i);
+                        return;
+                    }
+                }
+            }
+            play(url, resume.optString("title", item.name), resume.has("sub") ? resume.optString("sub") : null);
             return;
         }
         if (!item.series) {
@@ -738,18 +746,41 @@ public class DetailActivity extends Activity {
             Toast.makeText(this, "Episódio indisponível", Toast.LENGTH_SHORT).show();
             return;
         }
+        // Queue the rest of the series so "next episode" and autoplay work in the player.
+        List<String> urls = new ArrayList<String>();
+        List<String> subs = new ArrayList<String>();
+        for (int s = seasonIndex; s < seasons.size(); s++) {
+            List<JSONObject> eps = seasons.get(s);
+            for (int i = s == seasonIndex ? episodeIndex + 1 : 0; i < eps.size(); i++) {
+                String u = episodeUrl(eps.get(i));
+                if (u == null) continue;
+                urls.add(u);
+                subs.add(episodeLabel(s, i));
+            }
+        }
+        Intent i = playIntent(url, item.name, episodeLabel(seasonIndex, episodeIndex));
+        i.putExtra(PlayerActivity.EXTRA_NEXT_URLS, urls.toArray(new String[0]));
+        i.putExtra(PlayerActivity.EXTRA_NEXT_SUBS, subs.toArray(new String[0]));
+        startActivity(i);
+    }
+
+    private String episodeLabel(int seasonIndex, int episodeIndex) {
+        JSONObject e = seasons.get(seasonIndex).get(episodeIndex);
         String title = str(e, "title");
-        String sub = "T" + seasonNumber(seasonIndex) + ":E" + episodeNumber(e, episodeIndex)
+        return "T" + seasonNumber(seasonIndex) + ":E" + episodeNumber(e, episodeIndex)
                 + (title.isEmpty() ? "" : "  " + title);
-        play(url, item.name, sub);
     }
 
     private void play(String url, String title, String subtitle) {
+        startActivity(playIntent(url, title, subtitle));
+    }
+
+    private Intent playIntent(String url, String title, String subtitle) {
         Intent i = new Intent(this, PlayerActivity.class);
         i.putExtra(PlayerActivity.EXTRA_URL, url);
         i.putExtra(PlayerActivity.EXTRA_TITLE, title);
         if (subtitle != null) i.putExtra(PlayerActivity.EXTRA_SUBTITLE, subtitle);
         i.putExtra(PlayerActivity.EXTRA_KEY, item.favKey());
-        startActivity(i);
+        return i;
     }
 }

@@ -4,18 +4,23 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.text.TextUtils;
 import android.view.Gravity;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
@@ -31,13 +36,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.Callable;
 
-/** Live TV: channel groups on the left, preview + now/next on the right, side menu. */
+/**
+ * Live TV: numbered channel groups on the left, preview + now/next on the right. Choosing a channel
+ * expands the same player to fullscreen (no reload), with zapping, number entry and the channel's
+ * other qualities (SD / HD / FHD / 4K) at the bottom.
+ */
 public class LiveActivity extends Activity implements TopBar.Listener {
 
     private static final String ALL = "TODOS";
     private static final String FAVS = "FAVORITOS";
+    private static final long OVERLAY_MS = 6000;
 
     private final SimpleDateFormat clock = new SimpleDateFormat("HH:mm", Locale.getDefault());
+    private final Handler handler = new Handler();
 
     private boolean showingChannels;
     private String groupTitle;
@@ -46,7 +57,14 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     private List<Channel> playingList = new ArrayList<Channel>();
     private Channel playing;
     private float zoom;
+    private boolean fullscreen;
+    private String typedNumber = "";
+    private float touchX, touchY;
 
+    private TopBar topBar;
+    private LinearLayout content, leftPanel, rightPanel, body;
+    private View epgCard;
+    private FrameLayout previewFrame;
     private ListView list;
     private ListAdapter adapter;
     private ImageView backButton;
@@ -56,9 +74,22 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     private TextView previewMessage;
     private ImageView epgLogo;
     private TextView nowTime, nowTitle, nextTime, nextTitle, nextLabel;
-    private TopBar topBar;
     /** Channel list the groups were built from; changes when the lists are refreshed. */
     private List<Channel> shownChannels;
+
+    // fullscreen overlay
+    private FrameLayout overlay;
+    private TextView fsNumber, fsName, fsNow, fsDesc, fsNext, fsTyped;
+    private ProgressBar fsProgress;
+    private LinearLayout variantRow;
+    private View variantBlock;
+
+    private final Runnable hideOverlay = new Runnable() {
+        public void run() { overlay.setVisibility(View.GONE); }
+    };
+    private final Runnable jumpToTyped = new Runnable() {
+        public void run() { jumpTo(typedNumber); }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,9 +108,9 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         Updater.checkOnStart(this);
 
         String last = Repo.prefs().getString("last_channel", null);
-        for (Channel c : Repo.channels) {
+        for (Channel c : Adult.channels()) {
             if (c.url.equals(last)) {
-                playingList = Repo.channels;
+                playingList = Adult.channels();
                 select(c, false);
                 break;
             }
@@ -99,26 +130,27 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         topBar.select(TopBar.LIVE);
         page.addView(topBar, Ui.lp(-1, -2));
 
-        LinearLayout content = Ui.column(this);
-        int h = Ui.dp(this, 24);
-        content.setPadding(h, 0, h, Ui.dp(this, 12));
+        content = Ui.column(this);
         page.addView(content, new LinearLayout.LayoutParams(-1, 0, 1f));
 
-        LinearLayout body = Ui.row(this);
+        body = Ui.row(this);
         body.setGravity(Gravity.TOP);
-        LinearLayout.LayoutParams bodyLp = new LinearLayout.LayoutParams(-1, 0, 1f);
-        bodyLp.topMargin = Ui.dp(this, 8);
-        content.addView(body, bodyLp);
+        content.addView(body, new LinearLayout.LayoutParams(-1, 0, 1f));
 
-        body.addView(buildLeftPanel(), new LinearLayout.LayoutParams(0, -1, 0.36f));
-        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(0, -1, 0.64f);
-        rp.leftMargin = Ui.dp(this, 24);
-        body.addView(buildRightPanel(), rp);
+        leftPanel = buildLeftPanel();
+        body.addView(leftPanel, new LinearLayout.LayoutParams(0, -1, 0.36f));
+        rightPanel = buildRightPanel();
+        body.addView(rightPanel, new LinearLayout.LayoutParams(0, -1, 0.64f));
+
+        overlay = buildOverlay();
+        overlay.setVisibility(View.GONE);
+        root.addView(overlay, new FrameLayout.LayoutParams(-1, -1));
 
         setContentView(root);
+        applyMode();
     }
 
-    private View buildLeftPanel() {
+    private LinearLayout buildLeftPanel() {
         LinearLayout left = Ui.column(this);
 
         LinearLayout header = Ui.row(this);
@@ -170,11 +202,10 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                     openGroup(groups.get(pos));
                 } else {
                     Channel c = channelItems.get(pos);
-                    if (c == playing) openFullscreen();
-                    else {
-                        playingList = channelItems;
-                        select(c, true);
-                    }
+                    playingList = channelItems;
+                    // Same channel keeps playing; a new one starts once, already fullscreen.
+                    if (c != playing) select(c, true);
+                    enterFullscreen();
                 }
             }
         });
@@ -186,34 +217,36 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                 Toast.makeText(LiveActivity.this, on ? "★ Adicionado aos favoritos" : "Removido dos favoritos",
                         Toast.LENGTH_SHORT).show();
                 if (FAVS.equals(groupTitle)) openGroup(FAVS);
+                else adapter.notifyDataSetChanged();
                 return true;
             }
         });
         return left;
     }
 
-    private View buildRightPanel() {
+    private LinearLayout buildRightPanel() {
         LinearLayout right = Ui.column(this);
 
-        FrameLayout frame = new FrameLayout(this);
-        frame.setBackground(Ui.round(Palette.SURFACE, Ui.dp(this, 14)));
-        Ui.clipRound(frame, Ui.dp(this, 14));
-        frame.setFocusable(true);
-        frame.setClickable(true);
-        frame.setForeground(Ui.selectable(this, 0, 0x00000000, Ui.dp(this, 14), Palette.GOLD));
+        previewFrame = new FrameLayout(this);
+        previewFrame.setBackgroundColor(Palette.SURFACE);
+        previewFrame.setFocusable(true);
+        previewFrame.setClickable(true);
+        previewFrame.setForeground(Ui.focusRing(this, Ui.dp(this, 14)));
         preview = new VideoView(this);
-        frame.addView(preview, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
+        previewFrame.addView(preview, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
         previewLoading = new ProgressBar(this);
-        previewLoading.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(Palette.GOLD));
+        previewLoading.setIndeterminateTintList(ColorStateList.valueOf(Palette.GOLD));
         previewLoading.setVisibility(View.GONE);
-        frame.addView(previewLoading, new FrameLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48), Gravity.CENTER));
+        previewFrame.addView(previewLoading, new FrameLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48), Gravity.CENTER));
         previewMessage = Ui.text(this, "", 15, Palette.TEXT_DIM, false);
         previewMessage.setGravity(Gravity.CENTER);
-        frame.addView(previewMessage, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
-        LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(-1, 0, 1f);
-        right.addView(frame, fp);
-        frame.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { if (playing != null) openFullscreen(); }
+        previewFrame.addView(previewMessage, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
+        right.addView(previewFrame, new LinearLayout.LayoutParams(-1, 0, 1f));
+        previewFrame.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                if (fullscreen) toggleOverlay();
+                else if (playing != null) enterFullscreen();
+            }
         });
 
         preview.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
@@ -238,9 +271,13 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                 return true;
             }
         });
+        preview.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            public void onCompletion(MediaPlayer mp) { startPreview(); }
+        });
 
         // Now / next card
         LinearLayout epg = Ui.row(this);
+        epgCard = epg;
         epg.setBackground(Ui.round(Palette.SURFACE, Ui.dp(this, 14)));
         int p = Ui.dp(this, 16);
         epg.setPadding(Ui.dp(this, 24), p, p, p);
@@ -257,8 +294,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         nextTime = Ui.text(this, "", 15, Palette.TEXT_DIM, false);
         nextTitle = Ui.text(this, "", 15, Palette.TEXT_DIM, false);
         lines.addView(epgLine(nowLabel, nowTime, nowTitle));
-        View gap = new View(this);
-        lines.addView(gap, Ui.lp(1, Ui.dp(this, 6)));
+        lines.addView(new View(this), Ui.lp(1, Ui.dp(this, 6)));
         lines.addView(epgLine(nextLabel, nextTime, nextTitle));
         epg.addView(lines, Ui.weight(1));
 
@@ -278,6 +314,248 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         return l;
     }
 
+    private FrameLayout buildOverlay() {
+        FrameLayout o = new FrameLayout(this);
+        o.setClickable(true);
+        o.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { overlay.setVisibility(View.GONE); }
+        });
+
+        LinearLayout top = Ui.row(this);
+        top.setGravity(Gravity.TOP);
+        top.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[] {0xE6000000, 0x99000000, 0x00000000}));
+        int p = Ui.dp(this, 24);
+        top.setPadding(p, Ui.dp(this, 16), p, Ui.dp(this, 48));
+        LinearLayout left = Ui.column(this);
+        left.setGravity(Gravity.CENTER_HORIZONTAL);
+        fsNumber = Ui.text(this, "", 60, Palette.TEXT, true);
+        fsNumber.setIncludeFontPadding(false);
+        left.addView(fsNumber);
+        fsName = Ui.text(this, "", 19, Palette.TEXT, true);
+        fsName.setGravity(Gravity.CENTER);
+        fsName.setMaxLines(2);
+        left.addView(fsName);
+        top.addView(left, Ui.lp(Ui.dp(this, 280), -2));
+        LinearLayout right = Ui.column(this);
+        right.setPadding(Ui.dp(this, 24), Ui.dp(this, 8), 0, 0);
+        fsNow = Ui.text(this, "", 20, Palette.TEXT, true);
+        fsNow.setSingleLine(true);
+        fsNow.setEllipsize(TextUtils.TruncateAt.END);
+        right.addView(fsNow);
+        fsDesc = Ui.text(this, "", 14, 0xFFCCCCCC, false);
+        fsDesc.setMaxLines(2);
+        fsDesc.setEllipsize(TextUtils.TruncateAt.END);
+        right.addView(fsDesc);
+        fsProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        fsProgress.setMax(1000);
+        fsProgress.setProgressTintList(ColorStateList.valueOf(Palette.GOLD));
+        fsProgress.setProgressBackgroundTintList(ColorStateList.valueOf(0xFFDDDDDD));
+        LinearLayout.LayoutParams pp = Ui.lp(-1, Ui.dp(this, 6));
+        pp.topMargin = Ui.dp(this, 8);
+        right.addView(fsProgress, pp);
+        fsNext = Ui.text(this, "", 18, 0xFFBBBBBB, false);
+        fsNext.setSingleLine(true);
+        fsNext.setEllipsize(TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams nl = Ui.lp(-1, -2);
+        nl.topMargin = Ui.dp(this, 8);
+        right.addView(fsNext, nl);
+        top.addView(right, Ui.weight(1));
+        o.addView(top, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
+
+        fsTyped = Ui.text(this, "", 44, Palette.GOLD, true);
+        fsTyped.setBackground(Ui.round(0xCC000000, Ui.dp(this, 12)));
+        fsTyped.setPadding(Ui.dp(this, 20), Ui.dp(this, 6), Ui.dp(this, 20), Ui.dp(this, 6));
+        fsTyped.setVisibility(View.GONE);
+        FrameLayout.LayoutParams tl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
+        tl.setMargins(0, Ui.dp(this, 24), Ui.dp(this, 24), 0);
+        o.addView(fsTyped, tl);
+
+        LinearLayout bottom = Ui.column(this);
+        variantBlock = bottom;
+        bottom.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
+                new int[] {0xE6000000, 0x99000000, 0x00000000}));
+        bottom.setPadding(p, Ui.dp(this, 40), 0, Ui.dp(this, 16));
+        TextView hint = Ui.text(this, "outras qualidades deste canal", 14, Palette.TEXT_DIM, false);
+        hint.setPadding(Ui.dp(this, 12), 0, 0, Ui.dp(this, 10));
+        bottom.addView(hint);
+        HorizontalScrollView hs = new HorizontalScrollView(this);
+        hs.setHorizontalScrollBarEnabled(false);
+        variantRow = Ui.row(this);
+        variantRow.setPadding(0, Ui.dp(this, 4), Ui.dp(this, 24), Ui.dp(this, 4));
+        hs.addView(variantRow);
+        bottom.addView(hs, Ui.lp(-1, -2));
+        o.addView(bottom, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+        return o;
+    }
+
+    // ---------------------------------------------------------------- fullscreen
+
+    private void enterFullscreen() {
+        if (playing == null) return;
+        fullscreen = true;
+        applyMode();
+        showOverlay();
+    }
+
+    private void exitFullscreen() {
+        fullscreen = false;
+        overlay.setVisibility(View.GONE);
+        applyMode();
+        list.requestFocus();
+    }
+
+    /** Hides or restores everything around the player; the player itself is never recreated. */
+    private void applyMode() {
+        int vis = fullscreen ? View.GONE : View.VISIBLE;
+        topBar.setVisibility(vis);
+        leftPanel.setVisibility(vis);
+        epgCard.setVisibility(vis);
+        int h = fullscreen ? 0 : Ui.dp(this, 24);
+        content.setPadding(h, 0, h, fullscreen ? 0 : Ui.dp(this, 12));
+        LinearLayout.LayoutParams bl = (LinearLayout.LayoutParams) body.getLayoutParams();
+        bl.topMargin = fullscreen ? 0 : Ui.dp(this, 8);
+        body.setLayoutParams(bl);
+        LinearLayout.LayoutParams rl = (LinearLayout.LayoutParams) rightPanel.getLayoutParams();
+        rl.leftMargin = fullscreen ? 0 : Ui.dp(this, 24);
+        rightPanel.setLayoutParams(rl);
+        previewFrame.setBackgroundColor(fullscreen ? Palette.BLACK : Palette.SURFACE);
+        if (fullscreen) {
+            previewFrame.setClipToOutline(false);
+        } else {
+            Ui.clipRound(previewFrame, Ui.dp(this, 14));
+        }
+        getWindow().getDecorView().setSystemUiVisibility(fullscreen
+                ? View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                : 0);
+        if (fullscreen) getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        else getWindow().clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+
+    private void showOverlay() {
+        if (!fullscreen) return;
+        overlay.setVisibility(View.VISIBLE);
+        handler.removeCallbacks(hideOverlay);
+        handler.postDelayed(hideOverlay, OVERLAY_MS);
+    }
+
+    private void toggleOverlay() {
+        if (overlay.getVisibility() == View.VISIBLE) overlay.setVisibility(View.GONE);
+        else showOverlay();
+    }
+
+    private void fillOverlay() {
+        final Channel c = playing;
+        if (c == null) return;
+        fsNumber.setText(Ui.pad3(Adult.number(c)));
+        fsName.setText(c.name.toUpperCase(Locale.getDefault()));
+        fsNow.setText(c.name);
+        fsDesc.setText("");
+        fsNext.setText("");
+        fsProgress.setVisibility(View.INVISIBLE);
+        Epg.get(c, new Epg.Callback() {
+            public void done(List<Xtream.Program> programs) {
+                if (isFinishing() || c != playing || programs.isEmpty()) return;
+                Xtream.Program now = programs.get(0);
+                fsNow.setText(clock.format(new Date(now.start)) + " às " + clock.format(new Date(now.end))
+                        + "   " + now.title);
+                fsDesc.setText(now.description);
+                fsProgress.setProgress(Epg.progress(now));
+                fsProgress.setVisibility(View.VISIBLE);
+                if (programs.size() > 1) {
+                    Xtream.Program next = programs.get(1);
+                    fsNext.setText(clock.format(new Date(next.start)) + " às " + clock.format(new Date(next.end))
+                            + "   " + next.title);
+                }
+            }
+        });
+        buildVariants(c);
+    }
+
+    private void buildVariants(Channel c) {
+        variantRow.removeAllViews();
+        List<Channel> variants = Variants.of(c, Adult.channels());
+        variantBlock.setVisibility(variants.size() > 1 ? View.VISIBLE : View.GONE);
+        if (variants.size() <= 1) return;
+        for (final Channel v : variants) {
+            boolean current = v == c;
+            LinearLayout card = Ui.column(this);
+            card.setGravity(Gravity.CENTER);
+            card.setFocusable(true);
+            card.setClickable(true);
+            float r = Ui.dp(this, 10);
+            card.setBackground(current
+                    ? Ui.stroke(0xCC141414, r, Ui.dp(this, 3), Palette.GOLD)
+                    : Ui.selectable(this, 0xB3141414, 0xE6222222, r, Palette.GOLD));
+            int pad = Ui.dp(this, 10);
+            card.setPadding(pad, pad, pad, pad);
+            ImageView logo = new ImageView(this);
+            logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            ImageLoader.load(v.logo, logo, Ui.dp(this, 60), R.drawable.ic_launcher);
+            card.addView(logo, Ui.lp(Ui.dp(this, 60), Ui.dp(this, 46)));
+            TextView name = Ui.text(this, v.name.toUpperCase(Locale.getDefault()), 13, Palette.TEXT, true);
+            name.setGravity(Gravity.CENTER);
+            name.setMaxLines(2);
+            name.setEllipsize(TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams nl = Ui.lp(-1, -2);
+            nl.topMargin = Ui.dp(this, 6);
+            card.addView(name, nl);
+            LinearLayout.LayoutParams lp = Ui.lp(Ui.dp(this, 170), Ui.dp(this, 124));
+            lp.leftMargin = Ui.dp(this, 12);
+            variantRow.addView(card, lp);
+            card.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View view) {
+                    if (v != playing) select(v, true);
+                    showOverlay();
+                }
+            });
+            card.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+                public void onFocusChange(View view, boolean has) { if (has) showOverlay(); }
+            });
+        }
+    }
+
+    private void zap(int delta) {
+        List<Channel> l = playingList.isEmpty() ? Adult.channels() : playingList;
+        if (l.isEmpty()) return;
+        int i = l.indexOf(playing);
+        int n = l.size();
+        select(l.get(((i + delta) % n + n) % n), true);
+        showOverlay();
+    }
+
+    /** Remote number keys: jump to the channel with that number. */
+    private void jumpTo(String number) {
+        typedNumber = "";
+        fsTyped.setVisibility(View.GONE);
+        int n;
+        try {
+            n = Integer.parseInt(number);
+        } catch (NumberFormatException e) {
+            return;
+        }
+        if (Repo.channels == null || n < 1 || n > Repo.channels.size()) {
+            Toast.makeText(this, "Canal " + number + " não existe", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final Channel c = Repo.channels.get(n - 1);
+        Runnable go = new Runnable() {
+            public void run() {
+                playingList = Adult.channels();
+                select(c, true);
+                if (!fullscreen) enterFullscreen();
+                else showOverlay();
+            }
+        };
+        if (Adult.isAdult(c)) {
+            if (Adult.hidden()) return;
+            Adult.unlock(this, go);
+        } else {
+            go.run();
+        }
+    }
+
     // ---------------------------------------------------------------- list state
 
     private void showGroups() {
@@ -287,7 +565,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         groups = new ArrayList<String>();
         groups.add(ALL);
         groups.add(FAVS);
-        groups.addAll(Repo.liveGroups);
+        for (String g : Repo.liveGroups) if (Adult.listed() || !Adult.isAdultName(g)) groups.add(g);
         headerTitle.setText("GRUPOS DE CANAIS");
         backButton.setVisibility(View.GONE);
         adapter.notifyDataSetChanged();
@@ -295,12 +573,24 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         list.requestFocus();
     }
 
-    private void openGroup(String group) {
+    private void openGroup(final String group) {
+        if (Adult.isAdultName(group)) {
+            Adult.unlock(this, new Runnable() {
+                public void run() { openGroupNow(group); }
+            });
+        } else {
+            openGroupNow(group);
+        }
+    }
+
+    private void openGroupNow(String group) {
         List<Channel> out = new ArrayList<Channel>();
-        for (Channel c : Repo.channels) {
-            if (ALL.equals(group) || (FAVS.equals(group) ? Repo.isFav(Repo.liveKey(c)) : group.equals(c.group))) {
-                out.add(c);
+        if (ALL.equals(group) || FAVS.equals(group)) {
+            for (Channel c : Adult.channels()) {
+                if (ALL.equals(group) || Repo.isFav(Repo.liveKey(c))) out.add(c);
             }
+        } else {
+            for (Channel c : Repo.channels) if (group.equals(c.group)) out.add(c);
         }
         showChannels(group, out);
         if (out.isEmpty() && FAVS.equals(group)) {
@@ -322,7 +612,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
 
     private void askSearch() {
         final EditText input = new EditText(this);
-        input.setHint("Nome do canal");
+        input.setHint("Nome ou número do canal");
         input.setSingleLine(true);
         LinearLayout box = new LinearLayout(this);
         box.setPadding(Ui.dp(this, 20), Ui.dp(this, 8), Ui.dp(this, 20), 0);
@@ -332,13 +622,18 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                 .setView(box)
                 .setPositiveButton("Buscar", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int w) {
-                        String q = input.getText().toString().trim().toLowerCase(Locale.ROOT);
-                        if (q.isEmpty()) return;
+                        String raw = input.getText().toString().trim();
+                        if (raw.isEmpty()) return;
+                        if (raw.matches("\\d+")) {
+                            jumpTo(raw);
+                            return;
+                        }
+                        String q = raw.toLowerCase(Locale.ROOT);
                         List<Channel> out = new ArrayList<Channel>();
-                        for (Channel c : Repo.channels) {
+                        for (Channel c : Adult.channels()) {
                             if (c.name.toLowerCase(Locale.ROOT).contains(q)) out.add(c);
                         }
-                        showChannels("Busca: " + input.getText().toString().trim(), out);
+                        showChannels("Busca: " + raw, out);
                         if (out.isEmpty()) Toast.makeText(LiveActivity.this, "Nenhum canal encontrado",
                                 Toast.LENGTH_SHORT).show();
                     }
@@ -355,14 +650,15 @@ public class LiveActivity extends Activity implements TopBar.Listener {
 
     // ---------------------------------------------------------------- playback
 
-    private void select(Channel c, boolean userAction) {
+    private void select(Channel c, boolean startNow) {
         playing = c;
         Repo.current = c;
         Repo.prefs().edit().putString("last_channel", c.url).apply();
         adapter.notifyDataSetChanged();
         showEpg(c);
+        fillOverlay();
         // On first launch onResume starts the preview.
-        if (userAction) startPreview();
+        if (startNow) startPreview();
     }
 
     private void startPreview() {
@@ -400,13 +696,6 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         return clock.format(new Date(p.start)) + " - " + clock.format(new Date(p.end));
     }
 
-    private void openFullscreen() {
-        Repo.playlist = playingList;
-        Intent i = new Intent(this, PlayerActivity.class);
-        i.putExtra(PlayerActivity.EXTRA_INDEX, Math.max(0, playingList.indexOf(playing)));
-        startActivity(i);
-    }
-
     @Override
     protected void onPause() {
         super.onPause();
@@ -418,15 +707,120 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         super.onResume();
         if (preview == null) return;
         topBar.select(TopBar.LIVE);
-        if (Repo.channels != shownChannels) showGroups();
+        if (Repo.channels != shownChannels || (!showingChannels && groups.size() - 2 != countListedGroups())) {
+            showGroups();
+        }
         if (Repo.current != null && Repo.current != playing) {
-            // The user zapped to another channel in fullscreen.
+            // Another screen (sports, favorites) played a channel.
             playing = Repo.current;
             playingList = Repo.playlist;
             adapter.notifyDataSetChanged();
             showEpg(playing);
+            fillOverlay();
         }
         startPreview();
+    }
+
+    private int countListedGroups() {
+        int n = 0;
+        for (String g : Repo.liveGroups) if (Adult.listed() || !Adult.isAdultName(g)) n++;
+        return n;
+    }
+
+    // ---------------------------------------------------------------- input
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) {
+            typedNumber += (char) ('0' + keyCode - KeyEvent.KEYCODE_0);
+            if (typedNumber.length() > 5) typedNumber = typedNumber.substring(typedNumber.length() - 5);
+            fsTyped.setText(typedNumber);
+            if (fullscreen) {
+                fsTyped.setVisibility(View.VISIBLE);
+                showOverlay();
+            } else {
+                Toast.makeText(this, "Canal " + typedNumber, Toast.LENGTH_SHORT).show();
+            }
+            handler.removeCallbacks(jumpToTyped);
+            handler.postDelayed(jumpToTyped, 1500);
+            return true;
+        }
+        if (fullscreen) {
+            boolean visible = overlay.getVisibility() == View.VISIBLE;
+            switch (keyCode) {
+                case KeyEvent.KEYCODE_DPAD_UP:
+                case KeyEvent.KEYCODE_CHANNEL_UP:
+                case KeyEvent.KEYCODE_PAGE_UP:
+                    zap(1);
+                    return true;
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                case KeyEvent.KEYCODE_CHANNEL_DOWN:
+                case KeyEvent.KEYCODE_PAGE_DOWN:
+                    zap(-1);
+                    return true;
+                case KeyEvent.KEYCODE_DPAD_LEFT:
+                case KeyEvent.KEYCODE_DPAD_RIGHT:
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER:
+                    if (!visible) {
+                        showOverlay();
+                        focusCurrentVariant();
+                        return true;
+                    }
+                    showOverlay();
+                    break;
+                default:
+                    break;
+            }
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    private void focusCurrentVariant() {
+        for (int i = 0; i < variantRow.getChildCount(); i++) {
+            View v = variantRow.getChildAt(i);
+            if (v.getBackground() instanceof GradientDrawable) {
+                v.requestFocus();
+                return;
+            }
+        }
+        if (variantRow.getChildCount() > 0) variantRow.getChildAt(0).requestFocus();
+    }
+
+    /** In fullscreen: a vertical swipe changes channel, a tap shows or hides the info. */
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (!fullscreen) return super.dispatchTouchEvent(ev);
+        if (ev.getAction() == MotionEvent.ACTION_DOWN) {
+            touchX = ev.getX();
+            touchY = ev.getY();
+            if (overlay.getVisibility() != View.VISIBLE) return true;
+        } else if (ev.getAction() == MotionEvent.ACTION_UP) {
+            float dy = ev.getY() - touchY, dx = ev.getX() - touchX;
+            if (Math.abs(dy) > getResources().getDisplayMetrics().heightPixels / 5f && Math.abs(dy) > Math.abs(dx)) {
+                zap(dy < 0 ? 1 : -1);
+                return true;
+            }
+            if (overlay.getVisibility() != View.VISIBLE) {
+                showOverlay();
+                return true;
+            }
+        } else if (overlay.getVisibility() != View.VISIBLE) {
+            return true;
+        }
+        return super.dispatchTouchEvent(ev);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (fullscreen) {
+            if (overlay.getVisibility() == View.VISIBLE) overlay.setVisibility(View.GONE);
+            else exitFullscreen();
+        } else if (showingChannels) {
+            showGroups();
+        } else {
+            super.onBackPressed();
+        }
     }
 
     // ---------------------------------------------------------------- menu actions
@@ -485,19 +879,35 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         list.postDelayed(refreshList, 150);
     }
 
-    /** Account options for M3U lists, which have no account page. */
+    /** Settings for M3U lists, which have no account page. */
     private void listMenu() {
         new AlertDialog.Builder(this)
-                .setTitle("Minha lista")
-                .setItems(new String[] {"Atualizar lista", "Verificar atualizações do app (versão "
-                        + Updater.currentName(this) + ")", "Sair e trocar de lista"}, new DialogInterface.OnClickListener() {
+                .setTitle("Configurações")
+                .setItems(new String[] {
+                        "Atualizar lista",
+                        Adult.hidden() ? "Mostrar conteúdo adulto (+18)" : "Ocultar conteúdo adulto (+18)",
+                        "Verificar atualizações do app (versão " + Updater.currentName(this) + ")",
+                        "Sair e trocar de lista"}, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int which) {
                         if (which == 0) reload();
-                        else if (which == 1) Updater.check(LiveActivity.this, true);
+                        else if (which == 1) toggleAdultHidden();
+                        else if (which == 2) Updater.check(LiveActivity.this, true);
                         else confirmLogout();
                     }
                 })
                 .show();
+    }
+
+    private void toggleAdultHidden() {
+        final boolean hide = !Adult.hidden();
+        Adult.askPin(this, hide ? "Ocultar conteúdo adulto" : "Mostrar conteúdo adulto", new Runnable() {
+            public void run() {
+                Adult.setHidden(hide);
+                Toast.makeText(LiveActivity.this, hide ? "Conteúdo adulto oculto" : "Conteúdo adulto visível (com senha)",
+                        Toast.LENGTH_SHORT).show();
+                showGroups();
+            }
+        });
     }
 
     private void reload() {
@@ -539,9 +949,9 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     }
 
     @Override
-    public void onBackPressed() {
-        if (showingChannels) showGroups();
-        else super.onBackPressed();
+    protected void onDestroy() {
+        super.onDestroy();
+        handler.removeCallbacksAndMessages(null);
     }
 
     // ---------------------------------------------------------------- adapter
@@ -556,12 +966,14 @@ public class LiveActivity extends Activity implements TopBar.Listener {
             int height = (int) (Ui.dp(LiveActivity.this, 62) * zoom);
             h.card.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1, height));
             h.name.setTextSize(17 * zoom);
+            h.number.setTextSize(14 * zoom);
             if (showingChannels) {
                 Channel c = channelItems.get(pos);
                 boolean on = c == playing;
+                h.number.setVisibility(View.VISIBLE);
+                h.number.setText(Ui.pad3(Adult.number(c)));
                 h.name.setText(c.name);
                 h.name.setTextColor(on ? Palette.GOLD : Palette.TEXT);
-                h.name.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
                 h.extra.setText(Repo.isFav(Repo.liveKey(c)) ? "★" : "");
                 h.extra.setTextColor(Palette.GOLD);
                 h.logo.setVisibility(View.VISIBLE);
@@ -571,7 +983,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                 Xtream.Program p = Epg.now(c);
                 h.now.setText(p == null ? "" : p.title);
                 h.now.setVisibility(p == null ? View.GONE : View.VISIBLE);
-                if (p == null && c.streamId != null && Epg.peek(c) == null) {
+                if (p == null && Epg.peek(c) == null) {
                     Epg.get(c, new Epg.Callback() {
                         public void done(List<Xtream.Program> programs) {
                             if (!programs.isEmpty() && !isFinishing()) scheduleRefresh();
@@ -580,9 +992,11 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                 }
             } else {
                 String g = groups.get(pos);
+                h.number.setVisibility(View.GONE);
                 h.name.setText(g.toUpperCase(Locale.getDefault()));
                 h.name.setTextColor(Palette.TEXT);
-                h.extra.setText(count(g));
+                boolean locked = Adult.isAdultName(g) && !Adult.visible();
+                h.extra.setText((locked ? "🔒  " : "") + count(g));
                 h.extra.setTextColor(Palette.TEXT_DIM);
                 h.logo.setVisibility(View.GONE);
                 h.now.setVisibility(View.GONE);
@@ -592,10 +1006,12 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         }
 
         private String count(String g) {
+            if (ALL.equals(g)) return String.valueOf(Adult.channels().size());
             int n = 0;
-            if (ALL.equals(g)) return String.valueOf(Repo.channels.size());
-            for (Channel c : Repo.channels) {
-                if (FAVS.equals(g) ? Repo.isFav(Repo.liveKey(c)) : g.equals(c.group)) n++;
+            if (FAVS.equals(g)) {
+                for (Channel c : Adult.channels()) if (Repo.isFav(Repo.liveKey(c))) n++;
+            } else {
+                for (Channel c : Repo.channels) if (g.equals(c.group)) n++;
             }
             return String.valueOf(n);
         }
@@ -604,44 +1020,48 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     private class Holder {
         final FrameLayout card;
         final View bar;
+        final TextView number;
         final ImageView logo;
         final TextView name;
         final TextView now;
         final TextView extra;
 
         Holder() {
-            card = new FrameLayout(LiveActivity.this);
-            float r = Ui.dp(LiveActivity.this, 10);
-            card.setBackground(Ui.selectable(LiveActivity.this, Palette.SURFACE, Palette.SURFACE_HI, r, Palette.GOLD));
+            Activity a = LiveActivity.this;
+            card = new FrameLayout(a);
+            float r = Ui.dp(a, 10);
+            card.setBackground(Ui.selectable(a, Palette.SURFACE, Palette.SURFACE_HI, r, Palette.GOLD));
             Ui.clipRound(card, r);
-            LinearLayout row = Ui.row(LiveActivity.this);
+            LinearLayout row = Ui.row(a);
             card.addView(row, new FrameLayout.LayoutParams(-1, -1));
 
-            bar = new View(LiveActivity.this);
+            bar = new View(a);
             bar.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                     new int[] {Palette.ACCENT_TOP, Palette.ACCENT_BOTTOM}));
-            row.addView(bar, Ui.lp(Ui.dp(LiveActivity.this, 5), -1));
+            row.addView(bar, Ui.lp(Ui.dp(a, 5), -1));
 
-            logo = new ImageView(LiveActivity.this);
+            number = Ui.text(a, "", 14, Palette.GOLD, true);
+            number.setGravity(Gravity.CENTER);
+            row.addView(number, Ui.lp(Ui.dp(a, 46), -2));
+
+            logo = new ImageView(a);
             logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            LinearLayout.LayoutParams lp = Ui.lp(Ui.dp(LiveActivity.this, 52), Ui.dp(LiveActivity.this, 36));
-            lp.leftMargin = Ui.dp(LiveActivity.this, 6);
-            row.addView(logo, lp);
+            row.addView(logo, Ui.lp(Ui.dp(a, 52), Ui.dp(a, 36)));
 
-            LinearLayout texts = Ui.column(LiveActivity.this);
-            texts.setPadding(Ui.dp(LiveActivity.this, 12), 0, Ui.dp(LiveActivity.this, 8), 0);
-            name = Ui.text(LiveActivity.this, "", 17, Palette.TEXT, true);
+            LinearLayout texts = Ui.column(a);
+            texts.setPadding(Ui.dp(a, 12), 0, Ui.dp(a, 8), 0);
+            name = Ui.text(a, "", 17, Palette.TEXT, true);
             name.setSingleLine(true);
             name.setEllipsize(TextUtils.TruncateAt.END);
             texts.addView(name);
-            now = Ui.text(LiveActivity.this, "", 13, Palette.TEXT_DIM, false);
+            now = Ui.text(a, "", 13, Palette.TEXT_DIM, false);
             now.setSingleLine(true);
             now.setEllipsize(TextUtils.TruncateAt.END);
             texts.addView(now);
             row.addView(texts, Ui.weight(1));
 
-            extra = Ui.text(LiveActivity.this, "", 14, Palette.TEXT_DIM, false);
-            extra.setPadding(0, 0, Ui.dp(LiveActivity.this, 14), 0);
+            extra = Ui.text(a, "", 14, Palette.TEXT_DIM, false);
+            extra.setPadding(0, 0, Ui.dp(a, 14), 0);
             row.addView(extra);
             card.setTag(this);
         }

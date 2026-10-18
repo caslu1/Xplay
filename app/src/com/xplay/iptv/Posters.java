@@ -22,6 +22,13 @@ public final class Posters {
             {0xFF2E5E6B, 0xFF173740}, {0xFF6B2E5A, 0xFF3D1A34}, {0xFF4F5A2A, 0xFF2C3318},
     };
 
+    /** Told about every poster that gets remote focus (the browse hero on TV). */
+    public interface FocusListener {
+        void focused(VodItem v);
+    }
+
+    public static FocusListener focusListener;
+
     private Posters() {}
 
     /** A 2:3 poster with a rating badge and the title underneath; opens the detail screen. */
@@ -55,6 +62,13 @@ public final class Posters {
 
         card.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) { DetailActivity.start(a, v); }
+        });
+        final View.OnFocusChangeListener scale = card.getOnFocusChangeListener();
+        card.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            public void onFocusChange(View view, boolean has) {
+                scale.onFocusChange(view, has);
+                if (has && focusListener != null) focusListener.focused(v);
+            }
         });
         return card;
     }
@@ -132,7 +146,7 @@ public final class Posters {
         shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
                 new int[] {0xB3000000, 0x66000000}));
         tile.addView(shade, new FrameLayout.LayoutParams(-1, -1));
-        tile.setForeground(Ui.selectable(a, 0, 0x22FFFFFF, r, Palette.GOLD));
+        tile.setForeground(Ui.focusRing(a, r));
         tile.setFocusable(true);
         tile.setClickable(true);
         TextView t = Ui.text(a, name, 16, Palette.TEXT, true);
@@ -153,9 +167,8 @@ public final class Posters {
         LinearLayout card = Ui.column(a);
         card.setFocusable(true);
         card.setClickable(true);
-        int p = Ui.dp(a, 3);
+        int p = Ui.dp(a, 4);
         card.setPadding(p, p, p, p);
-        card.setBackground(Ui.selectable(a, 0, 0x1FFFFFFF, Ui.dp(a, 12), Palette.GOLD));
         card.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             public void onFocusChange(View view, boolean has) {
                 view.animate().scaleX(has ? 1.06f : 1f).scaleY(has ? 1.06f : 1f).setDuration(120).start();
@@ -169,6 +182,9 @@ public final class Posters {
         FrameLayout frame = new FrameLayout(a);
         frame.setBackground(Ui.round(Palette.SURFACE_HI, r));
         Ui.clipRound(frame, r);
+        // The ring follows the card's focus, drawn on top of the poster.
+        frame.setDuplicateParentStateEnabled(true);
+        frame.setForeground(Ui.focusRing(a, r));
         ImageView placeholder = Ui.icon(a, series ? R.drawable.ic_series : R.drawable.ic_movie, 0xFF55555A);
         frame.addView(placeholder, new FrameLayout.LayoutParams(Ui.dp(a, 36), Ui.dp(a, 36), Gravity.CENTER));
         ImageView img = new ImageView(a);

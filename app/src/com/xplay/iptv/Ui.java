@@ -53,6 +53,19 @@ public final class Ui {
         return s;
     }
 
+    /** A gold ring shown only while focused or pressed (never for list selection). */
+    public static Drawable focusRing(Context c, float radiusPx) {
+        StateListDrawable s = new StateListDrawable();
+        GradientDrawable ring = new GradientDrawable();
+        ring.setColor(0x14FFFFFF);
+        ring.setCornerRadius(radiusPx);
+        ring.setStroke(dp(c, 3), Palette.GOLD);
+        s.addState(new int[] {android.R.attr.state_focused}, ring);
+        s.addState(new int[] {android.R.attr.state_pressed}, ring);
+        s.addState(new int[] {}, new ColorDrawable(0));
+        return s;
+    }
+
     public static TextView text(Context c, CharSequence s, float sp, int color, boolean bold) {
         TextView t = new TextView(c);
         t.setText(s);
@@ -110,6 +123,14 @@ public final class Ui {
 
     public static LinearLayout.LayoutParams weight(float w) {
         return new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, w);
+    }
+
+    /** Android TV / TV boxes (no touch screen), where browsing is done with a remote. */
+    public static boolean isTv(Context c) {
+        android.app.UiModeManager m = (android.app.UiModeManager) c.getSystemService(Context.UI_MODE_SERVICE);
+        boolean tvMode = m != null
+                && m.getCurrentModeType() == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION;
+        return tvMode || !c.getPackageManager().hasSystemFeature("android.hardware.touchscreen");
     }
 
     /** Poster width that fits the screen: small phones in landscape get smaller posters than TVs. */
