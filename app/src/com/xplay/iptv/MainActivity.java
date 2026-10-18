@@ -36,11 +36,18 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.Callable;
 
 public class MainActivity extends Activity {
 
     private static final String PREFS = "xplay";
+    private static final String KEY_MODE = "mode";
+    private static final String MODE_M3U = "m3u";
+    private static final String MODE_XTREAM = "xtream";
     private static final String KEY_URL = "playlist_url";
+    private static final String KEY_DNS = "xtream_dns";
+    private static final String KEY_USER = "xtream_user";
+    private static final String KEY_PASS = "xtream_pass";
     private static final String KEY_FAVS = "favorites";
     private static final String ALL = "Todos os canais";
     private static final String FAVS = "★ Favoritos";
@@ -69,9 +76,25 @@ public class MainActivity extends Activity {
         favorites = new HashSet<String>(prefs.getStringSet(KEY_FAVS, new HashSet<String>()));
         buildUi();
 
-        String url = prefs.getString(KEY_URL, null);
-        if (url == null) askForPlaylist();
-        else loadPlaylist(url);
+        if (!loadSaved()) askForSource();
+    }
+
+    /** Reloads the saved source; returns false when nothing is configured yet. */
+    private boolean loadSaved() {
+        if (MODE_XTREAM.equals(prefs.getString(KEY_MODE, MODE_M3U))) {
+            String dns = prefs.getString(KEY_DNS, null);
+            if (dns == null) return false;
+            loadXtream(dns, prefs.getString(KEY_USER, ""), prefs.getString(KEY_PASS, ""));
+        } else {
+            String url = prefs.getString(KEY_URL, null);
+            if (url == null) return false;
+            loadPlaylist(url);
+        }
+        return true;
+    }
+
+    private boolean hasSource() {
+        return prefs.contains(KEY_URL) || prefs.contains(KEY_DNS);
     }
 
     private void buildUi() {
@@ -135,23 +158,78 @@ public class MainActivity extends Activity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         menu.add(0, 1, 0, "Recarregar lista");
-        menu.add(0, 2, 1, "Trocar link da lista");
+        menu.add(0, 2, 1, "Trocar lista / login");
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == 1) {
-            String url = prefs.getString(KEY_URL, null);
-            if (url != null) loadPlaylist(url);
-            else askForPlaylist();
+            if (!loadSaved()) askForSource();
             return true;
         }
         if (item.getItemId() == 2) {
-            askForPlaylist();
+            askForSource();
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void askForSource() {
+        new AlertDialog.Builder(this)
+                .setTitle("Como deseja entrar?")
+                .setItems(new String[] {"Login Xtream (DNS, usuário e senha)", "Link da lista M3U"},
+                        new DialogInterface.OnClickListener() {
+                            public void onClick(DialogInterface d, int which) {
+                                if (which == 0) askForXtream();
+                                else askForPlaylist();
+                            }
+                        })
+                .show();
+    }
+
+    private void askForXtream() {
+        final EditText dns = field("DNS (ex.: http://servidor.com:8080)",
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI, KEY_DNS);
+        final EditText user = field("Usuário", InputType.TYPE_CLASS_TEXT, KEY_USER);
+        final EditText pass = field("Senha",
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD, KEY_PASS);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        box.addView(dns, new LinearLayout.LayoutParams(-1, -2));
+        box.addView(user, new LinearLayout.LayoutParams(-1, -2));
+        box.addView(pass, new LinearLayout.LayoutParams(-1, -2));
+
+        new AlertDialog.Builder(this)
+                .setTitle("Login Xtream")
+                .setView(box)
+                .setPositiveButton("Entrar", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int w) {
+                        String s = dns.getText().toString().trim();
+                        String u = user.getText().toString().trim();
+                        String p = pass.getText().toString().trim();
+                        if (s.isEmpty() || u.isEmpty() || p.isEmpty()) {
+                            showStatus("Preencha DNS, usuário e senha pelo menu ⋮");
+                            return;
+                        }
+                        s = XtreamClient.normalizeServer(s);
+                        prefs.edit().putString(KEY_MODE, MODE_XTREAM).putString(KEY_DNS, s)
+                                .putString(KEY_USER, u).putString(KEY_PASS, p).apply();
+                        loadXtream(s, u, p);
+                    }
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
+    }
+
+    private EditText field(String hint, int inputType, String prefKey) {
+        EditText e = new EditText(this);
+        e.setHint(hint);
+        e.setSingleLine(true);
+        e.setInputType(inputType);
+        e.setText(prefs.getString(prefKey, ""));
+        return e;
     }
 
     private void askForPlaylist() {
@@ -174,7 +252,7 @@ public class MainActivity extends Activity {
                             return;
                         }
                         if (!url.contains("://")) url = "http://" + url;
-                        prefs.edit().putString(KEY_URL, url).apply();
+                        prefs.edit().putString(KEY_MODE, MODE_M3U).putString(KEY_URL, url).apply();
                         loadPlaylist(url);
                     }
                 })
@@ -183,12 +261,24 @@ public class MainActivity extends Activity {
     }
 
     private void loadPlaylist(final String url) {
+        load("Carregando lista…", new Callable<List<Channel>>() {
+            public List<Channel> call() throws Exception { return M3uParser.download(url); }
+        });
+    }
+
+    private void loadXtream(final String dns, final String user, final String pass) {
+        load("Entrando no servidor…", new Callable<List<Channel>>() {
+            public List<Channel> call() throws Exception { return XtreamClient.load(dns, user, pass); }
+        });
+    }
+
+    private void load(String message, final Callable<List<Channel>> loader) {
         progress.setVisibility(View.VISIBLE);
-        showStatus("Carregando lista…");
+        showStatus(message);
         new Thread(new Runnable() {
             public void run() {
                 try {
-                    final List<Channel> result = M3uParser.download(url);
+                    final List<Channel> result = loader.call();
                     main.post(new Runnable() {
                         public void run() { onPlaylistLoaded(result); }
                     });
@@ -196,8 +286,8 @@ public class MainActivity extends Activity {
                     main.post(new Runnable() {
                         public void run() {
                             progress.setVisibility(View.GONE);
-                            showStatus("Erro ao carregar a lista:\n" + e.getMessage()
-                                    + "\n\nConfira o link no menu ⋮");
+                            showStatus("Erro ao carregar:\n" + e.getMessage()
+                                    + "\n\nConfira os dados no menu ⋮");
                         }
                     });
                 }
@@ -235,8 +325,8 @@ public class MainActivity extends Activity {
         }
         visible = out;
         adapter.notifyDataSetChanged();
-        if (all.isEmpty()) showStatus(prefs.getString(KEY_URL, null) == null
-                ? "Adicione o link da sua lista pelo menu ⋮" : "A lista não tem canais.");
+        if (all.isEmpty()) showStatus(hasSource()
+                ? "A lista não tem canais." : "Adicione sua lista ou login pelo menu ⋮");
         else if (out.isEmpty()) showStatus("Nenhum canal encontrado.");
         else status.setVisibility(View.GONE);
     }

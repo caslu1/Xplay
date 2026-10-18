@@ -1,11 +1,11 @@
 # Xplay
 
-Player IPTV simples para Android (celular e Android TV). Você informa o link de uma lista M3U e o app mostra os canais por grupo.
+Player IPTV simples para Android (celular e Android TV). Você entra com login Xtream (DNS, usuário e senha) ou com o link de uma lista M3U, e o app mostra os canais por grupo.
 
 - Busca por nome e filtro por grupo (`group-title`)
 - Favoritos: toque longo no canal
 - No player: deslize para cima/baixo (ou use as setas/CH+ CH- do controle) para trocar de canal
-- Menu ⋮: recarregar ou trocar o link da lista
+- Menu ⋮: recarregar ou trocar a lista / login
 
 ## Build
 
