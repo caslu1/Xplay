@@ -32,7 +32,7 @@ import java.util.Locale;
 import java.util.concurrent.Callable;
 
 /** Live TV: channel groups on the left, preview + now/next on the right, side menu. */
-public class LiveActivity extends Activity {
+public class LiveActivity extends Activity implements TopBar.Listener {
 
     private static final String ALL = "TODOS";
     private static final String FAVS = "FAVORITOS";
@@ -56,9 +56,9 @@ public class LiveActivity extends Activity {
     private TextView previewMessage;
     private ImageView epgLogo;
     private TextView nowTime, nowTitle, nextTime, nextTitle, nextLabel;
-    private FrameLayout drawer;
-    private LinearLayout drawerItems;
-    private View menuButton;
+    private TopBar topBar;
+    /** Channel list the groups were built from; changes when the lists are refreshed. */
+    private List<Channel> shownChannels;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,31 +91,16 @@ public class LiveActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Palette.BLACK);
 
+        LinearLayout page = Ui.column(this);
+        root.addView(page, new FrameLayout.LayoutParams(-1, -1));
+        topBar = new TopBar(this, Repo.isXtream(), this);
+        topBar.select(TopBar.LIVE);
+        page.addView(topBar, Ui.lp(-1, -2));
+
         LinearLayout content = Ui.column(this);
         int h = Ui.dp(this, 24);
-        content.setPadding(h, Ui.dp(this, 12), h, Ui.dp(this, 12));
-        root.addView(content, new FrameLayout.LayoutParams(-1, -1));
-
-        // Top bar
-        LinearLayout top = Ui.row(this);
-        top.addView(Ui.logo(this, 22));
-        top.addView(new View(this), Ui.spacer());
-        ImageView search = Ui.iconButton(this, R.drawable.ic_search, Palette.TEXT, Palette.GOLD);
-        search.setContentDescription("Buscar");
-        top.addView(search, Ui.lp(Ui.dp(this, 44), Ui.dp(this, 44)));
-        ImageView menu = Ui.iconButton(this, R.drawable.ic_menu, Palette.TEXT, Palette.GOLD);
-        LinearLayout.LayoutParams mp = Ui.lp(Ui.dp(this, 48), Ui.dp(this, 48));
-        mp.leftMargin = Ui.dp(this, 8);
-        top.addView(menu, mp);
-        menu.setContentDescription("Menu");
-        menuButton = menu;
-        content.addView(top, Ui.lp(-1, -2));
-        search.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { askSearch(); }
-        });
-        menu.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { openDrawer(); }
-        });
+        content.setPadding(h, 0, h, Ui.dp(this, 12));
+        page.addView(content, new LinearLayout.LayoutParams(-1, 0, 1f));
 
         LinearLayout body = Ui.row(this);
         body.setGravity(Gravity.TOP);
@@ -127,10 +112,6 @@ public class LiveActivity extends Activity {
         LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(0, -1, 0.64f);
         rp.leftMargin = Ui.dp(this, 24);
         body.addView(buildRightPanel(), rp);
-
-        drawer = buildDrawer();
-        drawer.setVisibility(View.GONE);
-        root.addView(drawer, new FrameLayout.LayoutParams(-1, -1));
 
         setContentView(root);
     }
@@ -297,77 +278,10 @@ public class LiveActivity extends Activity {
         return l;
     }
 
-    private FrameLayout buildDrawer() {
-        FrameLayout overlay = new FrameLayout(this);
-        overlay.setBackgroundColor(0x99000000);
-        overlay.setClickable(true);
-        overlay.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { closeDrawer(); }
-        });
-
-        LinearLayout panel = Ui.column(this);
-        panel.setBackgroundColor(Palette.BLACK);
-        panel.setClickable(true);
-        panel.setPadding(Ui.dp(this, 16), Ui.dp(this, 64), Ui.dp(this, 16), Ui.dp(this, 16));
-        overlay.addView(panel, new FrameLayout.LayoutParams(Ui.dp(this, 300), -1, Gravity.END));
-
-        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
-        LinearLayout items = Ui.column(this);
-        drawerItems = items;
-        scroll.addView(items);
-        panel.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
-
-        drawerItem(items, R.drawable.ic_arrow_right, "TV AO VIVO", new Runnable() {
-            public void run() { showGroups(); }
-        });
-        drawerItem(items, R.drawable.ic_star, "FAVORITOS", new Runnable() {
-            public void run() { openGroup(FAVS); }
-        });
-        if (Repo.isXtream()) {
-            drawerItem(items, R.drawable.ic_arrow_right, "FILMES", new Runnable() {
-                public void run() { openVod(VodActivity.TAB_MOVIES); }
-            });
-            drawerItem(items, R.drawable.ic_arrow_right, "SÉRIES", new Runnable() {
-                public void run() { openVod(VodActivity.TAB_SERIES); }
-            });
-            drawerItem(items, R.drawable.ic_person, "MINHA CONTA", new Runnable() {
-                public void run() { openVod(VodActivity.TAB_PROFILE); }
-            });
-        }
-        drawerItem(items, R.drawable.ic_refresh, "ATUALIZAR LISTA", new Runnable() {
-            public void run() { reload(); }
-        });
-        drawerItem(items, R.drawable.ic_logout, "SAIR", new Runnable() {
-            public void run() { confirmLogout(); }
-        });
-        return overlay;
-    }
-
-    private void drawerItem(LinearLayout parent, int icon, String label, final Runnable action) {
-        LinearLayout item = Ui.row(this);
-        item.setFocusable(true);
-        item.setClickable(true);
-        item.setBackground(Ui.selectable(this, 0, Palette.SURFACE_HI, Ui.dp(this, 12), Palette.GOLD));
-        int p = Ui.dp(this, 14);
-        item.setPadding(p, p, p, p);
-        item.addView(Ui.icon(this, icon, Palette.TEXT), Ui.lp(Ui.dp(this, 22), Ui.dp(this, 22)));
-        TextView t = Ui.text(this, label, 20, Palette.TEXT, false);
-        t.setPadding(Ui.dp(this, 18), 0, 0, 0);
-        item.addView(t);
-        LinearLayout.LayoutParams lp = Ui.lp(-1, -2);
-        lp.bottomMargin = Ui.dp(this, 6);
-        parent.addView(item, lp);
-        item.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                closeDrawer();
-                action.run();
-            }
-        });
-    }
-
     // ---------------------------------------------------------------- list state
 
     private void showGroups() {
+        shownChannels = Repo.channels;
         showingChannels = false;
         groupTitle = null;
         groups = new ArrayList<String>();
@@ -507,6 +421,8 @@ public class LiveActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (preview == null) return;
+        topBar.select(TopBar.LIVE);
+        if (Repo.channels != shownChannels) showGroups();
         if (Repo.current != null && Repo.current != playing) {
             // The user zapped to another channel in fullscreen.
             playing = Repo.current;
@@ -519,20 +435,46 @@ public class LiveActivity extends Activity {
 
     // ---------------------------------------------------------------- menu actions
 
-    private void openDrawer() {
-        drawer.setVisibility(View.VISIBLE);
-        drawerItems.getChildAt(0).requestFocus();
-    }
-
-    private void closeDrawer() {
-        drawer.setVisibility(View.GONE);
-        menuButton.requestFocus();
+    public void onTopBar(int item) {
+        switch (item) {
+            case TopBar.LIVE:
+                showGroups();
+                break;
+            case TopBar.FAVORITES:
+                if (Repo.isXtream()) openVod(item);
+                else openGroup(FAVS);
+                break;
+            case TopBar.SEARCH:
+                askSearch();
+                break;
+            case TopBar.ACCOUNT:
+                if (Repo.isXtream()) openVod(item);
+                else listMenu();
+                break;
+            default:
+                openVod(item);
+                break;
+        }
     }
 
     private void openVod(int tab) {
         Intent i = new Intent(this, VodActivity.class);
         i.putExtra(VodActivity.EXTRA_TAB, tab);
         startActivity(i);
+        overridePendingTransition(0, 0);
+    }
+
+    /** Account options for M3U lists, which have no account page. */
+    private void listMenu() {
+        new AlertDialog.Builder(this)
+                .setTitle("Minha lista")
+                .setItems(new String[] {"Atualizar lista", "Sair e trocar de lista"}, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface d, int which) {
+                        if (which == 0) reload();
+                        else confirmLogout();
+                    }
+                })
+                .show();
     }
 
     private void reload() {
@@ -581,8 +523,7 @@ public class LiveActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (drawer.getVisibility() == View.VISIBLE) closeDrawer();
-        else if (showingChannels) showGroups();
+        if (showingChannels) showGroups();
         else super.onBackPressed();
     }
 

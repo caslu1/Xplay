@@ -2,7 +2,4 @@
 <resources>
     <color name="black">#000000</color>
     <color name="gold">#E8B84A</color>
-    <color name="blue">#2F6FED</color>
-    <color name="vod_bg">#121214</color>
-    <color name="nav_bg">#0E0E10</color>
 </resources>

@@ -29,10 +29,10 @@ public final class Posters {
         card.setClickable(true);
         int p = Ui.dp(a, 3);
         card.setPadding(p, p, p, p);
-        card.setBackground(Ui.selectable(a, 0, 0x1FFFFFFF, Ui.dp(a, 12), Palette.TEXT));
+        card.setBackground(Ui.selectable(a, 0, 0x1FFFFFFF, Ui.dp(a, 12), Palette.GOLD));
 
         FrameLayout frame = new FrameLayout(a);
-        frame.setBackground(Ui.round(Palette.VOD_SURFACE, r));
+        frame.setBackground(Ui.round(Palette.SURFACE_HI, r));
         Ui.clipRound(frame, r);
         ImageView placeholder = Ui.icon(a, v.series ? R.drawable.ic_series : R.drawable.ic_movie, 0xFF55555A);
         frame.addView(placeholder, new FrameLayout.LayoutParams(Ui.dp(a, 36), Ui.dp(a, 36), Gravity.CENTER));
@@ -43,17 +43,17 @@ public final class Posters {
 
         String rating = v.ratingText();
         if (rating != null) {
-            TextView badge = Ui.text(a, "★ " + rating, 12, Palette.TEXT, true);
+            TextView badge = Ui.text(a, "★ " + rating, 12, Palette.BLACK, true);
             GradientDrawable bg = new GradientDrawable();
-            bg.setColor(Palette.BLUE);
+            bg.setColor(Palette.GOLD);
             bg.setCornerRadii(new float[] {0, 0, r, r, 0, 0, r, r});
             badge.setBackground(bg);
             badge.setPadding(Ui.dp(a, 8), Ui.dp(a, 3), Ui.dp(a, 8), Ui.dp(a, 3));
             frame.addView(badge, new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END));
         }
         if (Repo.isFav(v.favKey())) {
-            ImageView heart = Ui.icon(a, R.drawable.ic_heart_fill, Palette.TEXT);
-            heart.setBackground(Ui.round(Palette.BLUE, Ui.dp(a, 12)));
+            ImageView heart = Ui.icon(a, R.drawable.ic_heart_fill, Palette.BLACK);
+            heart.setBackground(Ui.round(Palette.GOLD, Ui.dp(a, 12)));
             int hp = Ui.dp(a, 4);
             heart.setPadding(hp, hp, hp, hp);
             FrameLayout.LayoutParams hl = new FrameLayout.LayoutParams(Ui.dp(a, 24), Ui.dp(a, 24),
@@ -89,7 +89,7 @@ public final class Posters {
         GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TL_BR, colors);
         bg.setCornerRadius(Ui.dp(a, 12));
         tile.setBackground(bg);
-        tile.setForeground(Ui.selectable(a, 0, 0x22FFFFFF, Ui.dp(a, 12), Palette.TEXT));
+        tile.setForeground(Ui.selectable(a, 0, 0x22FFFFFF, Ui.dp(a, 12), Palette.GOLD));
         tile.setFocusable(true);
         tile.setClickable(true);
         TextView t = Ui.text(a, name, 15, Palette.TEXT, true);

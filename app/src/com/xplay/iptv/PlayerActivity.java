@@ -99,7 +99,7 @@ public class PlayerActivity extends Activity {
         video = new VideoView(this);
         root.addView(video, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
         loading = new ProgressBar(this);
-        loading.setIndeterminateTintList(ColorStateList.valueOf(live ? Palette.GOLD : Palette.BLUE));
+        loading.setIndeterminateTintList(ColorStateList.valueOf(live ? Palette.GOLD : Palette.GOLD));
         root.addView(loading, new FrameLayout.LayoutParams(Ui.dp(this, 56), Ui.dp(this, 56), Gravity.CENTER));
         message = Ui.text(this, "", 18, Palette.TEXT, true);
         message.setGravity(Gravity.CENTER);
@@ -310,7 +310,7 @@ public class PlayerActivity extends Activity {
                 new int[] {0xCC000000, 0x00000000}));
         int p = Ui.dp(this, 20);
         top.setPadding(p, p, p, Ui.dp(this, 40));
-        ImageView back = Ui.iconButton(this, R.drawable.ic_back, Palette.TEXT, Palette.BLUE);
+        ImageView back = Ui.iconButton(this, R.drawable.ic_back, Palette.TEXT, Palette.GOLD);
         back.setContentDescription("Voltar");
         top.addView(back, Ui.lp(Ui.dp(this, 48), Ui.dp(this, 48)));
         back.setOnClickListener(new View.OnClickListener() {
@@ -328,10 +328,10 @@ public class PlayerActivity extends Activity {
         overlay.addView(top, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
 
         LinearLayout center = Ui.row(this);
-        ImageView rew = Ui.iconButton(this, R.drawable.ic_rewind, Palette.TEXT, Palette.BLUE);
-        playPause = Ui.iconButton(this, R.drawable.ic_pause, Palette.TEXT, Palette.BLUE);
-        playPause.setBackground(Ui.selectable(this, 0x99000000, 0xCC2F6FED, Ui.dp(this, 40), Palette.TEXT));
-        ImageView fwd = Ui.iconButton(this, R.drawable.ic_forward, Palette.TEXT, Palette.BLUE);
+        ImageView rew = Ui.iconButton(this, R.drawable.ic_rewind, Palette.TEXT, Palette.GOLD);
+        playPause = Ui.iconButton(this, R.drawable.ic_pause, Palette.TEXT, Palette.GOLD);
+        playPause.setBackground(Ui.selectable(this, 0x99000000, 0xCCE8B84A, Ui.dp(this, 40), Palette.TEXT));
+        ImageView fwd = Ui.iconButton(this, R.drawable.ic_forward, Palette.TEXT, Palette.GOLD);
         rew.setContentDescription("Voltar 10 segundos");
         playPause.setContentDescription("Reproduzir ou pausar");
         fwd.setContentDescription("Avançar 30 segundos");
@@ -360,8 +360,8 @@ public class PlayerActivity extends Activity {
         duration = Ui.text(this, "00:00", 14, Palette.TEXT, false);
         seek = new SeekBar(this);
         seek.setMax(1000);
-        seek.setProgressTintList(ColorStateList.valueOf(Palette.BLUE));
-        seek.setThumbTintList(ColorStateList.valueOf(Palette.BLUE));
+        seek.setProgressTintList(ColorStateList.valueOf(Palette.GOLD));
+        seek.setThumbTintList(ColorStateList.valueOf(Palette.GOLD));
         bottom.addView(position);
         bottom.addView(seek, Ui.weight(1));
         bottom.addView(duration);

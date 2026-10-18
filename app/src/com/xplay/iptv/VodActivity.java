@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
@@ -22,6 +23,7 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -34,32 +36,25 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
-/** Movies and series home (chips + poster rows), search and account pages. */
-public class VodActivity extends Activity {
+/** Movies, series, favorites, search and account pages under the shared top bar. */
+public class VodActivity extends Activity implements TopBar.Listener {
 
+    /** One of TopBar.MOVIES, SERIES, FAVORITES, SEARCH or ACCOUNT. */
     static final String EXTRA_TAB = "tab";
-    static final int TAB_MOVIES = 0;
-    static final int TAB_SERIES = 1;
-    static final int TAB_PROFILE = 2;
 
-    private static final int CHIP_MOVIES = 0, CHIP_SERIES = 1, CHIP_FAVS = 2;
-    private static final int PAGE_HOME = 0, PAGE_SEARCH = 1, PAGE_PROFILE = 2;
     private static final int ROW_LIMIT = 20;
 
-    private int chip = CHIP_MOVIES;
-    private int page = PAGE_HOME;
+    private int page = TopBar.MOVIES;
 
-    private FrameLayout pageHost;
+    private TopBar topBar;
     private LinearLayout homePage, searchPage;
     private View profilePage;
     private ListView sectionsList;
-    private SectionAdapter sections = new SectionAdapter();
+    private final SectionAdapter sections = new SectionAdapter();
     private ProgressBar loading;
     private TextView emptyText;
-    private final List<TextView> chips = new ArrayList<TextView>();
-    private final List<View> navItems = new ArrayList<View>();
     private EditText searchInput;
-    private GridView searchGrid;
+    private TextView searchHint;
     private final List<VodItem> searchResults = new ArrayList<VodItem>();
     private BaseAdapter searchAdapter;
 
@@ -67,26 +62,35 @@ public class VodActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Repo.init(this);
-        if (!Repo.isXtream() || Repo.server == null) {
+        if (!Repo.isXtream() || Repo.server == null || Repo.channels == null) {
             finish();
             return;
         }
         buildUi();
-        int tab = getIntent().getIntExtra(EXTRA_TAB, TAB_MOVIES);
-        if (tab == TAB_PROFILE) showPage(PAGE_PROFILE);
-        else {
-            chip = tab == TAB_SERIES ? CHIP_SERIES : CHIP_MOVIES;
-            showPage(PAGE_HOME);
-        }
+        showPage(getIntent().getIntExtra(EXTRA_TAB, TopBar.MOVIES));
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        showPage(intent.getIntExtra(EXTRA_TAB, page));
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         // Favorites may have changed on the detail screen.
-        if (sectionsList != null && page == PAGE_HOME) {
-            if (chip == CHIP_FAVS) loadHome();
-            else sections.notifyDataSetChanged();
+        if (topBar == null) return;
+        if (page == TopBar.FAVORITES) buildFavorites();
+        else sections.notifyDataSetChanged();
+    }
+
+    public void onTopBar(int item) {
+        if (item == TopBar.LIVE) {
+            finish();
+            overridePendingTransition(0, 0);
+        } else {
+            showPage(item);
         }
     }
 
@@ -94,109 +98,38 @@ public class VodActivity extends Activity {
 
     private void buildUi() {
         LinearLayout root = Ui.column(this);
-        root.setBackgroundColor(Palette.VOD_BG);
+        root.setBackgroundColor(Palette.BLACK);
+        topBar = new TopBar(this, true, this);
+        root.addView(topBar, Ui.lp(-1, -2));
 
-        LinearLayout top = Ui.row(this);
-        int p = Ui.dp(this, 16);
-        top.setPadding(p, Ui.dp(this, 12), Ui.dp(this, 8), Ui.dp(this, 4));
-        top.addView(Ui.logo(this, 20));
-        top.addView(new View(this), Ui.spacer());
-        ImageView liveBtn = Ui.iconButton(this, R.drawable.ic_live, Palette.TEXT, Palette.BLUE);
-        liveBtn.setContentDescription("TV ao vivo");
-        top.addView(liveBtn, Ui.lp(Ui.dp(this, 48), Ui.dp(this, 48)));
-        liveBtn.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { finish(); }
-        });
-        root.addView(top, Ui.lp(-1, -2));
-
-        pageHost = new FrameLayout(this);
-        root.addView(pageHost, new LinearLayout.LayoutParams(-1, 0, 1f));
-
+        FrameLayout host = new FrameLayout(this);
+        root.addView(host, new LinearLayout.LayoutParams(-1, 0, 1f));
         homePage = buildHome();
         searchPage = buildSearch();
         profilePage = buildProfile();
-        pageHost.addView(homePage, new FrameLayout.LayoutParams(-1, -1));
-        pageHost.addView(searchPage, new FrameLayout.LayoutParams(-1, -1));
-        pageHost.addView(profilePage, new FrameLayout.LayoutParams(-1, -1));
+        host.addView(homePage, new FrameLayout.LayoutParams(-1, -1));
+        host.addView(searchPage, new FrameLayout.LayoutParams(-1, -1));
+        host.addView(profilePage, new FrameLayout.LayoutParams(-1, -1));
 
-        View divider = new View(this);
-        divider.setBackgroundColor(0xFF242428);
-        root.addView(divider, Ui.lp(-1, 1));
-        LinearLayout nav = Ui.row(this);
-        nav.setBackgroundColor(0xFF0E0E10);
-        nav.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 6));
-        navItem(nav, R.drawable.ic_home, "Início", new Runnable() {
-            public void run() { showPage(PAGE_HOME); }
-        });
-        navItem(nav, R.drawable.ic_search, "Buscar", new Runnable() {
-            public void run() { showPage(PAGE_SEARCH); }
-        });
-        navItem(nav, R.drawable.ic_live, "TV ao vivo", new Runnable() {
-            public void run() { finish(); }
-        });
-        navItem(nav, R.drawable.ic_person, "Perfil", new Runnable() {
-            public void run() { showPage(PAGE_PROFILE); }
-        });
-        root.addView(nav, Ui.lp(-1, -2));
+        loading = new ProgressBar(this);
+        loading.setIndeterminateTintList(ColorStateList.valueOf(Palette.GOLD));
+        loading.setVisibility(View.GONE);
+        host.addView(loading, new FrameLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48), Gravity.CENTER));
         setContentView(root);
-    }
-
-    private void navItem(LinearLayout nav, int icon, String label, final Runnable action) {
-        LinearLayout item = Ui.column(this);
-        item.setGravity(Gravity.CENTER);
-        item.setFocusable(true);
-        item.setClickable(true);
-        item.setBackground(Ui.selectable(this, 0, 0x1FFFFFFF, Ui.dp(this, 12), 0));
-        item.setPadding(0, Ui.dp(this, 4), 0, Ui.dp(this, 4));
-        item.addView(Ui.icon(this, icon, Palette.TEXT_DIM), Ui.lp(Ui.dp(this, 26), Ui.dp(this, 26)));
-        item.addView(Ui.text(this, label, 12, Palette.TEXT_DIM, true));
-        nav.addView(item, Ui.weight(1));
-        navItems.add(item);
-        item.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { action.run(); }
-        });
     }
 
     private LinearLayout buildHome() {
         LinearLayout home = Ui.column(this);
-        HorizontalScrollView chipScroll = new HorizontalScrollView(this);
-        chipScroll.setHorizontalScrollBarEnabled(false);
-        LinearLayout chipRow = Ui.row(this);
-        chipRow.setPadding(Ui.dp(this, 12), Ui.dp(this, 8), Ui.dp(this, 12), Ui.dp(this, 8));
-        chipScroll.addView(chipRow);
-        String[] labels = {"Filmes", "Séries", "Favoritos"};
-        for (int i = 0; i < labels.length; i++) {
-            final int which = i;
-            TextView c = Ui.text(this, labels[i], 16, Palette.TEXT, true);
-            c.setFocusable(true);
-            c.setClickable(true);
-            c.setPadding(Ui.dp(this, 22), Ui.dp(this, 10), Ui.dp(this, 22), Ui.dp(this, 10));
-            LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
-            lp.rightMargin = Ui.dp(this, 10);
-            chipRow.addView(c, lp);
-            chips.add(c);
-            c.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) {
-                    chip = which;
-                    loadHome();
-                }
-            });
-        }
-        home.addView(chipScroll, Ui.lp(-1, -2));
-
         FrameLayout body = new FrameLayout(this);
         sectionsList = new ListView(this);
         sectionsList.setDivider(null);
         sectionsList.setSelector(new android.graphics.drawable.ColorDrawable(0));
         sectionsList.setItemsCanFocus(true);
         sectionsList.setVerticalScrollBarEnabled(false);
-        sectionsList.setPadding(0, 0, 0, Ui.dp(this, 16));
+        sectionsList.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 12), Ui.dp(this, 16));
         sectionsList.setClipToPadding(false);
         sectionsList.setAdapter(sections);
         body.addView(sectionsList, new FrameLayout.LayoutParams(-1, -1));
-        loading = new ProgressBar(this);
-        loading.setIndeterminateTintList(ColorStateList.valueOf(Palette.BLUE));
-        body.addView(loading, new FrameLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48), Gravity.CENTER));
         emptyText = Ui.text(this, "", 16, Palette.TEXT_DIM, false);
         emptyText.setGravity(Gravity.CENTER);
         emptyText.setPadding(Ui.dp(this, 32), 0, Ui.dp(this, 32), 0);
@@ -207,34 +140,44 @@ public class VodActivity extends Activity {
 
     private LinearLayout buildSearch() {
         LinearLayout s = Ui.column(this);
-        int p = Ui.dp(this, 16);
+        int p = Ui.dp(this, 24);
         s.setPadding(p, Ui.dp(this, 8), p, 0);
         LinearLayout box = Ui.row(this);
-        box.setBackground(Ui.round(Palette.VOD_SURFACE, Ui.dp(this, 24)));
+        box.setBackground(Ui.stroke(Palette.SURFACE_HI, Ui.dp(this, 24), Ui.dp(this, 1), 0xFF333333));
         box.setPadding(Ui.dp(this, 16), 0, Ui.dp(this, 16), 0);
-        box.addView(Ui.icon(this, R.drawable.ic_search, Palette.TEXT_DIM), Ui.lp(Ui.dp(this, 22), Ui.dp(this, 22)));
+        box.addView(Ui.icon(this, R.drawable.ic_search, Palette.GOLD), Ui.lp(Ui.dp(this, 22), Ui.dp(this, 22)));
         searchInput = new EditText(this);
         searchInput.setHint("Buscar filmes e séries");
         searchInput.setHintTextColor(0xFF77777C);
         searchInput.setTextColor(Palette.TEXT);
         searchInput.setSingleLine(true);
         searchInput.setBackground(null);
-        searchInput.setPadding(Ui.dp(this, 12), Ui.dp(this, 14), 0, Ui.dp(this, 14));
+        searchInput.setPadding(Ui.dp(this, 12), Ui.dp(this, 12), 0, Ui.dp(this, 12));
         box.addView(searchInput, Ui.weight(1));
         s.addView(box, Ui.lp(-1, -2));
 
-        searchGrid = new GridView(this);
-        searchGrid.setNumColumns(GridView.AUTO_FIT);
-        searchGrid.setColumnWidth(Ui.dp(this, 118));
-        searchGrid.setStretchMode(GridView.STRETCH_SPACING_UNIFORM);
-        searchGrid.setVerticalSpacing(Ui.dp(this, 12));
-        searchGrid.setSelector(new android.graphics.drawable.ColorDrawable(0));
-        searchGrid.setPadding(0, Ui.dp(this, 16), 0, Ui.dp(this, 16));
-        searchGrid.setClipToPadding(false);
-        searchAdapter = posterAdapter(searchResults);
-        searchGrid.setAdapter(searchAdapter);
-        LinearLayout.LayoutParams gl = new LinearLayout.LayoutParams(-1, 0, 1f);
-        s.addView(searchGrid, gl);
+        searchHint = Ui.text(this, "Digite pelo menos 2 letras", 14, Palette.TEXT_DIM, false);
+        searchHint.setPadding(Ui.dp(this, 8), Ui.dp(this, 12), 0, 0);
+        s.addView(searchHint);
+
+        GridView grid = new GridView(this);
+        grid.setNumColumns(GridView.AUTO_FIT);
+        grid.setColumnWidth(Ui.dp(this, 128));
+        grid.setStretchMode(GridView.STRETCH_SPACING_UNIFORM);
+        grid.setVerticalSpacing(Ui.dp(this, 12));
+        grid.setSelector(new android.graphics.drawable.ColorDrawable(0));
+        grid.setPadding(0, Ui.dp(this, 12), 0, Ui.dp(this, 16));
+        grid.setClipToPadding(false);
+        searchAdapter = new BaseAdapter() {
+            public int getCount() { return searchResults.size(); }
+            public Object getItem(int i) { return searchResults.get(i); }
+            public long getItemId(int i) { return i; }
+            public View getView(int i, View convert, ViewGroup parent) {
+                return Posters.card(VodActivity.this, searchResults.get(i), 116);
+            }
+        };
+        grid.setAdapter(searchAdapter);
+        s.addView(grid, new LinearLayout.LayoutParams(-1, 0, 1f));
 
         searchInput.addTextChangedListener(new TextWatcher() {
             public void beforeTextChanged(CharSequence c, int a, int b, int d) {}
@@ -244,75 +187,83 @@ public class VodActivity extends Activity {
         return s;
     }
 
-    BaseAdapter posterAdapter(final List<VodItem> items) {
-        return new BaseAdapter() {
-            public int getCount() { return items.size(); }
-            public Object getItem(int i) { return items.get(i); }
-            public long getItemId(int i) { return i; }
-            public View getView(int i, View convert, ViewGroup parent) {
-                return Posters.card(VodActivity.this, items.get(i), 110);
-            }
-        };
-    }
-
     private View buildProfile() {
         ScrollView scroll = new ScrollView(this);
-        LinearLayout c = Ui.column(this);
-        c.setGravity(Gravity.CENTER_HORIZONTAL);
-        int p = Ui.dp(this, 24);
-        c.setPadding(p, p, p, p);
-        scroll.addView(c);
+        LinearLayout row = Ui.row(this);
+        row.setGravity(Gravity.TOP);
+        int p = Ui.dp(this, 32);
+        row.setPadding(p, Ui.dp(this, 16), p, p);
+        scroll.addView(row);
 
-        ImageView avatar = Ui.icon(this, R.drawable.ic_person, Palette.TEXT);
-        avatar.setBackground(Ui.round(Palette.BLUE, Ui.dp(this, 44)));
-        int ap = Ui.dp(this, 20);
+        LinearLayout left = Ui.column(this);
+        left.setGravity(Gravity.CENTER_HORIZONTAL);
+        left.setPadding(0, Ui.dp(this, 24), 0, 0);
+        ImageView avatar = Ui.icon(this, R.drawable.ic_person, Palette.BLACK);
+        avatar.setBackground(Ui.round(Palette.GOLD, Ui.dp(this, 48)));
+        int ap = Ui.dp(this, 22);
         avatar.setPadding(ap, ap, ap, ap);
-        c.addView(avatar, Ui.lp(Ui.dp(this, 88), Ui.dp(this, 88)));
-
-        TextView name = Ui.text(this, Repo.user, 22, Palette.TEXT, true);
+        left.addView(avatar, Ui.lp(Ui.dp(this, 96), Ui.dp(this, 96)));
+        TextView name = Ui.text(this, Repo.user, 24, Palette.TEXT, true);
         LinearLayout.LayoutParams nl = Ui.lp(-2, -2);
-        nl.topMargin = Ui.dp(this, 12);
-        c.addView(name, nl);
-
+        nl.topMargin = Ui.dp(this, 14);
+        left.addView(name, nl);
         org.json.JSONObject a = Repo.account;
         String status = a == null ? "" : a.optString("status", "");
         if (!status.isEmpty()) {
-            TextView chipView = Ui.text(this, status.equalsIgnoreCase("Active") ? "Conta ativa" : status, 13,
-                    Palette.TEXT, true);
-            chipView.setBackground(Ui.round(status.equalsIgnoreCase("Active") ? 0xFF1F7A4A : Palette.HOT,
-                    Ui.dp(this, 12)));
-            chipView.setPadding(Ui.dp(this, 12), Ui.dp(this, 4), Ui.dp(this, 12), Ui.dp(this, 4));
+            boolean active = status.equalsIgnoreCase("Active");
+            TextView chip = Ui.text(this, active ? "Conta ativa" : status, 13, Palette.TEXT, true);
+            chip.setBackground(Ui.round(active ? 0xFF1F7A4A : Palette.HOT, Ui.dp(this, 12)));
+            chip.setPadding(Ui.dp(this, 12), Ui.dp(this, 4), Ui.dp(this, 12), Ui.dp(this, 4));
             LinearLayout.LayoutParams sl = Ui.lp(-2, -2);
             sl.topMargin = Ui.dp(this, 8);
-            c.addView(chipView, sl);
+            left.addView(chip, sl);
         }
+        row.addView(left, Ui.weight(1));
 
+        LinearLayout right = Ui.column(this);
         LinearLayout info = Ui.column(this);
-        info.setBackground(Ui.round(Palette.VOD_SURFACE, Ui.dp(this, 16)));
-        info.setPadding(Ui.dp(this, 18), Ui.dp(this, 8), Ui.dp(this, 18), Ui.dp(this, 8));
+        info.setBackground(Ui.round(Palette.SURFACE_HI, Ui.dp(this, 16)));
+        info.setPadding(Ui.dp(this, 20), Ui.dp(this, 8), Ui.dp(this, 20), Ui.dp(this, 8));
         infoRow(info, "Servidor", Repo.server);
         if (a != null) {
             infoRow(info, "Vencimento", date(a.optString("exp_date", "")));
             infoRow(info, "Conexões", a.optString("active_cons", "0") + " de " + a.optString("max_connections", "-"));
             infoRow(info, "Criada em", date(a.optString("created_at", "")));
         }
-        LinearLayout.LayoutParams il = Ui.lp(-1, -2);
-        il.topMargin = Ui.dp(this, 24);
-        c.addView(info, il);
+        right.addView(info, Ui.lp(-1, -2));
 
-        TextView logout = Ui.text(this, "SAIR DA CONTA", 15, Palette.ERROR, true);
-        logout.setGravity(Gravity.CENTER);
-        logout.setFocusable(true);
-        logout.setClickable(true);
-        logout.setBackground(Ui.selectable(this, 0, 0x22FF6B5E, Ui.dp(this, 26), Palette.ERROR));
-        logout.setPadding(0, Ui.dp(this, 14), 0, Ui.dp(this, 14));
-        LinearLayout.LayoutParams ll = Ui.lp(-1, -2);
-        ll.topMargin = Ui.dp(this, 24);
-        c.addView(logout, ll);
+        LinearLayout buttons = Ui.row(this);
+        View refresh = button("ATUALIZAR LISTAS", true);
+        View logout = button("SAIR DA CONTA", false);
+        buttons.addView(refresh, Ui.weight(1));
+        View gap = new View(this);
+        buttons.addView(gap, Ui.lp(Ui.dp(this, 12), 0));
+        buttons.addView(logout, Ui.weight(1));
+        LinearLayout.LayoutParams bl = Ui.lp(-1, -2);
+        bl.topMargin = Ui.dp(this, 18);
+        right.addView(buttons, bl);
+        row.addView(right, Ui.weight(1.5f));
+
+        refresh.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { refreshAll(); }
+        });
         logout.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { confirmLogout(); }
         });
         return scroll;
+    }
+
+    private View button(String label, boolean primary) {
+        TextView b = Ui.text(this, label, 15, primary ? Palette.BLACK : Palette.ERROR, true);
+        b.setGravity(Gravity.CENTER);
+        b.setFocusable(true);
+        b.setClickable(true);
+        b.setPadding(0, Ui.dp(this, 14), 0, Ui.dp(this, 14));
+        float r = Ui.dp(this, 26);
+        b.setBackground(primary
+                ? Ui.selectable(this, Palette.GOLD, Palette.GOLD_LIGHT, r, Palette.TEXT)
+                : Ui.selectable(this, 0x14FF6B5E, 0x33FF6B5E, r, Palette.ERROR));
+        return b;
     }
 
     private void infoRow(LinearLayout parent, String label, String value) {
@@ -321,7 +272,9 @@ public class VodActivity extends Activity {
         r.addView(Ui.text(this, label, 15, Palette.TEXT_DIM, false), Ui.weight(1));
         TextView v = Ui.text(this, value == null || value.isEmpty() ? "-" : value, 15, Palette.TEXT, true);
         v.setGravity(Gravity.END);
-        r.addView(v, Ui.weight(1.4f));
+        v.setSingleLine(true);
+        v.setEllipsize(TextUtils.TruncateAt.MIDDLE);
+        r.addView(v, Ui.weight(1.6f));
         parent.addView(r, Ui.lp(-1, -2));
     }
 
@@ -337,23 +290,34 @@ public class VodActivity extends Activity {
 
     // ---------------------------------------------------------------- pages
 
-    private void showPage(int which) {
+    private void showPage(final int which) {
         page = which;
-        homePage.setVisibility(which == PAGE_HOME ? View.VISIBLE : View.GONE);
-        searchPage.setVisibility(which == PAGE_SEARCH ? View.VISIBLE : View.GONE);
-        profilePage.setVisibility(which == PAGE_PROFILE ? View.VISIBLE : View.GONE);
-        int navIndex = which == PAGE_HOME ? 0 : which == PAGE_SEARCH ? 1 : 3;
-        for (int i = 0; i < navItems.size(); i++) {
-            LinearLayout item = (LinearLayout) navItems.get(i);
-            int color = i == navIndex ? Palette.BLUE : Palette.TEXT_DIM;
-            ((ImageView) item.getChildAt(0)).setColorFilter(color);
-            ((TextView) item.getChildAt(1)).setTextColor(color);
+        topBar.select(which);
+        boolean home = which == TopBar.MOVIES || which == TopBar.SERIES || which == TopBar.FAVORITES;
+        homePage.setVisibility(home ? View.VISIBLE : View.GONE);
+        searchPage.setVisibility(which == TopBar.SEARCH ? View.VISIBLE : View.GONE);
+        profilePage.setVisibility(which == TopBar.ACCOUNT ? View.VISIBLE : View.GONE);
+        loading.setVisibility(View.GONE);
+        if (!home) {
+            if (which == TopBar.SEARCH) {
+                searchInput.requestFocus();
+                ensure(false, new Runnable() {
+                    public void run() { ensure(true, new Runnable() { public void run() { runSearch(); } }); }
+                });
+            }
+            return;
         }
-        if (which == PAGE_HOME) loadHome();
-        if (which == PAGE_SEARCH) {
-            searchInput.requestFocus();
-            ensure(true, new Runnable() {
-                public void run() { ensure(false, new Runnable() { public void run() { runSearch(); } }); }
+        sections.items = new ArrayList<Section>();
+        sections.notifyDataSetChanged();
+        emptyText.setText("");
+        if (which == TopBar.FAVORITES) {
+            ensure(false, new Runnable() {
+                public void run() { ensure(true, new Runnable() { public void run() { buildFavorites(); } }); }
+            });
+        } else {
+            final boolean isSeries = which == TopBar.SERIES;
+            ensure(isSeries, new Runnable() {
+                public void run() { if (page == which) buildCatalog(isSeries); }
             });
         }
     }
@@ -365,7 +329,6 @@ public class VodActivity extends Activity {
             return;
         }
         loading.setVisibility(View.VISIBLE);
-        emptyText.setText("");
         Task.run(this, new Callable<Void>() {
             public Void call() throws Exception {
                 if (seriesList) Xtream.loadSeries();
@@ -383,27 +346,6 @@ public class VodActivity extends Activity {
                 emptyText.setText("Erro ao carregar: " + Task.message(e));
             }
         });
-    }
-
-    private void loadHome() {
-        for (int i = 0; i < chips.size(); i++) {
-            boolean on = i == chip;
-            chips.get(i).setBackground(Ui.selectable(this, on ? Palette.BLUE : Palette.CHIP,
-                    on ? 0xFF4A82F0 : 0xFF4A4A4E, Ui.dp(this, 24), Palette.TEXT));
-        }
-        sections.items = new ArrayList<Section>();
-        sections.notifyDataSetChanged();
-        emptyText.setText("");
-        if (chip == CHIP_FAVS) {
-            ensure(false, new Runnable() {
-                public void run() { ensure(true, new Runnable() { public void run() { buildFavorites(); } }); }
-            });
-        } else {
-            final boolean isSeries = chip == CHIP_SERIES;
-            ensure(isSeries, new Runnable() {
-                public void run() { if ((chip == CHIP_SERIES) == isSeries) buildCatalog(isSeries); }
-            });
-        }
     }
 
     private void buildCatalog(boolean isSeries) {
@@ -451,16 +393,25 @@ public class VodActivity extends Activity {
     }
 
     private void buildFavorites() {
+        if (Repo.movies == null || Repo.series == null) return;
         List<Section> out = new ArrayList<Section>();
+        List<Channel> favChannels = new ArrayList<Channel>();
+        for (Channel c : Repo.channels) if (Repo.isFav(Repo.liveKey(c))) favChannels.add(c);
         List<VodItem> favMovies = new ArrayList<VodItem>();
         for (VodItem v : Repo.movies) if (Repo.isFav(v.favKey())) favMovies.add(v);
         List<VodItem> favSeries = new ArrayList<VodItem>();
         for (VodItem v : Repo.series) if (Repo.isFav(v.favKey())) favSeries.add(v);
+        if (!favChannels.isEmpty()) {
+            Section s = new Section("Canais favoritos", null);
+            s.channels = favChannels;
+            out.add(s);
+        }
         if (!favMovies.isEmpty()) out.add(new Section("Filmes favoritos", favMovies));
         if (!favSeries.isEmpty()) out.add(new Section("Séries favoritas", favSeries));
         sections.items = out;
         sections.notifyDataSetChanged();
-        emptyText.setText(out.isEmpty() ? "Nenhum favorito ainda.\nAbra um filme ou série e toque em ♥ Favoritos." : "");
+        emptyText.setText(out.isEmpty() ? "Nenhum favorito ainda.\nSegure um canal para favoritar, ou toque em "
+                + "♥ Favoritos em um filme ou série." : "");
     }
 
     private void runSearch() {
@@ -476,13 +427,37 @@ public class VodActivity extends Activity {
                 if (searchResults.size() >= 300) break;
                 if (v.name.toLowerCase(Locale.ROOT).contains(q)) searchResults.add(v);
             }
+            searchHint.setText(searchResults.isEmpty() ? "Nada encontrado" : searchResults.size() + " resultados");
+        } else {
+            searchHint.setText("Digite pelo menos 2 letras");
         }
         searchAdapter.notifyDataSetChanged();
+    }
+
+    private void refreshAll() {
+        Toast.makeText(this, "Atualizando listas…", Toast.LENGTH_SHORT).show();
+        Task.run(this, new Callable<Void>() {
+            public Void call() throws Exception {
+                Xtream.loadLive();
+                Xtream.loadMovies();
+                Xtream.loadSeries();
+                return null;
+            }
+        }, new Task.Done<Void>() {
+            public void ok(Void v) {
+                Toast.makeText(VodActivity.this, "Listas atualizadas", Toast.LENGTH_SHORT).show();
+            }
+
+            public void fail(Exception e) {
+                Toast.makeText(VodActivity.this, "Erro: " + Task.message(e), Toast.LENGTH_LONG).show();
+            }
+        });
     }
 
     private void confirmLogout() {
         new AlertDialog.Builder(this)
                 .setTitle("Sair da conta?")
+                .setMessage("Você poderá entrar com outro login ou lista.")
                 .setPositiveButton("Sair", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int w) {
                         Repo.logout();
@@ -498,8 +473,8 @@ public class VodActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (page != PAGE_HOME) showPage(PAGE_HOME);
-        else super.onBackPressed();
+        super.onBackPressed();
+        overridePendingTransition(0, 0);
     }
 
     // ---------------------------------------------------------------- sections
@@ -509,11 +484,43 @@ public class VodActivity extends Activity {
         final List<VodItem> items;
         List<Map.Entry<String, List<VodItem>>> genres;
         Map<String, String> catNames;
+        List<Channel> channels;
 
         Section(String title, List<VodItem> items) {
             this.title = title;
             this.items = items;
         }
+    }
+
+    private View channelCard(final List<Channel> list, final int index) {
+        Channel c = list.get(index);
+        LinearLayout card = Ui.column(this);
+        card.setGravity(Gravity.CENTER);
+        card.setFocusable(true);
+        card.setClickable(true);
+        card.setBackground(Ui.selectable(this, Palette.SURFACE_HI, 0xFF2A2A2A, Ui.dp(this, 12), Palette.GOLD));
+        int p = Ui.dp(this, 10);
+        card.setPadding(p, p, p, p);
+        ImageView logo = new ImageView(this);
+        logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        ImageLoader.load(c.logo, logo, Ui.dp(this, 64), R.drawable.ic_launcher);
+        card.addView(logo, Ui.lp(Ui.dp(this, 64), Ui.dp(this, 48)));
+        TextView name = Ui.text(this, c.name.toUpperCase(Locale.getDefault()), 13, Palette.TEXT, true);
+        name.setGravity(Gravity.CENTER);
+        name.setMaxLines(2);
+        name.setEllipsize(TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams nl = Ui.lp(-1, -2);
+        nl.topMargin = Ui.dp(this, 8);
+        card.addView(name, nl);
+        card.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                Repo.playlist = list;
+                Intent i = new Intent(VodActivity.this, PlayerActivity.class);
+                i.putExtra(PlayerActivity.EXTRA_INDEX, index);
+                startActivity(i);
+            }
+        });
+        return card;
     }
 
     private final class SectionAdapter extends BaseAdapter {
@@ -522,30 +529,34 @@ public class VodActivity extends Activity {
         public int getCount() { return items.size(); }
         public Object getItem(int i) { return items.get(i); }
         public long getItemId(int i) { return i; }
-        @Override public int getViewTypeCount() { return 1; }
         @Override public boolean isEnabled(int position) { return false; }
 
         public View getView(int pos, View convert, ViewGroup parent) {
             LinearLayout row;
             if (convert == null) {
                 row = Ui.column(VodActivity.this);
-                row.setPadding(0, Ui.dp(VodActivity.this, 10), 0, Ui.dp(VodActivity.this, 6));
+                row.setPadding(0, Ui.dp(VodActivity.this, 12), 0, Ui.dp(VodActivity.this, 6));
                 LinearLayout header = Ui.row(VodActivity.this);
-                header.setPadding(Ui.dp(VodActivity.this, 16), 0, Ui.dp(VodActivity.this, 8), Ui.dp(VodActivity.this, 8));
-                TextView title = Ui.text(VodActivity.this, "", 20, Palette.TEXT, true);
+                header.setPadding(Ui.dp(VodActivity.this, 12), 0, Ui.dp(VodActivity.this, 8), Ui.dp(VodActivity.this, 8));
+                View accent = new View(VodActivity.this);
+                accent.setBackground(Ui.round(Palette.GOLD, Ui.dp(VodActivity.this, 2)));
+                LinearLayout.LayoutParams al = Ui.lp(Ui.dp(VodActivity.this, 4), Ui.dp(VodActivity.this, 20));
+                al.rightMargin = Ui.dp(VodActivity.this, 10);
+                header.addView(accent, al);
+                TextView title = Ui.text(VodActivity.this, "", 19, Palette.TEXT, true);
                 header.addView(title, Ui.weight(1));
-                TextView more = Ui.text(VodActivity.this, "Ver todos ›", 14, Palette.BLUE, true);
+                TextView more = Ui.text(VodActivity.this, "Ver todos ›", 14, Palette.GOLD, true);
                 more.setFocusable(true);
                 more.setClickable(true);
-                more.setBackground(Ui.selectable(VodActivity.this, 0, 0x22FFFFFF, Ui.dp(VodActivity.this, 10), 0));
-                more.setPadding(Ui.dp(VodActivity.this, 8), Ui.dp(VodActivity.this, 4), Ui.dp(VodActivity.this, 8),
+                more.setBackground(Ui.selectable(VodActivity.this, 0, 0x22FFFFFF, Ui.dp(VodActivity.this, 10), Palette.GOLD));
+                more.setPadding(Ui.dp(VodActivity.this, 10), Ui.dp(VodActivity.this, 4), Ui.dp(VodActivity.this, 10),
                         Ui.dp(VodActivity.this, 4));
                 header.addView(more);
                 row.addView(header, Ui.lp(-1, -2));
                 HorizontalScrollView hs = new HorizontalScrollView(VodActivity.this);
                 hs.setHorizontalScrollBarEnabled(false);
                 LinearLayout strip = Ui.row(VodActivity.this);
-                strip.setPadding(Ui.dp(VodActivity.this, 12), 0, Ui.dp(VodActivity.this, 12), 0);
+                strip.setPadding(Ui.dp(VodActivity.this, 6), 0, Ui.dp(VodActivity.this, 12), 0);
                 hs.addView(strip);
                 row.addView(hs, Ui.lp(-1, -2));
             } else {
@@ -553,11 +564,12 @@ public class VodActivity extends Activity {
             }
             final Section s = items.get(pos);
             LinearLayout header = (LinearLayout) row.getChildAt(0);
-            ((TextView) header.getChildAt(0)).setText(s.title);
-            View more = header.getChildAt(1);
-            LinearLayout strip = (LinearLayout) ((HorizontalScrollView) row.getChildAt(1)).getChildAt(0);
+            ((TextView) header.getChildAt(1)).setText(s.title);
+            View more = header.getChildAt(2);
+            HorizontalScrollView hs = (HorizontalScrollView) row.getChildAt(1);
+            LinearLayout strip = (LinearLayout) hs.getChildAt(0);
             strip.removeAllViews();
-            ((HorizontalScrollView) row.getChildAt(1)).scrollTo(0, 0);
+            hs.scrollTo(0, 0);
 
             if (s.genres != null) {
                 more.setVisibility(View.GONE);
@@ -567,10 +579,16 @@ public class VodActivity extends Activity {
                     View tile = Posters.genreTile(VodActivity.this, name, i, new View.OnClickListener() {
                         public void onClick(View v) { CategoryActivity.start(VodActivity.this, name, e.getValue()); }
                     });
-                    LinearLayout.LayoutParams lp = Ui.lp(Ui.dp(VodActivity.this, 160), Ui.dp(VodActivity.this, 72));
-                    lp.leftMargin = Ui.dp(VodActivity.this, 4);
-                    lp.rightMargin = Ui.dp(VodActivity.this, 6);
+                    LinearLayout.LayoutParams lp = Ui.lp(Ui.dp(VodActivity.this, 170), Ui.dp(VodActivity.this, 72));
+                    lp.rightMargin = Ui.dp(VodActivity.this, 10);
                     strip.addView(tile, lp);
+                }
+            } else if (s.channels != null) {
+                more.setVisibility(View.GONE);
+                for (int i = 0; i < s.channels.size(); i++) {
+                    LinearLayout.LayoutParams lp = Ui.lp(Ui.dp(VodActivity.this, 160), Ui.dp(VodActivity.this, 120));
+                    lp.rightMargin = Ui.dp(VodActivity.this, 10);
+                    strip.addView(channelCard(s.channels, i), lp);
                 }
             } else {
                 more.setVisibility(s.items.size() > ROW_LIMIT ? View.VISIBLE : View.GONE);
@@ -579,10 +597,9 @@ public class VodActivity extends Activity {
                 });
                 int n = Math.min(ROW_LIMIT, s.items.size());
                 for (int i = 0; i < n; i++) {
-                    View card = Posters.card(VodActivity.this, s.items.get(i), 116);
                     LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
-                    lp.rightMargin = Ui.dp(VodActivity.this, 4);
-                    strip.addView(card, lp);
+                    lp.rightMargin = Ui.dp(VodActivity.this, 6);
+                    strip.addView(Posters.card(VodActivity.this, s.items.get(i), 128), lp);
                 }
             }
             return row;

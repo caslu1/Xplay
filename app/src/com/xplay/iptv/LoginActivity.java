@@ -20,7 +20,7 @@ import java.util.concurrent.Callable;
 public class LoginActivity extends Activity {
 
     private boolean xtreamTab = true;
-    private TextView tabXtream, tabM3u, error, buttonLabel;
+    private TextView tabXtream, tabM3u, error, buttonLabel, heading;
     private LinearLayout xtreamForm, m3uForm, form;
     private EditText dns, user, pass, m3u;
     private ProgressBar buttonProgress, splash;
@@ -36,6 +36,7 @@ public class LoginActivity extends Activity {
             updateTabs();
             form.setVisibility(View.GONE);
             splash.setVisibility(View.VISIBLE);
+            heading.setText("Conectando…");
             connect();
         } else {
             xtreamTab = !Repo.MODE_M3U.equals(Repo.prefs().getString("last_mode", Repo.MODE_XTREAM));
@@ -44,28 +45,45 @@ public class LoginActivity extends Activity {
     }
 
     private void buildUi() {
+        LinearLayout root = Ui.row(this);
+        root.setBackgroundColor(Palette.BLACK);
+
+        // Left: brand
+        LinearLayout brand = Ui.column(this);
+        brand.setGravity(Gravity.CENTER);
+        brand.setBackground(new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR, new int[] {0xFF1A1508, Palette.BLACK}));
+        brand.addView(Ui.logo(this, 44));
+        View line = new View(this);
+        line.setBackground(Ui.round(Palette.GOLD, Ui.dp(this, 2)));
+        LinearLayout.LayoutParams ll = Ui.lp(Ui.dp(this, 56), Ui.dp(this, 4));
+        ll.topMargin = Ui.dp(this, 18);
+        brand.addView(line, ll);
+        TextView subtitle = Ui.text(this, "TV ao vivo, filmes e séries\nem um só lugar", 18, Palette.TEXT_DIM, false);
+        subtitle.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams sp = Ui.lp(-2, -2);
+        sp.topMargin = Ui.dp(this, 18);
+        brand.addView(subtitle, sp);
+        root.addView(brand, new LinearLayout.LayoutParams(0, -1, 1f));
+
+        // Right: form
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
-        scroll.setBackgroundColor(Palette.BLACK);
-
         FrameLayout center = new FrameLayout(this);
         scroll.addView(center);
+        root.addView(scroll, new LinearLayout.LayoutParams(0, -1, 1f));
 
         LinearLayout box = Ui.column(this);
         box.setGravity(Gravity.CENTER_HORIZONTAL);
         int pad = Ui.dp(this, 24);
         box.setPadding(pad, pad, pad, pad);
-        FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(
-                Math.min(Ui.dp(this, 420), getResources().getDisplayMetrics().widthPixels), -2, Gravity.CENTER);
-        center.addView(box, bp);
+        center.addView(box, new FrameLayout.LayoutParams(
+                Math.min(Ui.dp(this, 440), getResources().getDisplayMetrics().widthPixels / 2), -2, Gravity.CENTER));
 
-        box.addView(Ui.logo(this, 34));
-        TextView subtitle = Ui.text(this, "Sua TV, filmes e séries em um só lugar", 14, Palette.TEXT_DIM, false);
-        subtitle.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams sp = Ui.lp(-2, -2);
-        sp.topMargin = Ui.dp(this, 8);
-        sp.bottomMargin = Ui.dp(this, 28);
-        box.addView(subtitle, sp);
+        heading = Ui.text(this, "Entrar", 26, Palette.TEXT, true);
+        LinearLayout.LayoutParams hp = Ui.lp(-1, -2);
+        hp.bottomMargin = Ui.dp(this, 16);
+        box.addView(heading, hp);
 
         splash = new ProgressBar(this);
         splash.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(Palette.GOLD));
@@ -129,7 +147,7 @@ public class LoginActivity extends Activity {
             public void onClick(View v) { submit(); }
         });
 
-        setContentView(scroll);
+        setContentView(root);
     }
 
     private TextView tab(String label) {
@@ -222,6 +240,7 @@ public class LoginActivity extends Activity {
                 setBusy(false);
                 form.setVisibility(View.VISIBLE);
                 splash.setVisibility(View.GONE);
+                heading.setText("Entrar");
                 Repo.logout();
                 showError(Task.message(e));
             }

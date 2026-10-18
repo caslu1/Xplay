@@ -39,11 +39,11 @@ public class CategoryActivity extends Activity {
             return;
         }
         LinearLayout root = Ui.column(this);
-        root.setBackgroundColor(Palette.VOD_BG);
+        root.setBackgroundColor(Palette.BLACK);
 
         LinearLayout top = Ui.row(this);
         top.setPadding(Ui.dp(this, 8), Ui.dp(this, 12), Ui.dp(this, 16), Ui.dp(this, 4));
-        ImageView back = Ui.iconButton(this, R.drawable.ic_back, Palette.TEXT, Palette.BLUE);
+        ImageView back = Ui.iconButton(this, R.drawable.ic_back, Palette.TEXT, Palette.GOLD);
         back.setContentDescription("Voltar");
         top.addView(back, Ui.lp(Ui.dp(this, 48), Ui.dp(this, 48)));
         back.setOnClickListener(new View.OnClickListener() {

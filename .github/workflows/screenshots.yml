@@ -2,12 +2,6 @@ name: Screenshots
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "app/**"
-      - "tools/screenshots/**"
-      - "build.sh"
-      - ".github/workflows/screenshots.yml"
 
 permissions:
   contents: write

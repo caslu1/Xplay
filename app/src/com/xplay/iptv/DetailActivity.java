@@ -70,13 +70,13 @@ public class DetailActivity extends Activity {
 
     private void buildUi() {
         ScrollView scroll = new ScrollView(this);
-        scroll.setBackgroundColor(Palette.VOD_BG);
+        scroll.setBackgroundColor(Palette.BLACK);
         LinearLayout c = Ui.column(this);
-        int p = Ui.dp(this, 20);
+        int p = Ui.dp(this, 32);
         c.setPadding(p, Ui.dp(this, 8), p, p);
         scroll.addView(c);
 
-        ImageView back = Ui.iconButton(this, R.drawable.ic_back, Palette.TEXT, Palette.BLUE);
+        ImageView back = Ui.iconButton(this, R.drawable.ic_back, Palette.TEXT, Palette.GOLD);
         LinearLayout.LayoutParams bl = Ui.lp(Ui.dp(this, 48), Ui.dp(this, 48));
         bl.leftMargin = -Ui.dp(this, 8);
         back.setContentDescription("Voltar");
@@ -89,16 +89,16 @@ public class DetailActivity extends Activity {
         header.setGravity(Gravity.TOP);
         FrameLayout poster = new FrameLayout(this);
         float r = Ui.dp(this, 10);
-        poster.setBackground(Ui.round(Palette.VOD_SURFACE, r));
+        poster.setBackground(Ui.round(Palette.SURFACE_HI, r));
         Ui.clipRound(poster, r);
         ImageView img = new ImageView(this);
         img.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        ImageLoader.load(item.poster, img, Ui.dp(this, 130), 0);
+        ImageLoader.load(item.poster, img, Ui.dp(this, 170), 0);
         poster.addView(img, new FrameLayout.LayoutParams(-1, -1));
-        header.addView(poster, Ui.lp(Ui.dp(this, 130), Ui.dp(this, 195)));
+        header.addView(poster, Ui.lp(Ui.dp(this, 170), Ui.dp(this, 255)));
 
         LinearLayout side = Ui.column(this);
-        side.setPadding(Ui.dp(this, 18), 0, 0, 0);
+        side.setPadding(Ui.dp(this, 28), 0, 0, 0);
         TextView title = Ui.text(this, item.name, 24, Palette.TEXT, true);
         title.setMaxLines(3);
         title.setEllipsize(TextUtils.TruncateAt.END);
@@ -127,7 +127,7 @@ public class DetailActivity extends Activity {
         gl.topMargin = Ui.dp(this, 12);
         side.addView(gs, gl);
         infoLoading = new ProgressBar(this);
-        infoLoading.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(Palette.BLUE));
+        infoLoading.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(Palette.GOLD));
         side.addView(infoLoading, Ui.lp(Ui.dp(this, 28), Ui.dp(this, 28)));
         header.addView(side, Ui.weight(1));
         c.addView(header, Ui.lp(-1, -2));
@@ -137,13 +137,13 @@ public class DetailActivity extends Activity {
         plot.setEllipsize(TextUtils.TruncateAt.END);
         plot.setLineSpacing(0, 1.15f);
         LinearLayout.LayoutParams pl = Ui.lp(-1, -2);
-        pl.topMargin = Ui.dp(this, 18);
-        c.addView(plot, pl);
-        more = Ui.text(this, "Saiba mais", 15, Palette.BLUE, true);
+        pl.topMargin = Ui.dp(this, 14);
+        side.addView(plot, pl);
+        more = Ui.text(this, "Saiba mais", 15, Palette.GOLD, true);
         more.setFocusable(true);
         more.setClickable(true);
         more.setVisibility(View.GONE);
-        c.addView(more);
+        side.addView(more);
         more.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 boolean expanded = plot.getMaxLines() > 3;
@@ -155,12 +155,12 @@ public class DetailActivity extends Activity {
         FrameLayout play = new FrameLayout(this);
         play.setFocusable(true);
         play.setClickable(true);
-        play.setBackground(Ui.selectable(this, Palette.BLUE, 0xFF4A82F0, Ui.dp(this, 28), Palette.TEXT));
-        playLabel = Ui.text(this, item.series ? "CARREGANDO…" : "REPRODUZIR", 17, Palette.TEXT, true);
+        play.setBackground(Ui.selectable(this, Palette.GOLD, Palette.GOLD_LIGHT, Ui.dp(this, 28), Palette.TEXT));
+        playLabel = Ui.text(this, item.series ? "CARREGANDO…" : "REPRODUZIR", 17, Palette.BLACK, true);
         play.addView(playLabel, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
-        LinearLayout.LayoutParams pb = Ui.lp(-1, Ui.dp(this, 56));
-        pb.topMargin = Ui.dp(this, 20);
-        c.addView(play, pb);
+        LinearLayout.LayoutParams pb = Ui.lp(Ui.dp(this, 320), Ui.dp(this, 54));
+        pb.topMargin = Ui.dp(this, 18);
+        side.addView(play, pb);
         playButton = play;
         play.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { playMain(); }
@@ -181,8 +181,8 @@ public class DetailActivity extends Activity {
         });
         updateFav();
         LinearLayout.LayoutParams al = Ui.lp(-1, -2);
-        al.topMargin = Ui.dp(this, 16);
-        c.addView(actions, al);
+        al.topMargin = Ui.dp(this, 12);
+        side.addView(actions, al);
 
         tabsRow = Ui.row(this);
         LinearLayout.LayoutParams tl = Ui.lp(-1, -2);
@@ -206,10 +206,10 @@ public class DetailActivity extends Activity {
         a.setGravity(Gravity.CENTER_HORIZONTAL);
         a.setFocusable(true);
         a.setClickable(true);
-        a.setBackground(Ui.selectable(this, 0, 0x1FFFFFFF, Ui.dp(this, 12), Palette.TEXT));
+        a.setBackground(Ui.selectable(this, 0, 0x1FFFFFFF, Ui.dp(this, 12), Palette.GOLD));
         a.setPadding(Ui.dp(this, 14), Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 6));
         ImageView i = Ui.icon(this, icon, Palette.TEXT);
-        i.setBackground(Ui.round(Palette.VOD_SURFACE, Ui.dp(this, 22)));
+        i.setBackground(Ui.round(Palette.SURFACE_HI, Ui.dp(this, 22)));
         int p = Ui.dp(this, 10);
         i.setPadding(p, p, p, p);
         a.addView(i, Ui.lp(Ui.dp(this, 44), Ui.dp(this, 44)));
@@ -319,7 +319,7 @@ public class DetailActivity extends Activity {
                 String t = g.trim();
                 if (t.isEmpty()) continue;
                 TextView chip = Ui.text(this, t, 14, Palette.TEXT, false);
-                chip.setBackground(Ui.round(Palette.VOD_SURFACE, Ui.dp(this, 8)));
+                chip.setBackground(Ui.round(Palette.SURFACE_HI, Ui.dp(this, 8)));
                 chip.setPadding(Ui.dp(this, 14), Ui.dp(this, 7), Ui.dp(this, 14), Ui.dp(this, 7));
                 LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
                 lp.rightMargin = Ui.dp(this, 8);
@@ -464,7 +464,7 @@ public class DetailActivity extends Activity {
             label.setPadding(Ui.dp(this, 4), Ui.dp(this, 8), Ui.dp(this, 4), Ui.dp(this, 10));
             t.addView(label);
             View bar = new View(this);
-            bar.setBackgroundColor(i == tab ? Palette.BLUE : 0);
+            bar.setBackgroundColor(i == tab ? Palette.GOLD : 0);
             t.addView(bar, Ui.lp(-1, Ui.dp(this, 3)));
             LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
             lp.rightMargin = Ui.dp(this, 22);
@@ -499,10 +499,10 @@ public class DetailActivity extends Activity {
         for (int i = 0; i < seasonNames.size(); i++) {
             final int which = i;
             boolean on = i == season;
-            TextView chip = Ui.text(this, seasonNames.get(i), 15, Palette.TEXT, true);
+            TextView chip = Ui.text(this, seasonNames.get(i), 15, on ? Palette.BLACK : Palette.TEXT, true);
             chip.setFocusable(true);
             chip.setClickable(true);
-            chip.setBackground(Ui.selectable(this, on ? Palette.BLUE : Palette.CHIP, on ? 0xFF4A82F0 : 0xFF4A4A4E,
+            chip.setBackground(Ui.selectable(this, on ? Palette.GOLD : Palette.SURFACE_HI, on ? Palette.GOLD_LIGHT : 0xFF4A4A4E,
                     Ui.dp(this, 20), Palette.TEXT));
             chip.setPadding(Ui.dp(this, 18), Ui.dp(this, 8), Ui.dp(this, 18), Ui.dp(this, 8));
             LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
@@ -526,13 +526,13 @@ public class DetailActivity extends Activity {
             row.setGravity(Gravity.TOP);
             row.setFocusable(true);
             row.setClickable(true);
-            row.setBackground(Ui.selectable(this, 0, 0x1FFFFFFF, Ui.dp(this, 10), Palette.TEXT));
+            row.setBackground(Ui.selectable(this, 0, 0x1FFFFFFF, Ui.dp(this, 10), Palette.GOLD));
             int p = Ui.dp(this, 6);
             row.setPadding(p, p, p, p);
 
             FrameLayout thumb = new FrameLayout(this);
             float r = Ui.dp(this, 8);
-            thumb.setBackground(Ui.round(Palette.VOD_SURFACE, r));
+            thumb.setBackground(Ui.round(Palette.SURFACE_HI, r));
             Ui.clipRound(thumb, r);
             ImageView img = new ImageView(this);
             img.setScaleType(ImageView.ScaleType.CENTER_CROP);
