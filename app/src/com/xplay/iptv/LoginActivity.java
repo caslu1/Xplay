@@ -24,6 +24,8 @@ public class LoginActivity extends Activity {
     private LinearLayout xtreamForm, m3uForm, form;
     private EditText dns, user, pass, m3u;
     private ProgressBar buttonProgress, splash;
+    private View formRoot;
+    private TextView splashStatus;
     private View button;
 
     @Override
@@ -34,14 +36,54 @@ public class LoginActivity extends Activity {
         if (Repo.hasLogin()) {
             xtreamTab = Repo.isXtream();
             updateTabs();
-            form.setVisibility(View.GONE);
-            splash.setVisibility(View.VISIBLE);
-            heading.setText("Conectando…");
+            setContentView(buildSplash());
             connect();
         } else {
             xtreamTab = !Repo.MODE_M3U.equals(Repo.prefs().getString("last_mode", Repo.MODE_XTREAM));
             updateTabs();
+            setContentView(formRoot);
         }
+    }
+
+    /** Loading screen shown while signing in with the saved login. */
+    private View buildSplash() {
+        FrameLayout root = new FrameLayout(this);
+        root.setBackground(new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                new int[] {0xFF1A1508, Palette.BLACK, Palette.BLACK}));
+        LinearLayout c = Ui.column(this);
+        c.setGravity(Gravity.CENTER_HORIZONTAL);
+        root.addView(c, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
+
+        View logo = Ui.logo(this, 52);
+        c.addView(logo);
+        logo.setAlpha(0f);
+        logo.setScaleX(0.9f);
+        logo.setScaleY(0.9f);
+        logo.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(450).start();
+
+        TextView tagline = Ui.text(this, "TV ao vivo, filmes e séries", 17, Palette.TEXT_DIM, false);
+        LinearLayout.LayoutParams tl = Ui.lp(-2, -2);
+        tl.topMargin = Ui.dp(this, 10);
+        c.addView(tagline, tl);
+
+        ProgressBar bar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setIndeterminate(true);
+        bar.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(Palette.GOLD));
+        LinearLayout.LayoutParams bl = Ui.lp(Ui.dp(this, 220), Ui.dp(this, 6));
+        bl.topMargin = Ui.dp(this, 36);
+        c.addView(bar, bl);
+
+        splashStatus = Ui.text(this, "Conectando ao servidor…", 14, Palette.TEXT_DIM, false);
+        LinearLayout.LayoutParams sl = Ui.lp(-2, -2);
+        sl.topMargin = Ui.dp(this, 14);
+        c.addView(splashStatus, sl);
+
+        TextView version = Ui.text(this, "versão " + Updater.currentName(this), 12, 0xFF555555, false);
+        FrameLayout.LayoutParams vl = new FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        vl.bottomMargin = Ui.dp(this, 20);
+        root.addView(version, vl);
+        return root;
     }
 
     private void buildUi() {
@@ -147,7 +189,7 @@ public class LoginActivity extends Activity {
             public void onClick(View v) { submit(); }
         });
 
-        setContentView(root);
+        formRoot = root;
     }
 
     private TextView tab(String label) {
@@ -240,12 +282,15 @@ public class LoginActivity extends Activity {
             }
         }, new Task.Done<Void>() {
             public void ok(Void v) {
+                if (splashStatus != null) splashStatus.setText("Abrindo canais…");
                 startActivity(new Intent(LoginActivity.this, LiveActivity.class));
+                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
                 finish();
             }
 
             public void fail(Exception e) {
                 setBusy(false);
+                if (formRoot.getParent() == null) setContentView(formRoot);
                 form.setVisibility(View.VISIBLE);
                 splash.setVisibility(View.GONE);
                 heading.setText("Entrar");

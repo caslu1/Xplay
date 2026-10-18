@@ -78,17 +78,19 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     private List<Channel> shownChannels;
 
     // fullscreen overlay
-    private FrameLayout overlay;
-    private TextView fsNumber, fsName, fsNow, fsDesc, fsNext, fsTyped;
-    private ProgressBar fsProgress;
-    private LinearLayout variantRow;
-    private View variantBlock;
+    private LiveOverlay overlay;
+    /** Channel whose now/next the small panel shows (follows the remote's highlight). */
+    private Channel epgChannel;
+    private Channel highlighted;
 
     private final Runnable hideOverlay = new Runnable() {
         public void run() { overlay.setVisibility(View.GONE); }
     };
     private final Runnable jumpToTyped = new Runnable() {
         public void run() { jumpTo(typedNumber); }
+    };
+    private final Runnable showHighlighted = new Runnable() {
+        public void run() { if (highlighted != null) showEpg(highlighted); }
     };
 
     @Override
@@ -203,9 +205,9 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                 } else {
                     Channel c = channelItems.get(pos);
                     playingList = channelItems;
-                    // Same channel keeps playing; a new one starts once, already fullscreen.
+                    // First press plays it in the small player; pressing it again goes fullscreen.
                     if (c != playing) select(c, true);
-                    enterFullscreen();
+                    else enterFullscreen();
                 }
             }
         });
@@ -220,6 +222,17 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                 else adapter.notifyDataSetChanged();
                 return true;
             }
+        });
+        list.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            public void onItemSelected(AdapterView<?> p, View v, int pos, long id) {
+                if (!showingChannels || pos >= channelItems.size()) return;
+                // Moving through the list with the remote previews each channel's programs.
+                highlighted = channelItems.get(pos);
+                handler.removeCallbacks(showHighlighted);
+                handler.postDelayed(showHighlighted, 200);
+            }
+
+            public void onNothingSelected(AdapterView<?> p) {}
         });
         return left;
     }
@@ -314,78 +327,16 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         return l;
     }
 
-    private FrameLayout buildOverlay() {
-        FrameLayout o = new FrameLayout(this);
-        o.setClickable(true);
+    private LiveOverlay buildOverlay() {
+        LiveOverlay o = new LiveOverlay(this, new LiveOverlay.Listener() {
+            public void onVariant(Channel c) {
+                select(c, true);
+                showOverlay();
+            }
+        });
         o.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { overlay.setVisibility(View.GONE); }
         });
-
-        LinearLayout top = Ui.row(this);
-        top.setGravity(Gravity.TOP);
-        top.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[] {0xE6000000, 0x99000000, 0x00000000}));
-        int p = Ui.dp(this, 24);
-        top.setPadding(p, Ui.dp(this, 16), p, Ui.dp(this, 48));
-        LinearLayout left = Ui.column(this);
-        left.setGravity(Gravity.CENTER_HORIZONTAL);
-        fsNumber = Ui.text(this, "", 60, Palette.TEXT, true);
-        fsNumber.setIncludeFontPadding(false);
-        left.addView(fsNumber);
-        fsName = Ui.text(this, "", 19, Palette.TEXT, true);
-        fsName.setGravity(Gravity.CENTER);
-        fsName.setMaxLines(2);
-        left.addView(fsName);
-        top.addView(left, Ui.lp(Ui.dp(this, 280), -2));
-        LinearLayout right = Ui.column(this);
-        right.setPadding(Ui.dp(this, 24), Ui.dp(this, 8), 0, 0);
-        fsNow = Ui.text(this, "", 20, Palette.TEXT, true);
-        fsNow.setSingleLine(true);
-        fsNow.setEllipsize(TextUtils.TruncateAt.END);
-        right.addView(fsNow);
-        fsDesc = Ui.text(this, "", 14, 0xFFCCCCCC, false);
-        fsDesc.setMaxLines(2);
-        fsDesc.setEllipsize(TextUtils.TruncateAt.END);
-        right.addView(fsDesc);
-        fsProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        fsProgress.setMax(1000);
-        fsProgress.setProgressTintList(ColorStateList.valueOf(Palette.GOLD));
-        fsProgress.setProgressBackgroundTintList(ColorStateList.valueOf(0xFFDDDDDD));
-        LinearLayout.LayoutParams pp = Ui.lp(-1, Ui.dp(this, 6));
-        pp.topMargin = Ui.dp(this, 8);
-        right.addView(fsProgress, pp);
-        fsNext = Ui.text(this, "", 18, 0xFFBBBBBB, false);
-        fsNext.setSingleLine(true);
-        fsNext.setEllipsize(TextUtils.TruncateAt.END);
-        LinearLayout.LayoutParams nl = Ui.lp(-1, -2);
-        nl.topMargin = Ui.dp(this, 8);
-        right.addView(fsNext, nl);
-        top.addView(right, Ui.weight(1));
-        o.addView(top, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
-
-        fsTyped = Ui.text(this, "", 44, Palette.GOLD, true);
-        fsTyped.setBackground(Ui.round(0xCC000000, Ui.dp(this, 12)));
-        fsTyped.setPadding(Ui.dp(this, 20), Ui.dp(this, 6), Ui.dp(this, 20), Ui.dp(this, 6));
-        fsTyped.setVisibility(View.GONE);
-        FrameLayout.LayoutParams tl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
-        tl.setMargins(0, Ui.dp(this, 24), Ui.dp(this, 24), 0);
-        o.addView(fsTyped, tl);
-
-        LinearLayout bottom = Ui.column(this);
-        variantBlock = bottom;
-        bottom.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
-                new int[] {0xE6000000, 0x99000000, 0x00000000}));
-        bottom.setPadding(p, Ui.dp(this, 40), 0, Ui.dp(this, 16));
-        TextView hint = Ui.text(this, "outras qualidades deste canal", 14, Palette.TEXT_DIM, false);
-        hint.setPadding(Ui.dp(this, 12), 0, 0, Ui.dp(this, 10));
-        bottom.addView(hint);
-        HorizontalScrollView hs = new HorizontalScrollView(this);
-        hs.setHorizontalScrollBarEnabled(false);
-        variantRow = Ui.row(this);
-        variantRow.setPadding(0, Ui.dp(this, 4), Ui.dp(this, 24), Ui.dp(this, 4));
-        hs.addView(variantRow);
-        bottom.addView(hs, Ui.lp(-1, -2));
-        o.addView(bottom, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
         return o;
     }
 
@@ -446,74 +397,17 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     }
 
     private void fillOverlay() {
-        final Channel c = playing;
-        if (c == null) return;
-        fsNumber.setText(Ui.pad3(Adult.number(c)));
-        fsName.setText(c.name.toUpperCase(Locale.getDefault()));
-        fsNow.setText(c.name);
-        fsDesc.setText("");
-        fsNext.setText("");
-        fsProgress.setVisibility(View.INVISIBLE);
-        Epg.get(c, new Epg.Callback() {
-            public void done(List<Xtream.Program> programs) {
-                if (isFinishing() || c != playing || programs.isEmpty()) return;
-                Xtream.Program now = programs.get(0);
-                fsNow.setText(clock.format(new Date(now.start)) + " às " + clock.format(new Date(now.end))
-                        + "   " + now.title);
-                fsDesc.setText(now.description);
-                fsProgress.setProgress(Epg.progress(now));
-                fsProgress.setVisibility(View.VISIBLE);
-                if (programs.size() > 1) {
-                    Xtream.Program next = programs.get(1);
-                    fsNext.setText(clock.format(new Date(next.start)) + " às " + clock.format(new Date(next.end))
-                            + "   " + next.title);
-                }
-            }
-        });
-        buildVariants(c);
+        if (playing != null) overlay.bind(playing, Adult.channels());
     }
 
-    private void buildVariants(Channel c) {
-        variantRow.removeAllViews();
-        List<Channel> variants = Variants.of(c, Adult.channels());
-        variantBlock.setVisibility(variants.size() > 1 ? View.VISIBLE : View.GONE);
-        if (variants.size() <= 1) return;
-        for (final Channel v : variants) {
-            boolean current = v == c;
-            LinearLayout card = Ui.column(this);
-            card.setGravity(Gravity.CENTER);
-            card.setFocusable(true);
-            card.setClickable(true);
-            float r = Ui.dp(this, 10);
-            card.setBackground(current
-                    ? Ui.stroke(0xCC141414, r, Ui.dp(this, 3), Palette.GOLD)
-                    : Ui.selectable(this, 0xB3141414, 0xE6222222, r, Palette.GOLD));
-            int pad = Ui.dp(this, 10);
-            card.setPadding(pad, pad, pad, pad);
-            ImageView logo = new ImageView(this);
-            logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            ImageLoader.load(v.logo, logo, Ui.dp(this, 60), R.drawable.ic_launcher);
-            card.addView(logo, Ui.lp(Ui.dp(this, 60), Ui.dp(this, 46)));
-            TextView name = Ui.text(this, v.name.toUpperCase(Locale.getDefault()), 13, Palette.TEXT, true);
-            name.setGravity(Gravity.CENTER);
-            name.setMaxLines(2);
-            name.setEllipsize(TextUtils.TruncateAt.END);
-            LinearLayout.LayoutParams nl = Ui.lp(-1, -2);
-            nl.topMargin = Ui.dp(this, 6);
-            card.addView(name, nl);
-            LinearLayout.LayoutParams lp = Ui.lp(Ui.dp(this, 170), Ui.dp(this, 124));
-            lp.leftMargin = Ui.dp(this, 12);
-            variantRow.addView(card, lp);
-            card.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View view) {
-                    if (v != playing) select(v, true);
-                    showOverlay();
-                }
-            });
-            card.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-                public void onFocusChange(View view, boolean has) { if (has) showOverlay(); }
-            });
+    private void switchQuality(int delta) {
+        Channel v = overlay.neighbour(delta);
+        if (v == null) {
+            showOverlay();
+            return;
         }
+        select(v, true);
+        showOverlay();
     }
 
     private void zap(int delta) {
@@ -528,7 +422,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     /** Remote number keys: jump to the channel with that number. */
     private void jumpTo(String number) {
         typedNumber = "";
-        fsTyped.setVisibility(View.GONE);
+        overlay.showTyped(null);
         int n;
         try {
             n = Integer.parseInt(number);
@@ -670,6 +564,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     }
 
     private void showEpg(final Channel c) {
+        epgChannel = c;
         ImageLoader.load(c.logo, epgLogo, Ui.dp(this, 56), R.drawable.ic_launcher);
         nowTime.setText("");
         nowTitle.setText(c.name);
@@ -678,7 +573,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         nextTitle.setText("");
         Epg.get(c, new Epg.Callback() {
             public void done(List<Xtream.Program> programs) {
-                if (isFinishing() || c != playing || programs.isEmpty()) return;
+                if (isFinishing() || c != epgChannel || programs.isEmpty()) return;
                 Xtream.Program now = programs.get(0);
                 nowTime.setText(range(now));
                 nowTitle.setText(now.title);
@@ -734,9 +629,8 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         if (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) {
             typedNumber += (char) ('0' + keyCode - KeyEvent.KEYCODE_0);
             if (typedNumber.length() > 5) typedNumber = typedNumber.substring(typedNumber.length() - 5);
-            fsTyped.setText(typedNumber);
             if (fullscreen) {
-                fsTyped.setVisibility(View.VISIBLE);
+                overlay.showTyped(typedNumber);
                 showOverlay();
             } else {
                 Toast.makeText(this, "Canal " + typedNumber, Toast.LENGTH_SHORT).show();
@@ -759,16 +653,16 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                     zap(-1);
                     return true;
                 case KeyEvent.KEYCODE_DPAD_LEFT:
+                    switchQuality(-1);
+                    return true;
                 case KeyEvent.KEYCODE_DPAD_RIGHT:
+                    switchQuality(1);
+                    return true;
                 case KeyEvent.KEYCODE_DPAD_CENTER:
                 case KeyEvent.KEYCODE_ENTER:
-                    if (!visible) {
-                        showOverlay();
-                        focusCurrentVariant();
-                        return true;
-                    }
-                    showOverlay();
-                    break;
+                    if (visible) overlay.setVisibility(View.GONE);
+                    else showOverlay();
+                    return true;
                 default:
                     break;
             }
@@ -776,18 +670,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         return super.onKeyDown(keyCode, event);
     }
 
-    private void focusCurrentVariant() {
-        for (int i = 0; i < variantRow.getChildCount(); i++) {
-            View v = variantRow.getChildAt(i);
-            if (v.getBackground() instanceof GradientDrawable) {
-                v.requestFocus();
-                return;
-            }
-        }
-        if (variantRow.getChildCount() > 0) variantRow.getChildAt(0).requestFocus();
-    }
-
-    /** In fullscreen: a vertical swipe changes channel, a tap shows or hides the info. */
+    /** In fullscreen: swipe up/down changes channel, sideways changes quality, a tap shows the info. */
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
         if (!fullscreen) return super.dispatchTouchEvent(ev);
@@ -799,6 +682,10 @@ public class LiveActivity extends Activity implements TopBar.Listener {
             float dy = ev.getY() - touchY, dx = ev.getX() - touchX;
             if (Math.abs(dy) > getResources().getDisplayMetrics().heightPixels / 5f && Math.abs(dy) > Math.abs(dx)) {
                 zap(dy < 0 ? 1 : -1);
+                return true;
+            }
+            if (Math.abs(dx) > getResources().getDisplayMetrics().widthPixels / 6f && Math.abs(dx) > Math.abs(dy)) {
+                switchQuality(dx < 0 ? 1 : -1);
                 return true;
             }
             if (overlay.getVisibility() != View.VISIBLE) {

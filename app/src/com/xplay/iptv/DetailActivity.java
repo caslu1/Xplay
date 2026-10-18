@@ -29,7 +29,7 @@ import java.util.concurrent.Callable;
 
 /**
  * Movie / series page: a hero with poster, info and actions over a blurred backdrop, then the
- * seasons and episodes (series), related titles and credits, stacked for easy remote navigation.
+ * seasons and episodes (series) and related titles, stacked for easy remote navigation.
  */
 public class DetailActivity extends Activity {
 
@@ -44,7 +44,7 @@ public class DetailActivity extends Activity {
 
     private ImageView backdrop;
     private TextView subtitle, meta, plot, more, playLabel;
-    private LinearLayout genres, actions, seasonChips, episodeStrip, credits;
+    private LinearLayout genres, actions, seasonChips, episodeStrip;
     private TextView episodesState;
     private LinearLayout favButton;
     private View trailerButton;
@@ -131,8 +131,6 @@ public class DetailActivity extends Activity {
             body.addView(hs, Ui.lp(-1, -2));
         }
 
-        credits = Ui.column(this);
-        body.addView(credits, Ui.lp(-1, -2));
 
         setContentView(scroll);
     }
@@ -504,7 +502,6 @@ public class DetailActivity extends Activity {
 
         updatePlayLabel();
         if (item.series) renderSeasons();
-        renderCredits();
     }
 
     private String durationText() {
@@ -664,36 +661,6 @@ public class DetailActivity extends Activity {
                 public void onClick(View v) { playEpisode(season, index); }
             });
         }
-    }
-
-    private void renderCredits() {
-        credits.removeAllViews();
-        String[][] rows = {
-                {"Elenco", first(info, "cast", "actors")},
-                {"Direção", str(info, "director")},
-                {"Lançamento", first(info, "releasedate", "release_date", "releaseDate")},
-                {"País", str(info, "country")},
-        };
-        boolean any = false;
-        for (String[] r : rows) if (!r[1].isEmpty()) any = true;
-        if (!any) return;
-        credits.addView(sectionTitle("Elenco e produção"));
-        LinearLayout box = Ui.column(this);
-        box.setBackground(Ui.round(Palette.SURFACE, Ui.dp(this, 14)));
-        int p = Ui.dp(this, 18);
-        box.setPadding(p, Ui.dp(this, 8), p, Ui.dp(this, 8));
-        for (String[] r : rows) {
-            if (r[1].isEmpty()) continue;
-            LinearLayout line = Ui.row(this);
-            line.setGravity(Gravity.TOP);
-            line.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
-            line.addView(Ui.text(this, r[0], 14, Palette.TEXT_DIM, true), Ui.lp(Ui.dp(this, 120), -2));
-            TextView v = Ui.text(this, r[1], 14, Palette.TEXT, false);
-            v.setLineSpacing(0, 1.1f);
-            line.addView(v, Ui.weight(1));
-            box.addView(line, Ui.lp(-1, -2));
-        }
-        credits.addView(box, Ui.lp(-1, -2));
     }
 
     // ---------------------------------------------------------------- playback

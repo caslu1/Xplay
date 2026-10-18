@@ -10,6 +10,7 @@ import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
@@ -659,6 +660,57 @@ public class VodActivity extends Activity implements TopBar.Listener {
         overridePendingTransition(0, 0);
     }
 
+    /** ▲ ▼ jump straight to the poster above/below (one press per row) instead of walking the list. */
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent e) {
+        int code = e.getKeyCode();
+        if (e.getAction() == KeyEvent.ACTION_DOWN && homePage.getVisibility() == View.VISIBLE
+                && (code == KeyEvent.KEYCODE_DPAD_DOWN || code == KeyEvent.KEYCODE_DPAD_UP)) {
+            View focused = getCurrentFocus();
+            View row = focused;
+            while (row != null && row.getParent() != sectionsList) {
+                row = row.getParent() instanceof View ? (View) row.getParent() : null;
+            }
+            if (row != null) {
+                int pos = sectionsList.getPositionForView(row);
+                final int target = pos + (code == KeyEvent.KEYCODE_DPAD_DOWN ? 1 : -1);
+                if (target < 0) return super.dispatchKeyEvent(e);
+                if (target >= sections.getCount()) return true;
+                int[] loc = new int[2];
+                focused.getLocationOnScreen(loc);
+                final int x = loc[0];
+                sectionsList.setSelectionFromTop(target, Ui.dp(this, 4));
+                sectionsList.post(new Runnable() {
+                    public void run() { focusRow(target, x); }
+                });
+                return true;
+            }
+        }
+        return super.dispatchKeyEvent(e);
+    }
+
+    private void focusRow(int position, int x) {
+        View row = sectionsList.getChildAt(position - sectionsList.getFirstVisiblePosition());
+        if (!(row instanceof ViewGroup) || ((ViewGroup) row).getChildCount() < 2) return;
+        View hs = ((ViewGroup) row).getChildAt(1);
+        if (!(hs instanceof HorizontalScrollView)) return;
+        ViewGroup strip = (ViewGroup) ((HorizontalScrollView) hs).getChildAt(0);
+        View best = null;
+        int bestDist = Integer.MAX_VALUE;
+        int[] loc = new int[2];
+        for (int i = 0; i < strip.getChildCount(); i++) {
+            View c = strip.getChildAt(i);
+            if (!c.isFocusable()) continue;
+            c.getLocationOnScreen(loc);
+            int d = Math.abs(loc[0] - x);
+            if (d < bestDist) {
+                bestDist = d;
+                best = c;
+            }
+        }
+        if (best != null) best.requestFocus();
+    }
+
     // ---------------------------------------------------------------- sections
 
     private static final class Section {
@@ -707,49 +759,89 @@ public class VodActivity extends Activity implements TopBar.Listener {
         return card;
     }
 
+    /** "Ver todos" at the end of a row, sized like a poster. */
+    private View seeAllTile(final Section s) {
+        int w = Ui.dp(this, Ui.posterDp(this));
+        LinearLayout card = Ui.column(this);
+        card.setFocusable(true);
+        card.setClickable(true);
+        int p = Ui.dp(this, 4);
+        card.setPadding(p, p, p, p);
+        FrameLayout box = new FrameLayout(this);
+        float r = Ui.dp(this, 10);
+        box.setBackground(Ui.stroke(Palette.SURFACE_HI, r, Ui.dp(this, 1), 0x33FFFFFF));
+        box.setDuplicateParentStateEnabled(true);
+        box.setForeground(Ui.focusRing(this, r));
+        TextView t = Ui.text(this, "Ver todos\n" + s.items.size() + " títulos", 15, Palette.GOLD, true);
+        t.setGravity(Gravity.CENTER);
+        box.addView(t, new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER));
+        card.addView(box, Ui.lp(w, w * 3 / 2));
+        card.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { CategoryActivity.start(VodActivity.this, s.title, s.items); }
+        });
+        return card;
+    }
+
+    /** An empty section row: header (accent, title, "see all") over a horizontal strip. */
+    private LinearLayout newRow() {
+        // The ListView "selects" whole rows on the remote; only the focused poster should light up.
+        LinearLayout row = new LinearLayout(VodActivity.this) {
+            @Override
+            public void dispatchSetSelected(boolean selected) {}
+        };
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(0, Ui.dp(VodActivity.this, 12), 0, Ui.dp(VodActivity.this, 6));
+        LinearLayout header = Ui.row(VodActivity.this);
+        header.setPadding(Ui.dp(VodActivity.this, 12), 0, Ui.dp(VodActivity.this, 8), Ui.dp(VodActivity.this, 8));
+        View accent = new View(VodActivity.this);
+        accent.setBackground(Ui.round(Palette.GOLD, Ui.dp(VodActivity.this, 2)));
+        LinearLayout.LayoutParams al = Ui.lp(Ui.dp(VodActivity.this, 4), Ui.dp(VodActivity.this, 20));
+        al.rightMargin = Ui.dp(VodActivity.this, 10);
+        header.addView(accent, al);
+        TextView title = Ui.text(VodActivity.this, "", 19, Palette.TEXT, true);
+        header.addView(title, Ui.weight(1));
+        TextView more = Ui.text(VodActivity.this, "Ver todos ›", 14, Palette.GOLD, true);
+        // On a remote the header link would be an extra stop between rows; a tile ends the strip instead.
+        more.setFocusable(!Ui.isTv(VodActivity.this));
+        more.setClickable(true);
+        more.setBackground(Ui.selectable(VodActivity.this, 0, 0x22FFFFFF, Ui.dp(VodActivity.this, 10), Palette.GOLD));
+        more.setPadding(Ui.dp(VodActivity.this, 10), Ui.dp(VodActivity.this, 4), Ui.dp(VodActivity.this, 10),
+                Ui.dp(VodActivity.this, 4));
+        header.addView(more);
+        row.addView(header, Ui.lp(-1, -2));
+        HorizontalScrollView hs = new HorizontalScrollView(VodActivity.this);
+        hs.setHorizontalScrollBarEnabled(false);
+        LinearLayout strip = Ui.row(VodActivity.this);
+        strip.setPadding(Ui.dp(VodActivity.this, 6), 0, Ui.dp(VodActivity.this, 12), 0);
+        hs.addView(strip);
+        row.addView(hs, Ui.lp(-1, -2));
+        return row;
+    }
+
     private final class SectionAdapter extends BaseAdapter {
         List<Section> items = new ArrayList<Section>();
+        /** Built rows are kept (a few) so scrolling back does not rebuild every poster. */
+        final java.util.LinkedHashMap<Section, View> rowCache = new java.util.LinkedHashMap<Section, View>(16, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<Section, View> eldest) { return size() > 14; }
+        };
+
+        @Override
+        public void notifyDataSetChanged() {
+            rowCache.clear();
+            super.notifyDataSetChanged();
+        }
 
         public int getCount() { return items.size(); }
         public Object getItem(int i) { return items.get(i); }
         public long getItemId(int i) { return i; }
 
         public View getView(int pos, View convert, ViewGroup parent) {
-            LinearLayout row;
-            if (convert == null) {
-                // The ListView "selects" whole rows on the remote; only the focused poster should light up.
-                row = new LinearLayout(VodActivity.this) {
-                    @Override
-                    public void dispatchSetSelected(boolean selected) {}
-                };
-                row.setOrientation(LinearLayout.VERTICAL);
-                row.setPadding(0, Ui.dp(VodActivity.this, 12), 0, Ui.dp(VodActivity.this, 6));
-                LinearLayout header = Ui.row(VodActivity.this);
-                header.setPadding(Ui.dp(VodActivity.this, 12), 0, Ui.dp(VodActivity.this, 8), Ui.dp(VodActivity.this, 8));
-                View accent = new View(VodActivity.this);
-                accent.setBackground(Ui.round(Palette.GOLD, Ui.dp(VodActivity.this, 2)));
-                LinearLayout.LayoutParams al = Ui.lp(Ui.dp(VodActivity.this, 4), Ui.dp(VodActivity.this, 20));
-                al.rightMargin = Ui.dp(VodActivity.this, 10);
-                header.addView(accent, al);
-                TextView title = Ui.text(VodActivity.this, "", 19, Palette.TEXT, true);
-                header.addView(title, Ui.weight(1));
-                TextView more = Ui.text(VodActivity.this, "Ver todos ›", 14, Palette.GOLD, true);
-                more.setFocusable(true);
-                more.setClickable(true);
-                more.setBackground(Ui.selectable(VodActivity.this, 0, 0x22FFFFFF, Ui.dp(VodActivity.this, 10), Palette.GOLD));
-                more.setPadding(Ui.dp(VodActivity.this, 10), Ui.dp(VodActivity.this, 4), Ui.dp(VodActivity.this, 10),
-                        Ui.dp(VodActivity.this, 4));
-                header.addView(more);
-                row.addView(header, Ui.lp(-1, -2));
-                HorizontalScrollView hs = new HorizontalScrollView(VodActivity.this);
-                hs.setHorizontalScrollBarEnabled(false);
-                LinearLayout strip = Ui.row(VodActivity.this);
-                strip.setPadding(Ui.dp(VodActivity.this, 6), 0, Ui.dp(VodActivity.this, 12), 0);
-                hs.addView(strip);
-                row.addView(hs, Ui.lp(-1, -2));
-            } else {
-                row = (LinearLayout) convert;
-            }
+            final Section sec = items.get(pos);
+            View cached = rowCache.get(sec);
+            if (cached != null) return cached;
+            LinearLayout row = newRow();
+            rowCache.put(sec, row);
             final Section s = items.get(pos);
             LinearLayout header = (LinearLayout) row.getChildAt(0);
             ((TextView) header.getChildAt(1)).setText(s.title);
@@ -810,6 +902,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
                     lp.rightMargin = Ui.dp(VodActivity.this, 6);
                     strip.addView(Posters.card(VodActivity.this, s.items.get(i), Ui.posterDp(VodActivity.this)), lp);
                 }
+                if (s.items.size() > ROW_LIMIT) strip.addView(seeAllTile(s), Ui.lp(-2, -2));
             }
             return row;
         }

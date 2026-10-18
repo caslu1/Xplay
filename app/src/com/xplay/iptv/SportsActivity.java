@@ -6,6 +6,7 @@ import android.content.res.ColorStateList;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
@@ -13,66 +14,60 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.FrameLayout;
-import android.widget.GridView;
-import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.VideoView;
 
 import java.text.Normalizer;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Sports hub: live preview with now/next on the left, sports channels with their programs on the right. */
+/**
+ * "Jogos de hoje": games on now and coming up later (finished ones are hidden), with the selected
+ * game playing in a small player on the right. Press again to watch fullscreen.
+ */
 public class SportsActivity extends Activity implements TopBar.Listener {
-
-    private static final Pattern SPORTS = Pattern.compile(
-            "esport|sport|futebol|futbol|premiere|combate|ufc|luta|fight|nba|nfl|mlb|nhl|formula|\\bf1\\b|"
-                    + "motor|tenis|tennis|golf|ppv|pay.per.view|espn|dazn|campeonato|copa|libertadores|"
-                    + "brasileirao|champions|liga|jogos|eleven|fox sports|tnt sports|band sports|sportv");
 
     private static final Pattern TODAY = Pattern.compile(
             "jogos? (de |do )?(hoje|dia)|agenda|eventos? (de |do )?(hoje|dia)|ao vivo hoje|hoje");
+    private static final Pattern SPORTS = Pattern.compile(
+            "esport|sport|futebol|premiere|combate|ufc|nba|nfl|formula|espn|dazn|copa|libertadores|brasileirao");
     private static final Pattern TIME = Pattern.compile("\\b([01]?\\d|2[0-3])\\s*[:hH]\\s*([0-5]\\d)\\b");
+    /** A game counts as live for this long after kick-off. */
+    private static final int LIVE_MINUTES = 150;
 
-    private TextView heading, headingNote;
+    private final Handler handler = new Handler();
+    private final Runnable refresh = new Runnable() {
+        public void run() {
+            rebuild();
+            handler.postDelayed(this, 60000);
+        }
+    };
 
-    /** Kick-off time written in the name ("Flamengo x Palmeiras 21:30"), or null. */
-    private static String kickoff(Channel c) {
-        java.util.regex.Matcher m = TIME.matcher(c.name);
-        return m.find() ? String.format(Locale.US, "%02d:%s", Integer.parseInt(m.group(1)), m.group(2)) : null;
-    }
-
-    private static int minutes(Channel c) {
-        String k = kickoff(c);
-        return k == null ? 9999 : Integer.parseInt(k.substring(0, 2)) * 60 + Integer.parseInt(k.substring(3));
-    }
-
-    private final SimpleDateFormat clock = new SimpleDateFormat("HH:mm", Locale.getDefault());
-
-    private List<Channel> all = new ArrayList<Channel>();
-    private List<Channel> shown = new ArrayList<Channel>();
-    private final List<String> groups = new ArrayList<String>();
-    private String group;
+    private final List<Channel> pool = new ArrayList<Channel>();
+    /** Rows: a String is a section header, a Channel is a game. */
+    private final List<Object> rows = new ArrayList<Object>();
     private Channel playing;
+    private boolean fromTodayFolder;
 
     private TopBar topBar;
+    private ListView list;
+    private RowAdapter adapter;
+    private TextView emptyText;
     private VideoView preview;
     private ProgressBar previewLoading;
-    private TextView previewMessage, liveBadge;
+    private TextView previewMessage, infoTitle, infoSub, infoStatus, infoNow;
     private ImageView infoLogo;
-    private TextView infoName, infoNow, infoTime, infoNext;
-    private ProgressBar infoProgress;
-    private LinearLayout chips;
-    private GridView grid;
-    private CardAdapter adapter;
     private TextView favButton;
 
     @Override
@@ -83,34 +78,89 @@ public class SportsActivity extends Activity implements TopBar.Listener {
             finish();
             return;
         }
-        // Only the "Jogos de hoje" folder; other sports channels just when the list has no such folder.
-        for (Channel c : Adult.channels()) if (TODAY.matcher(plain(c.group)).find()) all.add(c);
-        boolean today = !all.isEmpty();
-        if (!today) {
+        for (Channel c : Adult.channels()) if (TODAY.matcher(plain(c.group)).find()) pool.add(c);
+        fromTodayFolder = !pool.isEmpty();
+        if (!fromTodayFolder) {
             for (Channel c : Adult.channels()) {
-                if (SPORTS.matcher(plain(c.group)).find() || SPORTS.matcher(plain(c.name)).find()) all.add(c);
+                if (SPORTS.matcher(plain(c.group)).find() || SPORTS.matcher(plain(c.name)).find()) pool.add(c);
             }
         }
-        java.util.Collections.sort(all, new java.util.Comparator<Channel>() {
-            public int compare(Channel a, Channel b) { return Integer.compare(minutes(a), minutes(b)); }
-        });
-        for (Channel c : all) if (!groups.contains(c.group)) groups.add(c.group);
         buildUi();
-        heading.setText(today ? "JOGOS DE HOJE" : "ESPORTES");
-        headingNote.setText(today ? all.size() + " transmissões"
-                : "Sua lista não tem a pasta \"Jogos de hoje\"; mostrando canais de esportes");
-        selectGroup(null);
-        if (!all.isEmpty()) {
-            Channel start = all.contains(Repo.current) ? Repo.current : all.get(0);
-            select(start, false);
-        } else {
-            previewMessage.setText("Nenhum canal de esportes encontrado na sua lista");
-        }
+        rebuild();
+        Channel first = null;
+        for (Object o : rows) if (o instanceof Channel) { first = (Channel) o; break; }
+        if (first != null) select(first, false);
+        else previewMessage.setText("Nenhum jogo ao vivo ou programado");
     }
 
     private static String plain(String s) {
         String n = Normalizer.normalize(s == null ? "" : s, Normalizer.Form.NFD);
         return n.replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT);
+    }
+
+    /** Kick-off in minutes since midnight written in the name ("Flamengo x Palmeiras 21:30"), or -1. */
+    private static int kickoff(Channel c) {
+        Matcher m = TIME.matcher(c.name);
+        return m.find() ? Integer.parseInt(m.group(1)) * 60 + Integer.parseInt(m.group(2)) : -1;
+    }
+
+    private static String hhmm(int minutes) {
+        return String.format(Locale.US, "%02d:%02d", minutes / 60, minutes % 60);
+    }
+
+    /** The name without its time, for a cleaner title. */
+    private static String title(Channel c) {
+        String t = TIME.matcher(c.name).replaceAll(" ").replaceAll("\\s*[-|•]\\s*$", "").replaceAll("^\\s*[-|•]\\s*", "");
+        return t.replaceAll("\\s+", " ").trim();
+    }
+
+    private static int nowMinutes() {
+        Calendar cal = Calendar.getInstance();
+        return cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE);
+    }
+
+    private boolean isLive(Channel c) {
+        int k = kickoff(c);
+        int now = nowMinutes();
+        return k >= 0 && now >= k && now < k + LIVE_MINUTES;
+    }
+
+    /** Splits the games into live and upcoming; games that already ended are left out. */
+    private void rebuild() {
+        List<Channel> live = new ArrayList<Channel>();
+        List<Channel> next = new ArrayList<Channel>();
+        List<Channel> untimed = new ArrayList<Channel>();
+        int now = nowMinutes();
+        for (Channel c : pool) {
+            int k = kickoff(c);
+            if (k < 0) untimed.add(c);
+            else if (now >= k && now < k + LIVE_MINUTES) live.add(c);
+            else if (k > now) next.add(c);
+        }
+        Comparator<Channel> byTime = new Comparator<Channel>() {
+            public int compare(Channel a, Channel b) { return Integer.compare(kickoff(a), kickoff(b)); }
+        };
+        Collections.sort(live, byTime);
+        Collections.sort(next, byTime);
+        rows.clear();
+        if (!live.isEmpty()) {
+            rows.add("● AO VIVO AGORA");
+            rows.addAll(live);
+        }
+        if (!next.isEmpty()) {
+            rows.add("PRÓXIMOS JOGOS");
+            rows.addAll(next);
+        }
+        // Without times in the names there is no way to tell what ended; list them as channels.
+        boolean timed = !live.isEmpty() || !next.isEmpty() || untimed.size() < pool.size();
+        if (!untimed.isEmpty() && (!timed || !fromTodayFolder)) {
+            rows.add(fromTodayFolder ? "TRANSMISSÕES" : "CANAIS DE ESPORTES");
+            rows.addAll(untimed);
+        }
+        adapter.notifyDataSetChanged();
+        emptyText.setVisibility(rows.isEmpty() ? View.VISIBLE : View.GONE);
+        emptyText.setText(fromTodayFolder ? "Nenhum jogo ao vivo ou programado para hoje"
+                : "Sua lista não tem a pasta \"Jogos de hoje\"");
     }
 
     public void onTopBar(int item) {
@@ -129,63 +179,60 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         LinearLayout body = Ui.row(this);
         body.setGravity(Gravity.TOP);
         int p = Ui.dp(this, 24);
-        body.setPadding(p, Ui.dp(this, 6), p, Ui.dp(this, 12));
+        body.setPadding(p, Ui.dp(this, 4), p, Ui.dp(this, 12));
         root.addView(body, new LinearLayout.LayoutParams(-1, 0, 1f));
 
-        body.addView(buildHero(), new LinearLayout.LayoutParams(0, -1, 0.44f));
-        LinearLayout right = Ui.column(this);
-        LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(0, -1, 0.56f);
-        rl.leftMargin = Ui.dp(this, 20);
-        body.addView(right, rl);
-
+        // Left: the games.
+        LinearLayout left = Ui.column(this);
         LinearLayout head = Ui.row(this);
-        heading = Ui.text(this, "", 20, Palette.TEXT, true);
+        TextView heading = Ui.text(this, "JOGOS DE HOJE", 20, Palette.TEXT, true);
         head.addView(heading);
-        headingNote = Ui.text(this, "", 13, Palette.TEXT_DIM, false);
-        headingNote.setPadding(Ui.dp(this, 12), 0, 0, 0);
-        headingNote.setSingleLine(true);
-        headingNote.setEllipsize(TextUtils.TruncateAt.END);
-        head.addView(headingNote, Ui.weight(1));
-        right.addView(head, Ui.lp(-1, -2));
-        HorizontalScrollView hs = new HorizontalScrollView(this);
-        hs.setHorizontalScrollBarEnabled(false);
-        chips = Ui.row(this);
-        hs.addView(chips);
-        LinearLayout.LayoutParams hl = Ui.lp(-1, -2);
-        hl.topMargin = Ui.dp(this, 8);
-        right.addView(hs, hl);
+        View line = new View(this);
+        line.setBackground(Ui.round(Palette.GOLD, Ui.dp(this, 2)));
+        LinearLayout.LayoutParams ll = Ui.lp(Ui.dp(this, 40), Ui.dp(this, 3));
+        ll.leftMargin = Ui.dp(this, 12);
+        head.addView(line, ll);
+        left.addView(head, Ui.lp(-1, -2));
+        FrameLayout listBox = new FrameLayout(this);
+        list = new ListView(this);
+        list.setDivider(new android.graphics.drawable.ColorDrawable(0));
+        list.setDividerHeight(Ui.dp(this, 6));
+        list.setSelector(new android.graphics.drawable.ColorDrawable(0));
+        list.setVerticalScrollBarEnabled(false);
+        list.setPadding(0, Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10));
+        list.setClipToPadding(false);
+        adapter = new RowAdapter();
+        list.setAdapter(adapter);
+        listBox.addView(list, new FrameLayout.LayoutParams(-1, -1));
+        emptyText = Ui.text(this, "", 16, Palette.TEXT_DIM, false);
+        emptyText.setGravity(Gravity.CENTER);
+        listBox.addView(emptyText, new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER));
+        left.addView(listBox, new LinearLayout.LayoutParams(-1, 0, 1f));
+        body.addView(left, new LinearLayout.LayoutParams(0, -1, 0.56f));
 
-        grid = new GridView(this);
-        grid.setNumColumns(GridView.AUTO_FIT);
-        grid.setColumnWidth(Ui.dp(this, 250));
-        grid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
-        grid.setHorizontalSpacing(Ui.dp(this, 10));
-        grid.setVerticalSpacing(Ui.dp(this, 10));
-        grid.setSelector(new android.graphics.drawable.ColorDrawable(0));
-        grid.setDrawSelectorOnTop(false);
-        grid.setPadding(0, Ui.dp(this, 10), 0, Ui.dp(this, 10));
-        grid.setClipToPadding(false);
-        adapter = new CardAdapter();
-        grid.setAdapter(adapter);
-        right.addView(grid, new LinearLayout.LayoutParams(-1, 0, 1f));
-        grid.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+        list.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             public void onItemClick(AdapterView<?> parent, View v, int pos, long id) {
-                Channel c = shown.get(pos);
-                if (c != playing) select(c, false);
-                openFullscreen();
+                Object o = rows.get(pos);
+                if (!(o instanceof Channel)) return;
+                Channel c = (Channel) o;
+                // First press plays it on the right; pressing it again goes fullscreen.
+                if (c != playing) select(c, true);
+                else openFullscreen();
             }
         });
-        grid.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+        list.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             public boolean onItemLongClick(AdapterView<?> parent, View v, int pos, long id) {
-                toggleFav(shown.get(pos));
+                Object o = rows.get(pos);
+                if (o instanceof Channel) toggleFav((Channel) o);
                 return true;
             }
         });
-        setContentView(root);
-    }
 
-    private View buildHero() {
-        LinearLayout hero = Ui.column(this);
+        // Right: the small player and the selected game.
+        LinearLayout right = Ui.column(this);
+        LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(0, -1, 0.44f);
+        rl.leftMargin = Ui.dp(this, 20);
+        body.addView(right, rl);
 
         FrameLayout frame = new FrameLayout(this);
         float r = Ui.dp(this, 14);
@@ -193,28 +240,22 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         Ui.clipRound(frame, r);
         frame.setFocusable(true);
         frame.setClickable(true);
-        frame.setForeground(Ui.selectable(this, 0, 0, r, Palette.GOLD));
+        frame.setForeground(Ui.focusRing(this, r));
         preview = new VideoView(this);
         frame.addView(preview, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
         previewLoading = new ProgressBar(this);
         previewLoading.setIndeterminateTintList(ColorStateList.valueOf(Palette.GOLD));
         previewLoading.setVisibility(View.GONE);
         frame.addView(previewLoading, new FrameLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 44), Gravity.CENTER));
-        previewMessage = Ui.text(this, "", 15, Palette.TEXT_DIM, false);
+        previewMessage = Ui.text(this, "", 14, Palette.TEXT_DIM, false);
         previewMessage.setGravity(Gravity.CENTER);
         previewMessage.setPadding(Ui.dp(this, 16), 0, Ui.dp(this, 16), 0);
         frame.addView(previewMessage, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
-        liveBadge = Ui.text(this, "● AO VIVO", 12, Palette.TEXT, true);
-        liveBadge.setBackground(Ui.round(Palette.HOT, Ui.dp(this, 6)));
-        liveBadge.setPadding(Ui.dp(this, 8), Ui.dp(this, 3), Ui.dp(this, 8), Ui.dp(this, 3));
-        FrameLayout.LayoutParams bl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
-        bl.setMargins(Ui.dp(this, 10), Ui.dp(this, 10), 0, 0);
-        frame.addView(liveBadge, bl);
-        hero.addView(frame, new LinearLayout.LayoutParams(-1, 0, 1f));
+        int w = (int) ((getResources().getDisplayMetrics().widthPixels - Ui.dp(this, 68)) * 0.44f);
+        right.addView(frame, Ui.lp(-1, w * 9 / 16));
         frame.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { if (playing != null) openFullscreen(); }
         });
-
         preview.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
             public void onPrepared(MediaPlayer mp) {
                 previewLoading.setVisibility(View.GONE);
@@ -224,119 +265,79 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         preview.setOnErrorListener(new MediaPlayer.OnErrorListener() {
             public boolean onError(MediaPlayer mp, int what, int extra) {
                 previewLoading.setVisibility(View.GONE);
-                previewMessage.setText("Canal indisponível no momento");
+                previewMessage.setText("Transmissão indisponível no momento");
                 return true;
             }
         });
 
         LinearLayout info = Ui.column(this);
         info.setBackground(Ui.round(Palette.SURFACE_HI, Ui.dp(this, 14)));
-        int p = Ui.dp(this, 14);
-        info.setPadding(p, p, p, p);
-        LinearLayout head = Ui.row(this);
+        int ip = Ui.dp(this, 16);
+        info.setPadding(ip, ip, ip, ip);
+        LinearLayout top = Ui.row(this);
         infoLogo = new ImageView(this);
         infoLogo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        head.addView(infoLogo, Ui.lp(Ui.dp(this, 52), Ui.dp(this, 38)));
-        LinearLayout titles = Ui.column(this);
-        titles.setPadding(Ui.dp(this, 12), 0, 0, 0);
-        infoName = Ui.text(this, "", 17, Palette.TEXT, true);
-        infoName.setSingleLine(true);
-        infoName.setEllipsize(TextUtils.TruncateAt.END);
-        titles.addView(infoName);
-        infoNow = Ui.text(this, "", 14, Palette.GOLD, true);
-        infoNow.setSingleLine(true);
-        infoNow.setEllipsize(TextUtils.TruncateAt.END);
-        titles.addView(infoNow);
-        head.addView(titles, Ui.weight(1));
+        top.addView(infoLogo, Ui.lp(Ui.dp(this, 52), Ui.dp(this, 40)));
+        infoStatus = Ui.text(this, "", 12, Palette.TEXT, true);
+        infoStatus.setPadding(Ui.dp(this, 8), Ui.dp(this, 3), Ui.dp(this, 8), Ui.dp(this, 3));
+        LinearLayout.LayoutParams sl = Ui.lp(-2, -2);
+        sl.leftMargin = Ui.dp(this, 12);
+        top.addView(infoStatus, sl);
+        top.addView(new View(this), Ui.spacer());
         favButton = Ui.text(this, "☆", 24, Palette.GOLD, false);
+        favButton.setGravity(Gravity.CENTER);
         favButton.setFocusable(true);
         favButton.setClickable(true);
-        favButton.setGravity(Gravity.CENTER);
         favButton.setBackground(Ui.selectable(this, 0, 0x22FFFFFF, Ui.dp(this, 20), Palette.GOLD));
-        head.addView(favButton, Ui.lp(Ui.dp(this, 44), Ui.dp(this, 44)));
+        top.addView(favButton, Ui.lp(Ui.dp(this, 44), Ui.dp(this, 44)));
         favButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { if (playing != null) toggleFav(playing); }
         });
-        info.addView(head, Ui.lp(-1, -2));
-
-        infoProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        infoProgress.setMax(1000);
-        infoProgress.setProgressTintList(ColorStateList.valueOf(Palette.GOLD));
-        infoProgress.setProgressBackgroundTintList(ColorStateList.valueOf(0xFF444444));
-        LinearLayout.LayoutParams pl = Ui.lp(-1, Ui.dp(this, 4));
-        pl.topMargin = Ui.dp(this, 10);
-        info.addView(infoProgress, pl);
-        LinearLayout times = Ui.row(this);
-        infoTime = Ui.text(this, "", 13, Palette.TEXT_DIM, false);
-        times.addView(infoTime, Ui.weight(1));
-        infoNext = Ui.text(this, "", 13, Palette.TEXT_DIM, false);
-        infoNext.setSingleLine(true);
-        infoNext.setEllipsize(TextUtils.TruncateAt.END);
-        infoNext.setGravity(Gravity.END);
-        times.addView(infoNext, Ui.weight(1.6f));
+        info.addView(top, Ui.lp(-1, -2));
+        infoTitle = Ui.text(this, "", 20, Palette.TEXT, true);
+        infoTitle.setMaxLines(2);
+        infoTitle.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams tl = Ui.lp(-1, -2);
-        tl.topMargin = Ui.dp(this, 6);
-        info.addView(times, tl);
-
+        tl.topMargin = Ui.dp(this, 10);
+        info.addView(infoTitle, tl);
+        infoSub = Ui.text(this, "", 14, Palette.TEXT_DIM, false);
+        info.addView(infoSub);
+        infoNow = Ui.text(this, "", 14, Palette.GOLD, false);
+        infoNow.setSingleLine(true);
+        infoNow.setEllipsize(TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams nl = Ui.lp(-1, -2);
+        nl.topMargin = Ui.dp(this, 6);
+        info.addView(infoNow, nl);
+        TextView hint = Ui.text(this, "Pressione OK de novo para ver em tela cheia", 12, Palette.TEXT_DIM, false);
+        LinearLayout.LayoutParams hl = Ui.lp(-1, -2);
+        hl.topMargin = Ui.dp(this, 10);
+        info.addView(hint, hl);
         LinearLayout.LayoutParams il = Ui.lp(-1, -2);
         il.topMargin = Ui.dp(this, 12);
-        hero.addView(info, il);
-        return hero;
+        right.addView(info, il);
+
+        setContentView(root);
     }
 
     // ---------------------------------------------------------------- state
 
-    private void selectGroup(String g) {
-        group = g;
-        shown = new ArrayList<Channel>();
-        for (Channel c : all) if (g == null || g.equals(c.group)) shown.add(c);
-        chips.removeAllViews();
-        // Folder chips only make sense when there is more than one folder.
-        ((View) chips.getParent()).setVisibility(groups.size() > 1 ? View.VISIBLE : View.GONE);
-        addChip(null, "Todos");
-        for (String name : groups) addChip(name, name);
-        adapter.notifyDataSetChanged();
-        grid.setSelection(0);
-    }
-
-    private void addChip(final String value, String label) {
-        boolean on = value == null ? group == null : value.equals(group);
-        TextView chip = Ui.text(this, label, 14, on ? Palette.BLACK : Palette.TEXT, true);
-        chip.setSingleLine(true);
-        chip.setFocusable(true);
-        chip.setClickable(true);
-        chip.setBackground(Ui.selectable(this, on ? Palette.GOLD : Palette.SURFACE_HI,
-                on ? Palette.GOLD_LIGHT : 0xFF2A2A2A, Ui.dp(this, 18), Palette.GOLD));
-        chip.setPadding(Ui.dp(this, 16), Ui.dp(this, 8), Ui.dp(this, 16), Ui.dp(this, 8));
-        LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
-        lp.rightMargin = Ui.dp(this, 8);
-        chips.addView(chip, lp);
-        chip.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { selectGroup(value); }
-        });
-    }
-
     private void select(final Channel c, boolean startNow) {
         playing = c;
         Repo.current = c;
-        Repo.playlist = shown.contains(c) ? shown : all;
         adapter.notifyDataSetChanged();
         ImageLoader.load(c.logo, infoLogo, Ui.dp(this, 52), R.drawable.ic_launcher);
-        infoName.setText(c.name);
+        infoTitle.setText(title(c));
+        int k = kickoff(c);
+        infoSub.setText((k >= 0 ? "Início " + hhmm(k) + "  •  " : "") + c.group);
+        boolean live = isLive(c);
+        infoStatus.setText(live ? "● AO VIVO" : k >= 0 ? "EM BREVE" : "CANAL");
+        infoStatus.setBackground(Ui.round(live ? Palette.HOT : 0xFF3A3A3A, Ui.dp(this, 6)));
         infoNow.setText("");
-        infoTime.setText("");
-        infoNext.setText("");
-        infoProgress.setVisibility(View.INVISIBLE);
         favButton.setText(Repo.isFav(Repo.liveKey(c)) ? "★" : "☆");
         Epg.get(c, new Epg.Callback() {
             public void done(List<Xtream.Program> programs) {
                 if (isFinishing() || c != playing || programs.isEmpty()) return;
-                Xtream.Program now = programs.get(0);
-                infoNow.setText(now.title);
-                infoTime.setText(clock.format(new Date(now.start)) + " - " + clock.format(new Date(now.end)));
-                infoProgress.setProgress(Epg.progress(now));
-                infoProgress.setVisibility(View.VISIBLE);
-                if (programs.size() > 1) infoNext.setText("A seguir: " + programs.get(1).title);
+                infoNow.setText("Agora: " + programs.get(0).title);
             }
         });
         if (startNow) startPreview();
@@ -350,6 +351,12 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         preview.setVideoURI(Uri.parse(playing.url));
     }
 
+    private List<Channel> games() {
+        List<Channel> out = new ArrayList<Channel>();
+        for (Object o : rows) if (o instanceof Channel) out.add((Channel) o);
+        return out;
+    }
+
     private void toggleFav(Channel c) {
         boolean on = Repo.toggleFav(Repo.liveKey(c));
         Toast.makeText(this, on ? "★ Adicionado aos favoritos" : "Removido dos favoritos", Toast.LENGTH_SHORT).show();
@@ -358,7 +365,7 @@ public class SportsActivity extends Activity implements TopBar.Listener {
     }
 
     private void openFullscreen() {
-        Repo.playlist = shown.contains(playing) ? shown : all;
+        Repo.playlist = games();
         Intent i = new Intent(this, PlayerActivity.class);
         i.putExtra(PlayerActivity.EXTRA_INDEX, Math.max(0, Repo.playlist.indexOf(playing)));
         startActivity(i);
@@ -367,6 +374,7 @@ public class SportsActivity extends Activity implements TopBar.Listener {
     @Override
     protected void onPause() {
         super.onPause();
+        handler.removeCallbacks(refresh);
         if (preview != null) preview.stopPlayback();
     }
 
@@ -374,7 +382,8 @@ public class SportsActivity extends Activity implements TopBar.Listener {
     protected void onResume() {
         super.onResume();
         if (preview == null) return;
-        if (Repo.current != null && Repo.current != playing && all.contains(Repo.current)) select(Repo.current, false);
+        handler.postDelayed(refresh, 60000);
+        if (Repo.current != null && Repo.current != playing && pool.contains(Repo.current)) select(Repo.current, false);
         startPreview();
     }
 
@@ -384,107 +393,84 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         overridePendingTransition(0, 0);
     }
 
-    // ---------------------------------------------------------------- cards
+    // ---------------------------------------------------------------- rows
 
-    private final Runnable refresh = new Runnable() {
-        public void run() { adapter.notifyDataSetChanged(); }
-    };
-
-    private final class CardAdapter extends BaseAdapter {
-        public int getCount() { return shown.size(); }
-        public Object getItem(int i) { return shown.get(i); }
+    private final class RowAdapter extends BaseAdapter {
+        public int getCount() { return rows.size(); }
+        public Object getItem(int i) { return rows.get(i); }
         public long getItemId(int i) { return i; }
+        @Override public int getViewTypeCount() { return 2; }
+        @Override public int getItemViewType(int i) { return rows.get(i) instanceof String ? 0 : 1; }
+        @Override public boolean isEnabled(int i) { return rows.get(i) instanceof Channel; }
 
         public View getView(int pos, View convert, ViewGroup parent) {
-            Card h = convert == null ? new Card() : (Card) convert.getTag();
-            Channel c = shown.get(pos);
-            boolean on = c == playing;
-            h.root.setBackground(on
-                    ? Ui.stroke(Palette.SURFACE_HI, Ui.dp(SportsActivity.this, 12), Ui.dp(SportsActivity.this, 2), Palette.GOLD)
-                    : Ui.selectable(SportsActivity.this, Palette.SURFACE_HI, 0xFF2A2A2A, Ui.dp(SportsActivity.this, 12),
-                    Palette.GOLD));
-            h.name.setText(c.name);
-            h.name.setTextColor(on ? Palette.GOLD : Palette.TEXT);
-            String k = kickoff(c);
-            h.time.setText(k == null ? "--:--" : k);
-            h.time.setVisibility(View.VISIBLE);
-            h.fav.setVisibility(Repo.isFav(Repo.liveKey(c)) ? View.VISIBLE : View.GONE);
-            ImageLoader.load(c.logo, h.logo, Ui.dp(SportsActivity.this, 56), R.drawable.ic_launcher);
-            Xtream.Program now = Epg.now(c);
-            if (now != null) {
-                h.now.setText(clock.format(new Date(now.start)) + "  " + now.title);
-                h.progress.setProgress(Epg.progress(now));
-                h.progress.setVisibility(View.VISIBLE);
-                h.live.setVisibility(View.VISIBLE);
-            } else {
-                h.now.setText(c.group);
-                h.progress.setVisibility(View.INVISIBLE);
-                h.live.setVisibility(View.GONE);
-                if (c.streamId != null && Epg.peek(c) == null) {
-                    Epg.get(c, new Epg.Callback() {
-                        public void done(List<Xtream.Program> programs) {
-                            if (programs.isEmpty() || isFinishing()) return;
-                            grid.removeCallbacks(refresh);
-                            grid.postDelayed(refresh, 150);
-                        }
-                    });
-                }
+            Object o = rows.get(pos);
+            if (o instanceof String) {
+                TextView h = convert instanceof TextView ? (TextView) convert
+                        : Ui.text(SportsActivity.this, "", 14, Palette.TEXT, true);
+                String text = (String) o;
+                h.setText(text);
+                h.setTextColor(text.startsWith("●") ? Palette.ERROR : Palette.GOLD);
+                h.setPadding(Ui.dp(SportsActivity.this, 4), Ui.dp(SportsActivity.this, pos == 0 ? 2 : 14), 0,
+                        Ui.dp(SportsActivity.this, 2));
+                return h;
             }
+            Card h = convert == null || !(convert.getTag() instanceof Card) ? new Card() : (Card) convert.getTag();
+            Channel c = (Channel) o;
+            boolean on = c == playing;
+            float r = Ui.dp(SportsActivity.this, 12);
+            h.root.setBackground(on
+                    ? Ui.stroke(Palette.SURFACE_HI, r, Ui.dp(SportsActivity.this, 2), Palette.GOLD)
+                    : Ui.selectable(SportsActivity.this, Palette.SURFACE, Palette.SURFACE_HI, r, Palette.GOLD));
+            int k = kickoff(c);
+            boolean live = isLive(c);
+            h.time.setText(k >= 0 ? hhmm(k) : "--:--");
+            h.time.setTextColor(live ? Palette.TEXT : Palette.BLACK);
+            h.time.setBackground(Ui.round(live ? Palette.HOT : Palette.GOLD, Ui.dp(SportsActivity.this, 8)));
+            h.live.setVisibility(live ? View.VISIBLE : View.GONE);
+            h.name.setText(title(c));
+            h.name.setTextColor(on ? Palette.GOLD : Palette.TEXT);
+            h.sub.setText((Repo.isFav(Repo.liveKey(c)) ? "★  " : "") + c.group);
+            ImageLoader.load(c.logo, h.logo, Ui.dp(SportsActivity.this, 48), R.drawable.ic_launcher);
             return h.root;
         }
     }
 
     private final class Card {
         final LinearLayout root;
+        final TextView time, live, name, sub;
         final ImageView logo;
-        final TextView name, now, live, fav, time;
-        final ProgressBar progress;
 
         Card() {
             Activity a = SportsActivity.this;
             root = Ui.row(a);
-            int p = Ui.dp(a, 12);
-            root.setPadding(p, p, p, p);
-            root.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1, Ui.dp(a, 88)));
-            time = Ui.text(a, "", 15, Palette.BLACK, true);
+            int p = Ui.dp(a, 10);
+            root.setPadding(p, p, Ui.dp(a, 14), p);
+            root.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1, Ui.dp(a, 76)));
+            LinearLayout timeCol = Ui.column(a);
+            timeCol.setGravity(Gravity.CENTER);
+            time = Ui.text(a, "", 16, Palette.BLACK, true);
             time.setGravity(Gravity.CENTER);
-            time.setBackground(Ui.round(Palette.GOLD, Ui.dp(a, 8)));
-            LinearLayout.LayoutParams tl = Ui.lp(Ui.dp(a, 58), Ui.dp(a, 32));
-            tl.rightMargin = Ui.dp(a, 10);
-            root.addView(time, tl);
+            timeCol.addView(time, Ui.lp(Ui.dp(a, 66), Ui.dp(a, 34)));
+            live = Ui.text(a, "AO VIVO", 10, Palette.ERROR, true);
+            live.setGravity(Gravity.CENTER);
+            timeCol.addView(live, Ui.lp(Ui.dp(a, 66), -2));
+            root.addView(timeCol);
             logo = new ImageView(a);
             logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            root.addView(logo, Ui.lp(Ui.dp(a, 48), Ui.dp(a, 38)));
+            LinearLayout.LayoutParams ll = Ui.lp(Ui.dp(a, 48), Ui.dp(a, 38));
+            ll.leftMargin = Ui.dp(a, 12);
+            root.addView(logo, ll);
             LinearLayout col = Ui.column(a);
             col.setPadding(Ui.dp(a, 12), 0, 0, 0);
-            LinearLayout top = Ui.row(a);
-            name = Ui.text(a, "", 15, Palette.TEXT, true);
+            name = Ui.text(a, "", 16, Palette.TEXT, true);
             name.setSingleLine(true);
             name.setEllipsize(TextUtils.TruncateAt.END);
-            top.addView(name, Ui.weight(1));
-            fav = Ui.text(a, "★", 14, Palette.GOLD, false);
-            fav.setPadding(Ui.dp(a, 6), 0, 0, 0);
-            top.addView(fav);
-            live = Ui.text(a, "AO VIVO", 10, Palette.TEXT, true);
-            live.setBackground(Ui.round(Palette.HOT, Ui.dp(a, 4)));
-            live.setPadding(Ui.dp(a, 5), Ui.dp(a, 1), Ui.dp(a, 5), Ui.dp(a, 1));
-            LinearLayout.LayoutParams ll = Ui.lp(-2, -2);
-            ll.leftMargin = Ui.dp(a, 6);
-            top.addView(live, ll);
-            col.addView(top, Ui.lp(-1, -2));
-            now = Ui.text(a, "", 13, Palette.TEXT_DIM, false);
-            now.setSingleLine(true);
-            now.setEllipsize(TextUtils.TruncateAt.END);
-            LinearLayout.LayoutParams nl = Ui.lp(-1, -2);
-            nl.topMargin = Ui.dp(a, 3);
-            col.addView(now, nl);
-            progress = new ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal);
-            progress.setMax(1000);
-            progress.setProgressTintList(ColorStateList.valueOf(Palette.GOLD));
-            progress.setProgressBackgroundTintList(ColorStateList.valueOf(0xFF444444));
-            LinearLayout.LayoutParams pl = Ui.lp(-1, Ui.dp(a, 3));
-            pl.topMargin = Ui.dp(a, 6);
-            col.addView(progress, pl);
+            col.addView(name);
+            sub = Ui.text(a, "", 12, Palette.TEXT_DIM, false);
+            sub.setSingleLine(true);
+            sub.setEllipsize(TextUtils.TruncateAt.END);
+            col.addView(sub);
             root.addView(col, Ui.weight(1));
             root.setTag(this);
         }

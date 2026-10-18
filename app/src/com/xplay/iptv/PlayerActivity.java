@@ -82,10 +82,7 @@ public class PlayerActivity extends Activity {
     private FrameLayout overlay;
 
     // live overlay
-    private TextView number, channelName, nowLine, nowDesc, nextLine;
-    private ProgressBar nowProgress;
-    private LinearLayout cards;
-    private View cardsBlock;
+    private LiveOverlay liveInfo;
 
     // vod overlay
     private TextView vodTitleView, vodSubView, position, duration;
@@ -210,135 +207,25 @@ public class PlayerActivity extends Activity {
     // ---------------------------------------------------------------- live overlay
 
     private void buildLiveOverlay() {
-        LinearLayout top = Ui.row(this);
-        top.setGravity(Gravity.TOP);
-        top.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[] {0xE6000000, 0x99000000, 0x00000000}));
-        int p = Ui.dp(this, 24);
-        top.setPadding(p, Ui.dp(this, 16), p, Ui.dp(this, 48));
-        LinearLayout left = Ui.column(this);
-        left.setGravity(Gravity.CENTER_HORIZONTAL);
-        number = Ui.text(this, "", 60, Palette.TEXT, true);
-        number.setIncludeFontPadding(false);
-        left.addView(number);
-        channelName = Ui.text(this, "", 19, Palette.TEXT, true);
-        channelName.setGravity(Gravity.CENTER);
-        channelName.setMaxLines(2);
-        left.addView(channelName);
-        top.addView(left, Ui.lp(Ui.dp(this, 280), -2));
-
-        LinearLayout right = Ui.column(this);
-        right.setPadding(Ui.dp(this, 24), Ui.dp(this, 8), 0, 0);
-        nowLine = Ui.text(this, "", 20, Palette.TEXT, true);
-        nowLine.setSingleLine(true);
-        nowLine.setEllipsize(TextUtils.TruncateAt.END);
-        right.addView(nowLine);
-        nowDesc = Ui.text(this, "", 14, 0xFFCCCCCC, false);
-        nowDesc.setMaxLines(2);
-        nowDesc.setEllipsize(TextUtils.TruncateAt.END);
-        right.addView(nowDesc);
-        nowProgress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        nowProgress.setMax(1000);
-        nowProgress.setProgressTintList(ColorStateList.valueOf(Palette.GOLD));
-        nowProgress.setProgressBackgroundTintList(ColorStateList.valueOf(0xFFDDDDDD));
-        LinearLayout.LayoutParams pp = Ui.lp(-1, Ui.dp(this, 6));
-        pp.topMargin = Ui.dp(this, 8);
-        right.addView(nowProgress, pp);
-        nextLine = Ui.text(this, "", 18, 0xFFBBBBBB, false);
-        nextLine.setSingleLine(true);
-        nextLine.setEllipsize(TextUtils.TruncateAt.END);
-        LinearLayout.LayoutParams np = Ui.lp(-1, -2);
-        np.topMargin = Ui.dp(this, 8);
-        right.addView(nextLine, np);
-        top.addView(right, Ui.weight(1));
-        overlay.addView(top, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
-
-        LinearLayout bottom = Ui.column(this);
-        cardsBlock = bottom;
-        bottom.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
-                new int[] {0xE6000000, 0x99000000, 0x00000000}));
-        bottom.setPadding(p, Ui.dp(this, 40), 0, Ui.dp(this, 16));
-        TextView hint = Ui.text(this, "outras qualidades deste canal", 14, Palette.TEXT_DIM, false);
-        hint.setPadding(Ui.dp(this, 12), 0, 0, Ui.dp(this, 10));
-        bottom.addView(hint);
-        HorizontalScrollView hs = new HorizontalScrollView(this);
-        hs.setHorizontalScrollBarEnabled(false);
-        cards = Ui.row(this);
-        cards.setPadding(0, Ui.dp(this, 4), Ui.dp(this, 24), Ui.dp(this, 4));
-        hs.addView(cards);
-        bottom.addView(hs, Ui.lp(-1, -2));
-        overlay.addView(bottom, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
-    }
-
-    /** Cards for the other qualities of the current channel (Globo SP SD / HD / FHD / 4K). */
-    private void buildVariants() {
-        cards.removeAllViews();
-        List<Channel> variants = Variants.of(channel, Adult.channels());
-        cardsBlock.setVisibility(variants.size() > 1 ? View.VISIBLE : View.GONE);
-        if (variants.size() <= 1) return;
-        for (final Channel v : variants) {
-            boolean current = v == channel;
-            LinearLayout card = Ui.column(this);
-            card.setGravity(Gravity.CENTER);
-            card.setFocusable(true);
-            card.setClickable(true);
-            float r = Ui.dp(this, 10);
-            card.setBackground(current
-                    ? Ui.stroke(0xCC141414, r, Ui.dp(this, 3), Palette.GOLD)
-                    : Ui.selectable(this, 0xB3141414, 0xE6222222, r, Palette.GOLD));
-            int pad = Ui.dp(this, 10);
-            card.setPadding(pad, pad, pad, pad);
-            ImageView logo = new ImageView(this);
-            logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            ImageLoader.load(v.logo, logo, Ui.dp(this, 60), R.drawable.ic_launcher);
-            card.addView(logo, Ui.lp(Ui.dp(this, 60), Ui.dp(this, 46)));
-            TextView name = Ui.text(this, v.name.toUpperCase(Locale.getDefault()), 13, Palette.TEXT, true);
-            name.setGravity(Gravity.CENTER);
-            name.setMaxLines(2);
-            name.setEllipsize(TextUtils.TruncateAt.END);
-            LinearLayout.LayoutParams nl = Ui.lp(-1, -2);
-            nl.topMargin = Ui.dp(this, 6);
-            card.addView(name, nl);
-            LinearLayout.LayoutParams lp = Ui.lp(Ui.dp(this, 170), Ui.dp(this, 124));
-            lp.leftMargin = Ui.dp(this, 12);
-            cards.addView(card, lp);
-            if (current) card.setTag("current");
-            card.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View view) {
-                    if (v == channel) return;
-                    channel = v;
-                    play();
-                }
-            });
-            card.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-                public void onFocusChange(View view, boolean has) { if (has) showOverlay(); }
-            });
-        }
-    }
-
-    private void loadEpg(final Channel c) {
-        nowLine.setText(c.name);
-        nowDesc.setText("");
-        nextLine.setText("");
-        nowProgress.setVisibility(View.INVISIBLE);
-        Epg.get(c, new Epg.Callback() {
-            public void done(List<Xtream.Program> list) {
-                if (isFinishing() || channel != c || list.isEmpty()) return;
-                Xtream.Program now = list.get(0);
-                nowLine.setText(range(now) + "   " + now.title);
-                nowDesc.setText(now.description);
-                nowProgress.setProgress(Epg.progress(now));
-                nowProgress.setVisibility(View.VISIBLE);
-                if (list.size() > 1) {
-                    Xtream.Program next = list.get(1);
-                    nextLine.setText(range(next) + "   " + next.title);
-                }
+        liveInfo = new LiveOverlay(this, new LiveOverlay.Listener() {
+            public void onVariant(Channel c) {
+                channel = c;
+                play();
             }
         });
+        liveInfo.setClickable(false);
+        overlay.addView(liveInfo, new FrameLayout.LayoutParams(-1, -1));
     }
 
-    private String range(Xtream.Program p) {
-        return clock.format(new Date(p.start)) + " às " + clock.format(new Date(p.end));
+    /** ◀ ▶ or a sideways swipe: the next quality of the same channel. */
+    private void switchQuality(int delta) {
+        Channel v = liveInfo.neighbour(delta);
+        if (v == null) {
+            showOverlay();
+            return;
+        }
+        channel = v;
+        play();
     }
 
     // ---------------------------------------------------------------- vod overlay
@@ -592,10 +479,7 @@ public class PlayerActivity extends Activity {
             Repo.current = channel;
             Repo.prefs().edit().putString("last_channel", channel.url).apply();
             video.setVideoURI(Uri.parse(channel.url));
-            number.setText(Ui.pad3(Adult.number(channel)));
-            channelName.setText(channel.name.toUpperCase(Locale.getDefault()));
-            loadEpg(channel);
-            buildVariants();
+            liveInfo.bind(channel, Adult.channels());
         } else {
             vodSubView.setText(vodSubtitle == null ? "" : vodSubtitle);
             vodSubView.setVisibility(vodSubtitle == null ? View.GONE : View.VISIBLE);
@@ -636,17 +520,16 @@ public class PlayerActivity extends Activity {
                     zap(-1);
                     return true;
                 case KeyEvent.KEYCODE_DPAD_LEFT:
+                    switchQuality(-1);
+                    return true;
                 case KeyEvent.KEYCODE_DPAD_RIGHT:
+                    switchQuality(1);
+                    return true;
                 case KeyEvent.KEYCODE_DPAD_CENTER:
                 case KeyEvent.KEYCODE_ENTER:
-                    if (!visible) {
-                        showOverlay();
-                        View current = cards.findViewWithTag("current");
-                        if (current != null) current.requestFocus();
-                        return true;
-                    }
-                    showOverlay();
-                    break;
+                    if (visible) overlay.setVisibility(View.GONE);
+                    else showOverlay();
+                    return true;
                 default:
                     break;
             }
@@ -712,6 +595,10 @@ public class PlayerActivity extends Activity {
             float threshold = getResources().getDisplayMetrics().heightPixels / 5f;
             if (live && Math.abs(dy) > threshold && Math.abs(dy) > Math.abs(dx)) {
                 zap(dy < 0 ? 1 : -1);
+                return true;
+            }
+            if (live && Math.abs(dx) > getResources().getDisplayMetrics().widthPixels / 6f && Math.abs(dx) > Math.abs(dy)) {
+                switchQuality(dx < 0 ? 1 : -1);
                 return true;
             }
             if (overlay.getVisibility() != View.VISIBLE) {
