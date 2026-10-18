@@ -112,6 +112,13 @@ public final class Ui {
         return new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, w);
     }
 
+    /** Poster width that fits the screen: small phones in landscape get smaller posters than TVs. */
+    public static int posterDp(Context c) {
+        android.util.DisplayMetrics m = c.getResources().getDisplayMetrics();
+        float heightDp = Math.min(m.widthPixels, m.heightPixels) / m.density;
+        return (int) Math.max(96, Math.min(150, heightDp * 0.27f));
+    }
+
     /** Flexible gap for rows; zero height so it never stretches the row vertically. */
     public static LinearLayout.LayoutParams spacer() {
         return new LinearLayout.LayoutParams(0, 0, 1f);

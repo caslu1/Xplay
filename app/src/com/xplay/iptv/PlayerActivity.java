@@ -27,7 +27,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.Callable;
 
 /**
  * Fullscreen player. Live mode zaps through Repo.playlist and shows the channel/EPG overlay;
@@ -39,6 +38,8 @@ public class PlayerActivity extends Activity {
     static final String EXTRA_URL = "url";
     static final String EXTRA_TITLE = "title";
     static final String EXTRA_SUBTITLE = "subtitle";
+    /** VodItem.favKey() of the movie or series, for "continue watching". */
+    static final String EXTRA_KEY = "key";
 
     private static final long OVERLAY_MS = 6000;
     private static final int CARD_WINDOW = 40;
@@ -60,6 +61,7 @@ public class PlayerActivity extends Activity {
     private int index;
     private String vodUrl;
     private boolean paused;
+    private boolean finished;
     private float touchY, touchX;
 
     private VideoView video;
@@ -145,6 +147,9 @@ public class PlayerActivity extends Activity {
                 if (live) play();
                 else {
                     Repo.prefs().edit().remove("pos:" + vodUrl).apply();
+                    String key = getIntent().getStringExtra(EXTRA_KEY);
+                    if (key != null) Repo.removeProgress(key);
+                    finished = true;
                     finish();
                 }
             }
@@ -275,26 +280,19 @@ public class PlayerActivity extends Activity {
         nowDesc.setText("");
         nextLine.setText("");
         nowProgress.setVisibility(View.INVISIBLE);
-        if (c.streamId == null) return;
-        Task.run(this, new Callable<List<Xtream.Program>>() {
-            public List<Xtream.Program> call() throws Exception { return Xtream.shortEpg(c.streamId); }
-        }, new Task.Done<List<Xtream.Program>>() {
-            public void ok(List<Xtream.Program> list) {
-                if (channels.get(index) != c || list.isEmpty()) return;
+        Epg.get(c, new Epg.Callback() {
+            public void done(List<Xtream.Program> list) {
+                if (isFinishing() || channels.get(index) != c || list.isEmpty()) return;
                 Xtream.Program now = list.get(0);
                 nowLine.setText(range(now) + "   " + now.title);
                 nowDesc.setText(now.description);
-                long span = Math.max(1, now.end - now.start);
-                long done = System.currentTimeMillis() - now.start;
-                nowProgress.setProgress((int) Math.max(0, Math.min(1000, done * 1000 / span)));
+                nowProgress.setProgress(Epg.progress(now));
                 nowProgress.setVisibility(View.VISIBLE);
                 if (list.size() > 1) {
                     Xtream.Program next = list.get(1);
                     nextLine.setText(range(next) + "   " + next.title);
                 }
             }
-
-            public void fail(Exception e) {}
         });
     }
 
@@ -576,6 +574,11 @@ public class PlayerActivity extends Activity {
             int pos = video.getCurrentPosition();
             int dur = video.getDuration();
             if (pos > 30000 && dur > 0 && pos < dur - 60000) Repo.prefs().edit().putInt("pos:" + vodUrl, pos).apply();
+            String key = getIntent().getStringExtra(EXTRA_KEY);
+            if (key != null && !finished && dur > 0) {
+                Repo.saveProgress(key, vodUrl, getIntent().getStringExtra(EXTRA_TITLE),
+                        getIntent().getStringExtra(EXTRA_SUBTITLE), pos, dur);
+            }
         }
         video.stopPlayback();
     }

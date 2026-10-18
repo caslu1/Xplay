@@ -73,6 +73,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         zoom = Repo.listZoom();
         buildUi();
         showGroups();
+        preloadCatalogs();
 
         String last = Repo.prefs().getString("last_channel", null);
         for (Channel c : Repo.channels) {
@@ -209,8 +210,6 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         previewMessage.setGravity(Gravity.CENTER);
         frame.addView(previewMessage, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
         LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(-1, 0, 1f);
-        fp.leftMargin = Ui.dp(this, 40);
-        fp.rightMargin = Ui.dp(this, 40);
         right.addView(frame, fp);
         frame.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { if (playing != null) openFullscreen(); }
@@ -292,6 +291,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         backButton.setVisibility(View.GONE);
         adapter.notifyDataSetChanged();
         list.setSelection(0);
+        list.requestFocus();
     }
 
     private void openGroup(String group) {
@@ -379,12 +379,9 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         nextLabel.setVisibility(View.INVISIBLE);
         nextTime.setText("");
         nextTitle.setText("");
-        if (c.streamId == null) return;
-        Task.run(this, new Callable<List<Xtream.Program>>() {
-            public List<Xtream.Program> call() throws Exception { return Xtream.shortEpg(c.streamId); }
-        }, new Task.Done<List<Xtream.Program>>() {
-            public void ok(List<Xtream.Program> programs) {
-                if (c != playing || programs.isEmpty()) return;
+        Epg.get(c, new Epg.Callback() {
+            public void done(List<Xtream.Program> programs) {
+                if (isFinishing() || c != playing || programs.isEmpty()) return;
                 Xtream.Program now = programs.get(0);
                 nowTime.setText(range(now));
                 nowTitle.setText(now.title);
@@ -395,8 +392,6 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                     nextTitle.setText(next.title);
                 }
             }
-
-            public void fail(Exception e) {}
         });
     }
 
@@ -441,27 +436,52 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                 showGroups();
                 break;
             case TopBar.FAVORITES:
-                if (Repo.isXtream()) openVod(item);
+                if (Repo.isXtream()) TopBar.open(this, item);
                 else openGroup(FAVS);
                 break;
             case TopBar.SEARCH:
                 askSearch();
                 break;
             case TopBar.ACCOUNT:
-                if (Repo.isXtream()) openVod(item);
+                if (Repo.isXtream()) TopBar.open(this, item);
                 else listMenu();
                 break;
             default:
-                openVod(item);
+                TopBar.open(this, item);
                 break;
         }
     }
 
-    private void openVod(int tab) {
-        Intent i = new Intent(this, VodActivity.class);
-        i.putExtra(VodActivity.EXTRA_TAB, tab);
-        startActivity(i);
-        overridePendingTransition(0, 0);
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        int item = intent.getIntExtra(TopBar.EXTRA_ITEM, TopBar.LIVE);
+        if (item != TopBar.LIVE) onTopBar(item);
+    }
+
+    /** Loads movies and series in the background so those tabs open instantly. */
+    private void preloadCatalogs() {
+        if (!Repo.isXtream()) return;
+        Task.run(this, new Callable<Void>() {
+            public Void call() throws Exception {
+                Xtream.loadMovies();
+                Xtream.loadSeries();
+                return null;
+            }
+        }, new Task.Done<Void>() {
+            public void ok(Void v) {}
+            public void fail(Exception e) {}
+        });
+    }
+
+    private final Runnable refreshList = new Runnable() {
+        public void run() { adapter.notifyDataSetChanged(); }
+    };
+
+    /** Coalesces many EPG answers into one list refresh. */
+    private void scheduleRefresh() {
+        list.removeCallbacks(refreshList);
+        list.postDelayed(refreshList, 150);
     }
 
     /** Account options for M3U lists, which have no account page. */
@@ -550,6 +570,17 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                 h.logo.setVisibility(View.VISIBLE);
                 ImageLoader.load(c.logo, h.logo, Ui.dp(LiveActivity.this, 56), 0);
                 h.bar.setVisibility(on ? View.VISIBLE : View.INVISIBLE);
+                h.now.setTextSize(13 * zoom);
+                Xtream.Program p = Epg.now(c);
+                h.now.setText(p == null ? "" : p.title);
+                h.now.setVisibility(p == null ? View.GONE : View.VISIBLE);
+                if (p == null && c.streamId != null && Epg.peek(c) == null) {
+                    Epg.get(c, new Epg.Callback() {
+                        public void done(List<Xtream.Program> programs) {
+                            if (!programs.isEmpty() && !isFinishing()) scheduleRefresh();
+                        }
+                    });
+                }
             } else {
                 String g = groups.get(pos);
                 h.name.setText(g.toUpperCase(Locale.getDefault()));
@@ -557,6 +588,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                 h.extra.setText(count(g));
                 h.extra.setTextColor(Palette.TEXT_DIM);
                 h.logo.setVisibility(View.GONE);
+                h.now.setVisibility(View.GONE);
                 h.bar.setVisibility(playing != null && g.equals(playing.group) ? View.VISIBLE : View.INVISIBLE);
             }
             return h.card;
@@ -577,6 +609,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         final View bar;
         final ImageView logo;
         final TextView name;
+        final TextView now;
         final TextView extra;
 
         Holder() {
@@ -598,11 +631,17 @@ public class LiveActivity extends Activity implements TopBar.Listener {
             lp.leftMargin = Ui.dp(LiveActivity.this, 6);
             row.addView(logo, lp);
 
+            LinearLayout texts = Ui.column(LiveActivity.this);
+            texts.setPadding(Ui.dp(LiveActivity.this, 12), 0, Ui.dp(LiveActivity.this, 8), 0);
             name = Ui.text(LiveActivity.this, "", 17, Palette.TEXT, true);
             name.setSingleLine(true);
             name.setEllipsize(TextUtils.TruncateAt.END);
-            name.setPadding(Ui.dp(LiveActivity.this, 12), 0, Ui.dp(LiveActivity.this, 8), 0);
-            row.addView(name, Ui.weight(1));
+            texts.addView(name);
+            now = Ui.text(LiveActivity.this, "", 13, Palette.TEXT_DIM, false);
+            now.setSingleLine(true);
+            now.setEllipsize(TextUtils.TruncateAt.END);
+            texts.addView(now);
+            row.addView(texts, Ui.weight(1));
 
             extra = Ui.text(LiveActivity.this, "", 14, Palette.TEXT_DIM, false);
             extra.setPadding(0, 0, Ui.dp(LiveActivity.this, 14), 0);

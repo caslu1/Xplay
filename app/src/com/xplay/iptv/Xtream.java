@@ -110,7 +110,9 @@ public final class Xtream {
         return out;
     }
 
-    public static void loadMovies() throws IOException {
+    /** Loads the movie catalog unless it is already loaded (clear Repo.movies to force). */
+    public static synchronized void loadMovies() throws IOException {
+        if (Repo.movies != null) return;
         try {
             LinkedHashMap<String, String> cats = categories("get_vod_categories");
             JSONArray arr = new JSONArray(get(api() + "&action=get_vod_streams"));
@@ -128,7 +130,9 @@ public final class Xtream {
         }
     }
 
-    public static void loadSeries() throws IOException {
+    /** Loads the series catalog unless it is already loaded (clear Repo.series to force). */
+    public static synchronized void loadSeries() throws IOException {
+        if (Repo.series != null) return;
         try {
             LinkedHashMap<String, String> cats = categories("get_series_categories");
             JSONArray arr = new JSONArray(get(api() + "&action=get_series"));

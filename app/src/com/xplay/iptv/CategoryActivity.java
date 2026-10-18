@@ -59,7 +59,7 @@ public class CategoryActivity extends Activity {
 
         GridView grid = new GridView(this);
         grid.setNumColumns(GridView.AUTO_FIT);
-        grid.setColumnWidth(Ui.dp(this, 118));
+        grid.setColumnWidth(Ui.dp(this, Ui.posterDp(this) + 12));
         grid.setStretchMode(GridView.STRETCH_SPACING_UNIFORM);
         grid.setVerticalSpacing(Ui.dp(this, 12));
         grid.setSelector(new android.graphics.drawable.ColorDrawable(0));
@@ -70,7 +70,7 @@ public class CategoryActivity extends Activity {
             public Object getItem(int i) { return items.get(i); }
             public long getItemId(int i) { return i; }
             public View getView(int i, View convert, ViewGroup parent) {
-                return Posters.card(CategoryActivity.this, items.get(i), 110);
+                return Posters.card(CategoryActivity.this, items.get(i), Ui.posterDp(CategoryActivity.this));
             }
         };
         grid.setAdapter(adapter);

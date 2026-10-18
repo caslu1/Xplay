@@ -44,6 +44,7 @@ public final class Repo {
 
     public static void init(Context c) {
         if (prefs != null) return;
+        ImageLoader.init(c.getApplicationContext());
         prefs = c.getApplicationContext().getSharedPreferences("xplay", Context.MODE_PRIVATE);
         mode = prefs.getString("mode", null);
         server = prefs.getString("xtream_dns", null);
@@ -123,6 +124,64 @@ public final class Repo {
         if (list == null) return null;
         for (VodItem v : list) if (v.id.equals(id)) return v;
         return null;
+    }
+
+    // ---------------------------------------------------------------- continue watching
+
+    /**
+     * Remembers where a movie or episode stopped. key is VodItem.favKey(); one entry per movie or
+     * series (the last episode watched). Finished titles (or under 30s watched) are removed.
+     */
+    public static void saveProgress(String key, String url, String title, String subtitle, int pos, int dur) {
+        org.json.JSONArray old = continueArray();
+        org.json.JSONArray out = new org.json.JSONArray();
+        boolean keep = pos > 30000 && dur > 0 && pos < dur - 60000;
+        try {
+            if (keep) {
+                org.json.JSONObject e = new org.json.JSONObject();
+                e.put("key", key).put("url", url).put("title", title).put("pos", pos).put("dur", dur)
+                        .put("ts", System.currentTimeMillis());
+                if (subtitle != null) e.put("sub", subtitle);
+                out.put(e);
+            }
+            for (int i = 0; i < old.length() && out.length() < 40; i++) {
+                org.json.JSONObject e = old.optJSONObject(i);
+                if (e != null && !key.equals(e.optString("key"))) out.put(e);
+            }
+        } catch (org.json.JSONException ignored) {
+            return;
+        }
+        prefs.edit().putString("continue", out.toString()).apply();
+    }
+
+    public static void removeProgress(String key) {
+        org.json.JSONArray old = continueArray();
+        org.json.JSONArray out = new org.json.JSONArray();
+        for (int i = 0; i < old.length(); i++) {
+            org.json.JSONObject e = old.optJSONObject(i);
+            if (e != null && !key.equals(e.optString("key"))) out.put(e);
+        }
+        prefs.edit().putString("continue", out.toString()).apply();
+    }
+
+    /** Entries for movies (series=false) or series, most recent first. */
+    public static List<org.json.JSONObject> continueList(boolean seriesOnly) {
+        List<org.json.JSONObject> out = new ArrayList<org.json.JSONObject>();
+        org.json.JSONArray arr = continueArray();
+        String prefix = seriesOnly ? "series:" : "movie:";
+        for (int i = 0; i < arr.length(); i++) {
+            org.json.JSONObject e = arr.optJSONObject(i);
+            if (e != null && e.optString("key").startsWith(prefix)) out.add(e);
+        }
+        return out;
+    }
+
+    private static org.json.JSONArray continueArray() {
+        try {
+            return new org.json.JSONArray(prefs.getString("continue", "[]"));
+        } catch (org.json.JSONException e) {
+            return new org.json.JSONArray();
+        }
     }
 
     public static float listZoom() {

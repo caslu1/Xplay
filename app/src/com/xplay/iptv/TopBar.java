@@ -1,8 +1,10 @@
 package com.xplay.iptv;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -13,7 +15,8 @@ import java.util.List;
 /** The app's top navigation: logo, section tabs, search and account. Same on every main screen. */
 public class TopBar extends LinearLayout {
 
-    public static final int LIVE = 0, MOVIES = 1, SERIES = 2, FAVORITES = 3, SEARCH = 4, ACCOUNT = 5;
+    public static final int LIVE = 0, MOVIES = 1, SERIES = 2, FAVORITES = 3, SEARCH = 4, ACCOUNT = 5, SPORTS = 6;
+    static final String EXTRA_ITEM = "top_bar_item";
 
     public interface Listener {
         void onTopBar(int item);
@@ -27,41 +30,52 @@ public class TopBar extends LinearLayout {
         super(a);
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
-        setPadding(Ui.dp(a, 24), Ui.dp(a, 8), Ui.dp(a, 16), Ui.dp(a, 4));
+        setPadding(Ui.dp(a, 20), Ui.dp(a, 6), Ui.dp(a, 12), Ui.dp(a, 2));
 
-        addView(Ui.logo(a, 22));
-        View gap = new View(a);
-        addView(gap, Ui.lp(Ui.dp(a, 32), 0));
+        addView(Ui.logo(a, 20));
 
-        tab(a, LIVE, "TV AO VIVO", listener);
+        // Tabs scroll sideways on narrow screens instead of being cut off.
+        HorizontalScrollView scroll = new HorizontalScrollView(a);
+        scroll.setHorizontalScrollBarEnabled(false);
+        scroll.setFillViewport(false);
+        LinearLayout row = new LinearLayout(a);
+        row.setOrientation(HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(Ui.dp(a, 20), 0, Ui.dp(a, 8), 0);
+        scroll.addView(row);
+        LayoutParams sl = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
+        addView(scroll, sl);
+
+        tab(a, row, LIVE, "TV", listener);
+        tab(a, row, SPORTS, "ESPORTES", listener);
         if (withVod) {
-            tab(a, MOVIES, "FILMES", listener);
-            tab(a, SERIES, "SÉRIES", listener);
+            tab(a, row, MOVIES, "FILMES", listener);
+            tab(a, row, SERIES, "SÉRIES", listener);
         }
-        tab(a, FAVORITES, "FAVORITOS", listener);
+        tab(a, row, FAVORITES, "FAVORITOS", listener);
 
-        addView(new View(a), Ui.spacer());
         search = icon(a, R.drawable.ic_search, "Buscar", SEARCH, listener);
         account = icon(a, R.drawable.ic_person, "Conta", ACCOUNT, listener);
     }
 
-    private void tab(Activity a, final int id, String label, final Listener listener) {
+    private void tab(Activity a, LinearLayout row, final int id, String label, final Listener listener) {
         LinearLayout t = new LinearLayout(a);
         t.setOrientation(VERTICAL);
         t.setGravity(Gravity.CENTER_HORIZONTAL);
         t.setFocusable(true);
         t.setClickable(true);
         t.setBackground(Ui.selectable(a, 0, Palette.SURFACE_HI, Ui.dp(a, 10), Palette.GOLD));
-        t.setPadding(Ui.dp(a, 14), Ui.dp(a, 8), Ui.dp(a, 14), Ui.dp(a, 4));
+        t.setPadding(Ui.dp(a, 12), Ui.dp(a, 8), Ui.dp(a, 12), Ui.dp(a, 4));
         TextView text = Ui.text(a, label, 15, Palette.TEXT_DIM, true);
-        t.addView(text);
+        text.setSingleLine(true);
+        t.addView(text, Ui.lp(-2, -2));
         View bar = new View(a);
-        LayoutParams bl = Ui.lp(Ui.dp(a, 24), Ui.dp(a, 3));
+        LayoutParams bl = Ui.lp(Ui.dp(a, 22), Ui.dp(a, 3));
         bl.topMargin = Ui.dp(a, 5);
         t.addView(bar, bl);
         LayoutParams lp = Ui.lp(-2, -2);
-        lp.rightMargin = Ui.dp(a, 4);
-        addView(t, lp);
+        lp.rightMargin = Ui.dp(a, 2);
+        row.addView(t, lp);
         tabs.add(t);
         tabIds.add(id);
         t.setOnClickListener(new OnClickListener() {
@@ -72,8 +86,8 @@ public class TopBar extends LinearLayout {
     private ImageView icon(Activity a, int res, String desc, final int id, final Listener listener) {
         ImageView v = Ui.iconButton(a, res, Palette.TEXT, Palette.GOLD);
         v.setContentDescription(desc);
-        LayoutParams lp = Ui.lp(Ui.dp(a, 46), Ui.dp(a, 46));
-        lp.leftMargin = Ui.dp(a, 6);
+        LayoutParams lp = Ui.lp(Ui.dp(a, 44), Ui.dp(a, 44));
+        lp.leftMargin = Ui.dp(a, 4);
         addView(v, lp);
         v.setOnClickListener(new OnClickListener() {
             public void onClick(View view) { listener.onTopBar(id); }
@@ -91,5 +105,26 @@ public class TopBar extends LinearLayout {
         }
         search.setColorFilter(id == SEARCH ? Palette.GOLD : Palette.TEXT);
         account.setColorFilter(id == ACCOUNT ? Palette.GOLD : Palette.TEXT);
+    }
+
+    /**
+     * Goes to another section from any screen. Live TV is always the bottom of the stack; the other
+     * sections replace each other on top of it, so Back always returns to Live TV.
+     */
+    public static void open(Activity from, int item) {
+        boolean vodItem = item == MOVIES || item == SERIES || (Repo.isXtream()
+                && (item == FAVORITES || item == SEARCH || item == ACCOUNT));
+        Intent i;
+        if (item == SPORTS) i = new Intent(from, SportsActivity.class);
+        else if (vodItem) i = new Intent(from, VodActivity.class).putExtra(VodActivity.EXTRA_TAB, item);
+        else {
+            i = new Intent(from, LiveActivity.class).putExtra(EXTRA_ITEM, item);
+            i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        }
+        boolean same = i.getComponent().getClassName().equals(from.getClass().getName());
+        if (same) return;
+        from.startActivity(i);
+        if (!(from instanceof LiveActivity)) from.finish();
+        from.overridePendingTransition(0, 0);
     }
 }

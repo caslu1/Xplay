@@ -82,16 +82,16 @@ public class VodActivity extends Activity implements TopBar.Listener {
         // Favorites may have changed on the detail screen.
         if (topBar == null) return;
         if (page == TopBar.FAVORITES) buildFavorites();
-        else sections.notifyDataSetChanged();
+        else if ((page == TopBar.MOVIES && Repo.movies != null) || (page == TopBar.SERIES && Repo.series != null)) {
+            int first = sectionsList.getFirstVisiblePosition();
+            buildCatalog(page == TopBar.SERIES);
+            sectionsList.setSelection(first);
+        }
     }
 
     public void onTopBar(int item) {
-        if (item == TopBar.LIVE) {
-            finish();
-            overridePendingTransition(0, 0);
-        } else {
-            showPage(item);
-        }
+        if (item == TopBar.LIVE || item == TopBar.SPORTS) TopBar.open(this, item);
+        else showPage(item);
     }
 
     // ---------------------------------------------------------------- layout
@@ -162,7 +162,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
 
         GridView grid = new GridView(this);
         grid.setNumColumns(GridView.AUTO_FIT);
-        grid.setColumnWidth(Ui.dp(this, 128));
+        grid.setColumnWidth(Ui.dp(this, Ui.posterDp(this) + 12));
         grid.setStretchMode(GridView.STRETCH_SPACING_UNIFORM);
         grid.setVerticalSpacing(Ui.dp(this, 12));
         grid.setSelector(new android.graphics.drawable.ColorDrawable(0));
@@ -173,7 +173,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
             public Object getItem(int i) { return searchResults.get(i); }
             public long getItemId(int i) { return i; }
             public View getView(int i, View convert, ViewGroup parent) {
-                return Posters.card(VodActivity.this, searchResults.get(i), 116);
+                return Posters.card(VodActivity.this, searchResults.get(i), Ui.posterDp(VodActivity.this));
             }
         };
         grid.setAdapter(searchAdapter);
@@ -363,10 +363,21 @@ public class VodActivity extends Activity implements TopBar.Listener {
         }
 
         List<Section> out = new ArrayList<Section>();
+        List<org.json.JSONObject> resume = Repo.continueList(isSeries);
+        if (!resume.isEmpty()) {
+            Section c = new Section("Continuar assistindo", null);
+            c.resume = resume;
+            out.add(c);
+        }
+
         Section genres = new Section("Por gênero", null);
         genres.genres = new ArrayList<Map.Entry<String, List<VodItem>>>();
+        genres.genreArt = new ArrayList<String>();
+        java.util.Set<String> usedArt = new java.util.HashSet<String>();
         for (Map.Entry<String, List<VodItem>> e : byCat.entrySet()) {
-            if (!e.getValue().isEmpty()) genres.genres.add(e);
+            if (e.getValue().isEmpty()) continue;
+            genres.genres.add(e);
+            genres.genreArt.add(pickArt(e.getValue(), usedArt));
         }
         genres.catNames = cats;
         if (!genres.genres.isEmpty()) out.add(genres);
@@ -390,6 +401,18 @@ public class VodActivity extends Activity implements TopBar.Listener {
         sections.notifyDataSetChanged();
         sectionsList.setSelection(0);
         if (all.isEmpty()) emptyText.setText(isSeries ? "Nenhuma série neste servidor" : "Nenhum filme neste servidor");
+    }
+
+    /** Best-rated poster of a category that no other tile uses yet. */
+    private static String pickArt(List<VodItem> items, java.util.Set<String> used) {
+        VodItem best = null;
+        for (VodItem v : items) {
+            if (v.poster == null || used.contains(v.poster)) continue;
+            if (best == null || v.rating > best.rating) best = v;
+        }
+        if (best == null) return null;
+        used.add(best.poster);
+        return best.poster;
     }
 
     private void buildFavorites() {
@@ -439,6 +462,8 @@ public class VodActivity extends Activity implements TopBar.Listener {
         Task.run(this, new Callable<Void>() {
             public Void call() throws Exception {
                 Xtream.loadLive();
+                Repo.movies = null;
+                Repo.series = null;
                 Xtream.loadMovies();
                 Xtream.loadSeries();
                 return null;
@@ -484,7 +509,9 @@ public class VodActivity extends Activity implements TopBar.Listener {
         final List<VodItem> items;
         List<Map.Entry<String, List<VodItem>>> genres;
         Map<String, String> catNames;
+        List<String> genreArt;
         List<Channel> channels;
+        List<org.json.JSONObject> resume;
 
         Section(String title, List<VodItem> items) {
             this.title = title;
@@ -576,12 +603,25 @@ public class VodActivity extends Activity implements TopBar.Listener {
                 for (int i = 0; i < s.genres.size(); i++) {
                     final Map.Entry<String, List<VodItem>> e = s.genres.get(i);
                     final String name = s.catNames.get(e.getKey()) == null ? "Outros" : s.catNames.get(e.getKey());
-                    View tile = Posters.genreTile(VodActivity.this, name, i, new View.OnClickListener() {
+                    View tile = Posters.genreTile(VodActivity.this, name, i, s.genreArt.get(i), new View.OnClickListener() {
                         public void onClick(View v) { CategoryActivity.start(VodActivity.this, name, e.getValue()); }
                     });
-                    LinearLayout.LayoutParams lp = Ui.lp(Ui.dp(VodActivity.this, 170), Ui.dp(VodActivity.this, 72));
+                    LinearLayout.LayoutParams lp = Ui.lp(Ui.dp(VodActivity.this, 190), Ui.dp(VodActivity.this, 84));
                     lp.rightMargin = Ui.dp(VodActivity.this, 10);
                     strip.addView(tile, lp);
+                }
+            } else if (s.resume != null) {
+                more.setVisibility(View.GONE);
+                for (org.json.JSONObject e : s.resume) {
+                    String key = e.optString("key");
+                    boolean series = key.startsWith("series:");
+                    VodItem v = Repo.findVod(series, key.substring(key.indexOf(':') + 1));
+                    LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
+                    lp.rightMargin = Ui.dp(VodActivity.this, 6);
+                    strip.addView(Posters.continueCard(VodActivity.this, v, e, Ui.posterDp(VodActivity.this),
+                            new Runnable() {
+                                public void run() { showPage(page); }
+                            }), lp);
                 }
             } else if (s.channels != null) {
                 more.setVisibility(View.GONE);
@@ -599,7 +639,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
                 for (int i = 0; i < n; i++) {
                     LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
                     lp.rightMargin = Ui.dp(VodActivity.this, 6);
-                    strip.addView(Posters.card(VodActivity.this, s.items.get(i), 128), lp);
+                    strip.addView(Posters.card(VodActivity.this, s.items.get(i), Ui.posterDp(VodActivity.this)), lp);
                 }
             }
             return row;

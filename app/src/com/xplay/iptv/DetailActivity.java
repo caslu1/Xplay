@@ -438,6 +438,7 @@ public class DetailActivity extends Activity {
         i.putExtra(PlayerActivity.EXTRA_URL, url);
         i.putExtra(PlayerActivity.EXTRA_TITLE, title);
         if (subtitle != null) i.putExtra(PlayerActivity.EXTRA_SUBTITLE, subtitle);
+        i.putExtra(PlayerActivity.EXTRA_KEY, item.favKey());
         startActivity(i);
     }
 
@@ -587,7 +588,7 @@ public class DetailActivity extends Activity {
             return;
         }
         int width = getResources().getDisplayMetrics().widthPixels - Ui.dp(this, 40);
-        int columns = Math.max(2, width / Ui.dp(this, 122));
+        int columns = Math.max(2, width / Ui.dp(this, Ui.posterDp(this) + 16));
         int cardDp = (int) ((width / (float) columns) / getResources().getDisplayMetrics().density) - 10;
         LinearLayout row = null;
         for (int i = 0; i < similar.size(); i++) {
