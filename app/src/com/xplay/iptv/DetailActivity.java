@@ -601,7 +601,7 @@ public class DetailActivity extends Activity {
             row.addView(Posters.card(this, similar.get(i), cardDp), Ui.weight(1));
         }
         // Keep the last row's cards the same width as the others.
-        while (row != null && row.getChildCount() < columns) row.addView(new View(this), Ui.weight(1));
+        while (row != null && row.getChildCount() < columns) row.addView(new View(this), Ui.spacer());
     }
 
     private void renderCredits() {

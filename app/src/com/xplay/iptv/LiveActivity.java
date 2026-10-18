@@ -99,7 +99,7 @@ public class LiveActivity extends Activity {
         // Top bar
         LinearLayout top = Ui.row(this);
         top.addView(Ui.logo(this, 22));
-        top.addView(new View(this), Ui.weight(1));
+        top.addView(new View(this), Ui.spacer());
         ImageView search = Ui.iconButton(this, R.drawable.ic_search, Palette.TEXT, Palette.GOLD);
         search.setContentDescription("Buscar");
         top.addView(search, Ui.lp(Ui.dp(this, 44), Ui.dp(this, 44)));

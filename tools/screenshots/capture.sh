@@ -80,4 +80,6 @@ shot 12_series_episodes 3
 key KEYCODE_BACK
 tap "Perfil" && shot 13_profile 3
 tap "Buscar" && sleep 1 && adb shell input text "ra" && key KEYCODE_ESCAPE && shot 14_search 5
+adb logcat -d -b crash > "$OUT/crash.txt" 2>&1
+adb logcat -d AndroidRuntime:E '*:S' > "$OUT/errors.txt" 2>&1
 ls -la "$OUT"

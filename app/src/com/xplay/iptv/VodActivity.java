@@ -100,7 +100,7 @@ public class VodActivity extends Activity {
         int p = Ui.dp(this, 16);
         top.setPadding(p, Ui.dp(this, 12), Ui.dp(this, 8), Ui.dp(this, 4));
         top.addView(Ui.logo(this, 20));
-        top.addView(new View(this), Ui.weight(1));
+        top.addView(new View(this), Ui.spacer());
         ImageView liveBtn = Ui.iconButton(this, R.drawable.ic_live, Palette.TEXT, Palette.BLUE);
         liveBtn.setContentDescription("TV ao vivo");
         top.addView(liveBtn, Ui.lp(Ui.dp(this, 48), Ui.dp(this, 48)));

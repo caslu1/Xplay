@@ -112,6 +112,11 @@ public final class Ui {
         return new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, w);
     }
 
+    /** Flexible gap for rows; zero height so it never stretches the row vertically. */
+    public static LinearLayout.LayoutParams spacer() {
+        return new LinearLayout.LayoutParams(0, 0, 1f);
+    }
+
     /** "Xplay" wordmark: gold X, white rest. */
     public static View logo(Context c, float sp) {
         LinearLayout l = row(c);
