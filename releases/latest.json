@@ -1,6 +1,6 @@
 {
-  "versionCode": 11,
-  "versionName": "2.7",
-  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-2.7.apk",
-  "notes": "Troca rápida de canais sem erro (carrega quando você para e tenta de novo sozinho). Seta para a esquerda volta às categorias. Categorias sem a palavra Canais. Um canal por nome na lista, abrindo sempre em HD; as outras qualidades ficam no player. Contorno dourado das capas não corta mais. Player de filmes e séries: avançar e voltar funcionando, sem Legendas e Áudio."
+  "versionCode": 12,
+  "versionName": "2.8",
+  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-2.8.apk",
+  "notes": "Filmes e séries recriados no estilo ARVIO: imagem de fundo grande do título em destaque com nome, ano, duração, gênero, nota e sinopse. Página de detalhes com fundo em tela cheia. Menu do topo em pílulas com relógio. Borda de seleção mais fina. Sem borda na tela cheia do canal. Nova tela de Configurações com Conta, Controle parental, Teste de conexão, Atualizações e Sobre."
 }

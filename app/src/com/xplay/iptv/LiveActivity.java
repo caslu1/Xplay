@@ -384,8 +384,12 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         rl.leftMargin = fullscreen ? 0 : Ui.dp(this, 24);
         rightPanel.setLayoutParams(rl);
         previewFrame.setBackgroundColor(fullscreen ? Palette.BLACK : Palette.SURFACE);
+        // In fullscreen the small player's focus ring and rounded corners must not show.
+        previewFrame.setForeground(fullscreen ? null : Ui.focusRing(this, Ui.dp(this, 14)));
+        previewFrame.setFocusable(!fullscreen);
         if (fullscreen) {
             previewFrame.setClipToOutline(false);
+            previewFrame.setPadding(0, 0, 0, 0);
         } else {
             Ui.clipRound(previewFrame, Ui.dp(this, 14));
         }
@@ -754,10 +758,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
             case TopBar.SEARCH:
                 askSearch();
                 break;
-            case TopBar.ACCOUNT:
-                if (Repo.isXtream()) TopBar.open(this, item);
-                else listMenu();
-                break;
+
             default:
                 TopBar.open(this, item);
                 break;
@@ -794,75 +795,6 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     private void scheduleRefresh() {
         list.removeCallbacks(refreshList);
         list.postDelayed(refreshList, 150);
-    }
-
-    /** Settings for M3U lists, which have no account page. */
-    private void listMenu() {
-        new AlertDialog.Builder(this)
-                .setTitle("Configurações")
-                .setItems(new String[] {
-                        "Atualizar lista",
-                        Adult.hidden() ? "Mostrar conteúdo adulto (+18)" : "Ocultar conteúdo adulto (+18)",
-                        "Verificar atualizações do app (versão " + Updater.currentName(this) + ")",
-                        "Sair e trocar de lista"}, new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface d, int which) {
-                        if (which == 0) reload();
-                        else if (which == 1) toggleAdultHidden();
-                        else if (which == 2) Updater.check(LiveActivity.this, true);
-                        else confirmLogout();
-                    }
-                })
-                .show();
-    }
-
-    private void toggleAdultHidden() {
-        final boolean hide = !Adult.hidden();
-        Adult.askPin(this, hide ? "Ocultar conteúdo adulto" : "Mostrar conteúdo adulto", new Runnable() {
-            public void run() {
-                Adult.setHidden(hide);
-                Toast.makeText(LiveActivity.this, hide ? "Conteúdo adulto oculto" : "Conteúdo adulto visível (com senha)",
-                        Toast.LENGTH_SHORT).show();
-                showGroups();
-            }
-        });
-    }
-
-    private void reload() {
-        Toast.makeText(this, "Atualizando lista…", Toast.LENGTH_SHORT).show();
-        Task.run(this, new Callable<Void>() {
-            public Void call() throws Exception {
-                if (Repo.isXtream()) Xtream.loadLive();
-                else M3uCatalog.load(Repo.m3uUrl);
-                return null;
-            }
-        }, new Task.Done<Void>() {
-            public void ok(Void v) {
-                Toast.makeText(LiveActivity.this, Repo.channels.size() + " canais carregados",
-                        Toast.LENGTH_SHORT).show();
-                showGroups();
-            }
-
-            public void fail(Exception e) {
-                Toast.makeText(LiveActivity.this, "Erro: " + Task.message(e), Toast.LENGTH_LONG).show();
-            }
-        });
-    }
-
-    private void confirmLogout() {
-        new AlertDialog.Builder(this)
-                .setTitle("Sair da conta?")
-                .setMessage("Você poderá entrar com outro login ou lista.")
-                .setPositiveButton("Sair", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface d, int w) {
-                        Repo.logout();
-                        Intent i = new Intent(LiveActivity.this, LoginActivity.class);
-                        i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(i);
-                        finish();
-                    }
-                })
-                .setNegativeButton("Cancelar", null)
-                .show();
     }
 
     @Override

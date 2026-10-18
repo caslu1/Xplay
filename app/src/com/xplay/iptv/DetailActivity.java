@@ -140,17 +140,19 @@ public class DetailActivity extends Activity {
         FrameLayout hero = new FrameLayout(this);
         backdrop = new ImageView(this);
         backdrop.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        backdrop.setAlpha(0.55f);
+        backdrop.setAlpha(0.7f);
         ImageLoader.loadBlurred(item.poster, backdrop);
         hero.addView(backdrop, new FrameLayout.LayoutParams(-1, -1));
         View shadeLeft = new View(this);
         shadeLeft.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[] {0xF2000000, 0x99000000, 0x66000000}));
+                new int[] {0xF5000000, 0xCC000000, 0x33000000, 0x00000000}));
         hero.addView(shadeLeft, new FrameLayout.LayoutParams(-1, -1));
         View shadeBottom = new View(this);
         shadeBottom.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
                 new int[] {Palette.BLACK, 0x00000000}));
-        hero.addView(shadeBottom, new FrameLayout.LayoutParams(-1, Ui.dp(this, 80), Gravity.BOTTOM));
+        hero.addView(shadeBottom, new FrameLayout.LayoutParams(-1, Ui.dp(this, 120), Gravity.BOTTOM));
+        // Tall enough for the backdrop to read as a full-screen image, like ARVIO.
+        hero.setMinimumHeight((int) (getResources().getDisplayMetrics().heightPixels * 0.82f));
 
         LinearLayout content = Ui.column(this);
         content.setPadding(Ui.dp(this, 20), Ui.dp(this, 10), Ui.dp(this, 32), Ui.dp(this, 20));
@@ -168,23 +170,12 @@ public class DetailActivity extends Activity {
         row.setPadding(Ui.dp(this, 12), Ui.dp(this, 4), 0, 0);
         content.addView(row, Ui.lp(-1, -2));
 
-        int pw = Math.max(Ui.posterDp(this) + 30, 140);
-        FrameLayout poster = new FrameLayout(this);
-        float r = Ui.dp(this, 12);
-        poster.setBackground(Ui.round(Palette.SURFACE_HI, r));
-        Ui.clipRound(poster, r);
-        poster.setElevation(Ui.dp(this, 8));
-        ImageView img = new ImageView(this);
-        img.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        ImageLoader.load(item.poster, img, Ui.dp(this, pw), 0);
-        poster.addView(img, new FrameLayout.LayoutParams(-1, -1));
-        row.addView(poster, Ui.lp(Ui.dp(this, pw), Ui.dp(this, pw) * 3 / 2));
-
         LinearLayout side = Ui.column(this);
-        side.setPadding(Ui.dp(this, 28), 0, 0, 0);
-        row.addView(side, Ui.weight(1));
+        side.setPadding(Ui.dp(this, 12), Ui.dp(this, 24), 0, 0);
+        row.addView(side, Ui.lp(Math.min(Ui.dp(this, 720), (int) (getResources().getDisplayMetrics().widthPixels * 0.62f)), -2));
 
-        TextView title = Ui.text(this, item.name, 28, Palette.TEXT, true);
+        TextView title = Ui.text(this, item.name, 38, Palette.TEXT, true);
+        title.setShadowLayer(10, 0, 2, Palette.BLACK);
         title.setMaxLines(2);
         title.setEllipsize(TextUtils.TruncateAt.END);
         side.addView(title);
@@ -194,10 +185,12 @@ public class DetailActivity extends Activity {
 
         LinearLayout metaRow = Ui.row(this);
         if (item.ratingText() != null) {
-            metaRow.addView(Ui.icon(this, R.drawable.ic_star, Palette.GOLD), Ui.lp(Ui.dp(this, 18), Ui.dp(this, 18)));
-            TextView rt = Ui.text(this, item.ratingText(), 16, Palette.GOLD, true);
-            rt.setPadding(Ui.dp(this, 5), 0, Ui.dp(this, 16), 0);
-            metaRow.addView(rt);
+            TextView rt = Ui.text(this, "★ " + item.ratingText(), 14, Palette.BLACK, true);
+            rt.setBackground(Ui.round(Palette.GOLD, Ui.dp(this, 4)));
+            rt.setPadding(Ui.dp(this, 7), Ui.dp(this, 1), Ui.dp(this, 7), Ui.dp(this, 1));
+            LinearLayout.LayoutParams rtl = Ui.lp(-2, -2);
+            rtl.rightMargin = Ui.dp(this, 14);
+            metaRow.addView(rt, rtl);
         }
         meta = Ui.text(this, "", 14, 0xFFCCCCCC, false);
         metaRow.addView(meta);
@@ -271,9 +264,9 @@ public class DetailActivity extends Activity {
         b.setClickable(true);
         float r = Ui.dp(this, 26);
         b.setBackground(primary
-                ? Ui.selectable(this, Palette.GOLD, Palette.GOLD_LIGHT, r, Palette.TEXT)
+                ? Ui.selectable(this, Palette.TEXT, Palette.GOLD_LIGHT, r, Palette.GOLD)
                 : Ui.selectable(this, 0x26FFFFFF, 0x40FFFFFF, r, Palette.GOLD));
-        b.setPadding(Ui.dp(this, 18), Ui.dp(this, 12), Ui.dp(this, 22), Ui.dp(this, 12));
+        b.setPadding(Ui.dp(this, 22), Ui.dp(this, 13), Ui.dp(this, 26), Ui.dp(this, 13));
         int color = primary ? Palette.BLACK : Palette.TEXT;
         b.addView(Ui.icon(this, icon, color), Ui.lp(Ui.dp(this, 20), Ui.dp(this, 20)));
         TextView t = Ui.text(this, label, 15, color, true);
@@ -356,22 +349,16 @@ public class DetailActivity extends Activity {
             fillInfo();
             return;
         }
-        Task.run(this, new Callable<JSONObject>() {
-            public JSONObject call() throws Exception {
-                return item.series ? Xtream.seriesInfo(item.id) : Xtream.vodInfo(item.id);
-            }
-        }, new Task.Done<JSONObject>() {
-            public void ok(JSONObject o) {
+        // Shares the answer with the movies/series screen, so a title seen in the hero opens instantly.
+        InfoCache.get(item, new InfoCache.Callback() {
+            public void done(JSONObject o) {
+                if (isFinishing()) return;
                 info = o.optJSONObject("info");
+                boolean failed = info == null && o.length() == 0;
                 if (info == null) info = new JSONObject();
                 if (item.series) parseEpisodes(o);
                 fillInfo();
-            }
-
-            public void fail(Exception e) {
-                info = new JSONObject();
-                fillInfo();
-                plot.setText("Não foi possível carregar os detalhes: " + Task.message(e));
+                if (failed) plot.setText("Não foi possível carregar os detalhes.");
             }
         });
     }
@@ -481,7 +468,7 @@ public class DetailActivity extends Activity {
 
         String back = Xtream.httpOrNull(str(info, "backdrop_path"));
         if (back != null) {
-            backdrop.setAlpha(0.45f);
+            backdrop.setAlpha(0.9f);
             ImageLoader.load(back, backdrop, getResources().getDisplayMetrics().widthPixels / 2, 0);
         }
 

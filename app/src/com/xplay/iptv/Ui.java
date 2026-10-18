@@ -59,7 +59,7 @@ public final class Ui {
         GradientDrawable ring = new GradientDrawable();
         ring.setColor(0x14FFFFFF);
         ring.setCornerRadius(radiusPx);
-        ring.setStroke(dp(c, 3), Palette.GOLD);
+        ring.setStroke(Math.max(2, dp(c, 1.5f)), Palette.GOLD);
         s.addState(new int[] {android.R.attr.state_focused}, ring);
         s.addState(new int[] {android.R.attr.state_pressed}, ring);
         s.addState(new int[] {}, new ColorDrawable(0));

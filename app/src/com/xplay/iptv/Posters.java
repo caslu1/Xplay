@@ -39,13 +39,12 @@ public final class Posters {
         String rating = v.ratingText();
         float r = Ui.dp(a, 10);
         if (rating != null) {
-            TextView badge = Ui.text(a, "★ " + rating, 12, Palette.BLACK, true);
-            GradientDrawable bg = new GradientDrawable();
-            bg.setColor(Palette.GOLD);
-            bg.setCornerRadii(new float[] {0, 0, r, r, 0, 0, r, r});
-            badge.setBackground(bg);
-            badge.setPadding(Ui.dp(a, 8), Ui.dp(a, 3), Ui.dp(a, 8), Ui.dp(a, 3));
-            frame.addView(badge, new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END));
+            TextView badge = Ui.text(a, "★ " + rating, 11, Palette.TEXT, true);
+            badge.setBackground(Ui.round(0xB3000000, Ui.dp(a, 8)));
+            badge.setPadding(Ui.dp(a, 7), Ui.dp(a, 2), Ui.dp(a, 7), Ui.dp(a, 2));
+            FrameLayout.LayoutParams bl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
+            bl.setMargins(Ui.dp(a, 6), Ui.dp(a, 6), 0, 0);
+            frame.addView(badge, bl);
         }
         if (Repo.isFav(v.favKey())) {
             ImageView heart = Ui.icon(a, R.drawable.ic_heart_fill, Palette.BLACK);
