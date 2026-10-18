@@ -63,6 +63,12 @@ public final class Repo {
         return MODE_M3U.equals(mode) && m3uUrl != null;
     }
 
+    /** True when there are movies or series to show (Xtream, or an M3U list that has them). */
+    public static boolean hasVod() {
+        if (isXtream()) return true;
+        return (movies != null && !movies.isEmpty()) || (series != null && !series.isEmpty());
+    }
+
     public static boolean isXtream() {
         return MODE_XTREAM.equals(mode);
     }

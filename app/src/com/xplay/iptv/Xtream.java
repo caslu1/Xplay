@@ -52,6 +52,7 @@ public final class Xtream {
             String status = ((JSONObject) info).optString("status", "Active");
             if (!status.equalsIgnoreCase("Active")) throw new IOException("Conta " + status);
             Repo.account = (JSONObject) info;
+            Epg.setGuideUrl(Repo.server + "/xmltv.php?username=" + enc(Repo.user) + "&password=" + enc(Repo.pass));
         } catch (JSONException e) {
             throw new IOException("Resposta inválida do servidor (confira o DNS)");
         }
@@ -71,7 +72,8 @@ public final class Xtream {
                 // HLS (.m3u8) is the format the platform MediaPlayer handles best.
                 String url = Repo.server + "/live/" + enc(Repo.user) + "/" + enc(Repo.pass) + "/" + id + ".m3u8";
                 list.add(new Channel(s.optString("name", "Canal"), url, group,
-                        httpOrNull(s.optString("stream_icon", "")), id, s.optInt("num", i + 1)));
+                        httpOrNull(s.optString("stream_icon", "")), id, s.optInt("num", i + 1),
+                        blankToNull(s.optString("epg_channel_id", ""))));
             }
             List<String> groups = new ArrayList<String>();
             for (String name : cats.values()) {
@@ -121,7 +123,7 @@ public final class Xtream {
                 JSONObject s = arr.getJSONObject(i);
                 list.add(new VodItem(false, s.optString("stream_id"), s.optString("name", "Filme"),
                         httpOrNull(s.optString("stream_icon", "")), rating(s), s.optString("category_id"),
-                        s.optString("container_extension", "mp4"), s.optLong("added", 0)));
+                        s.optString("container_extension", "mp4"), s.optLong("added", 0), null));
             }
             Repo.movieCategories = cats;
             Repo.movies = list;
@@ -141,7 +143,7 @@ public final class Xtream {
                 JSONObject s = arr.getJSONObject(i);
                 list.add(new VodItem(true, s.optString("series_id"), s.optString("name", "Série"),
                         httpOrNull(s.optString("cover", "")), rating(s), s.optString("category_id"),
-                        null, s.optLong("last_modified", 0)));
+                        null, s.optLong("last_modified", 0), null));
             }
             Repo.seriesCategories = cats;
             Repo.series = list;
@@ -164,6 +166,10 @@ public final class Xtream {
 
     public static String episodeUrl(String id, String ext) throws IOException {
         return Repo.server + "/series/" + enc(Repo.user) + "/" + enc(Repo.pass) + "/" + id + "." + ext(ext);
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.trim().isEmpty() || s.equals("null") ? null : s.trim();
     }
 
     public static String httpOrNull(String s) {

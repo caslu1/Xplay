@@ -94,7 +94,7 @@ public class SportsActivity extends Activity implements TopBar.Listener {
     private void buildUi() {
         LinearLayout root = Ui.column(this);
         root.setBackgroundColor(Palette.BLACK);
-        topBar = new TopBar(this, Repo.isXtream(), this);
+        topBar = new TopBar(this, Repo.hasVod(), this);
         topBar.select(TopBar.SPORTS);
         root.addView(topBar, Ui.lp(-1, -2));
 

@@ -94,7 +94,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
 
         LinearLayout page = Ui.column(this);
         root.addView(page, new FrameLayout.LayoutParams(-1, -1));
-        topBar = new TopBar(this, Repo.isXtream(), this);
+        topBar = new TopBar(this, Repo.hasVod(), this);
         topBar.select(TopBar.LIVE);
         page.addView(topBar, Ui.lp(-1, -2));
 
@@ -436,7 +436,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                 showGroups();
                 break;
             case TopBar.FAVORITES:
-                if (Repo.isXtream()) TopBar.open(this, item);
+                if (Repo.hasVod()) TopBar.open(this, item);
                 else openGroup(FAVS);
                 break;
             case TopBar.SEARCH:
@@ -502,13 +502,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         Task.run(this, new Callable<Void>() {
             public Void call() throws Exception {
                 if (Repo.isXtream()) Xtream.loadLive();
-                else {
-                    List<Channel> l = M3uParser.download(Repo.m3uUrl);
-                    List<String> g = new ArrayList<String>();
-                    for (Channel c : l) if (!g.contains(c.group)) g.add(c.group);
-                    Repo.channels = l;
-                    Repo.liveGroups = g;
-                }
+                else M3uCatalog.load(Repo.m3uUrl);
                 return null;
             }
         }, new Task.Done<Void>() {

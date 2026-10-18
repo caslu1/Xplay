@@ -62,7 +62,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Repo.init(this);
-        if (!Repo.isXtream() || Repo.server == null || Repo.channels == null) {
+        if (!Repo.hasVod() || Repo.channels == null) {
             finish();
             return;
         }
@@ -90,8 +90,11 @@ public class VodActivity extends Activity implements TopBar.Listener {
     }
 
     public void onTopBar(int item) {
-        if (item == TopBar.LIVE || item == TopBar.SPORTS) TopBar.open(this, item);
-        else showPage(item);
+        if (item == TopBar.LIVE || item == TopBar.SPORTS || (item == TopBar.ACCOUNT && !Repo.isXtream())) {
+            TopBar.open(this, item);
+        } else {
+            showPage(item);
+        }
     }
 
     // ---------------------------------------------------------------- layout
@@ -461,6 +464,10 @@ public class VodActivity extends Activity implements TopBar.Listener {
         Toast.makeText(this, "Atualizando listas…", Toast.LENGTH_SHORT).show();
         Task.run(this, new Callable<Void>() {
             public Void call() throws Exception {
+                if (!Repo.isXtream()) {
+                    M3uCatalog.load(Repo.m3uUrl);
+                    return null;
+                }
                 Xtream.loadLive();
                 Repo.movies = null;
                 Repo.series = null;
@@ -556,7 +563,6 @@ public class VodActivity extends Activity implements TopBar.Listener {
         public int getCount() { return items.size(); }
         public Object getItem(int i) { return items.get(i); }
         public long getItemId(int i) { return i; }
-        @Override public boolean isEnabled(int position) { return false; }
 
         public View getView(int pos, View convert, ViewGroup parent) {
             LinearLayout row;

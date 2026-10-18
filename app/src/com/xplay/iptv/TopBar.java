@@ -112,8 +112,9 @@ public class TopBar extends LinearLayout {
      * sections replace each other on top of it, so Back always returns to Live TV.
      */
     public static void open(Activity from, int item) {
-        boolean vodItem = item == MOVIES || item == SERIES || (Repo.isXtream()
-                && (item == FAVORITES || item == SEARCH || item == ACCOUNT));
+        boolean vodItem = item == MOVIES || item == SERIES
+                || (Repo.hasVod() && (item == FAVORITES || item == SEARCH))
+                || (Repo.isXtream() && item == ACCOUNT);
         Intent i;
         if (item == SPORTS) i = new Intent(from, SportsActivity.class);
         else if (vodItem) i = new Intent(from, VodActivity.class).putExtra(VodActivity.EXTRA_TAB, item);

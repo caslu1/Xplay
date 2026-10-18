@@ -232,6 +232,14 @@ public class DetailActivity extends Activity {
     // ---------------------------------------------------------------- data
 
     private void loadInfo() {
+        if (!Repo.isXtream()) {
+            // M3U titles have no info API: show what the playlist gave and its episodes.
+            infoLoading.setVisibility(View.GONE);
+            info = new JSONObject();
+            if (item.series) loadM3uEpisodes();
+            fillInfo();
+            return;
+        }
         Task.run(this, new Callable<JSONObject>() {
             public JSONObject call() throws Exception {
                 return item.series ? Xtream.seriesInfo(item.id) : Xtream.vodInfo(item.id);
@@ -273,6 +281,19 @@ public class DetailActivity extends Activity {
             // Some servers send a list of seasons instead of an object keyed by season.
             JSONArray outer = (JSONArray) eps;
             for (int i = 0; i < outer.length(); i++) addSeason("Temporada " + (i + 1), outer.optJSONArray(i));
+        }
+    }
+
+    private void loadM3uEpisodes() {
+        seasonNames.clear();
+        seasons.clear();
+        java.util.LinkedHashMap<Integer, List<JSONObject>> bySeason = M3uCatalog.EPISODES.get(item.id);
+        if (bySeason == null) return;
+        List<Integer> keys = new ArrayList<Integer>(bySeason.keySet());
+        Collections.sort(keys);
+        for (Integer k : keys) {
+            seasonNames.add("Temporada " + k);
+            seasons.add(bySeason.get(k));
         }
     }
 
@@ -407,7 +428,7 @@ public class DetailActivity extends Activity {
     private void playMain() {
         if (!item.series) {
             try {
-                play(Xtream.movieUrl(item.id, item.extension), item.name, null);
+                play(item.url != null ? item.url : Xtream.movieUrl(item.id, item.extension), item.name, null);
             } catch (Exception e) {
                 Toast.makeText(this, Task.message(e), Toast.LENGTH_SHORT).show();
             }
@@ -424,7 +445,8 @@ public class DetailActivity extends Activity {
     private void playEpisode(int seasonIndex, int episodeIndex) {
         JSONObject e = seasons.get(seasonIndex).get(episodeIndex);
         try {
-            String url = Xtream.episodeUrl(e.optString("id"), e.optString("container_extension", "mp4"));
+            String url = e.has("url") ? e.optString("url")
+                    : Xtream.episodeUrl(e.optString("id"), e.optString("container_extension", "mp4"));
             String sub = "T" + seasonNumber(seasonIndex) + ":E" + episodeNumber(e, episodeIndex)
                     + "  " + str(e, "title");
             play(url, item.name, sub);

@@ -221,13 +221,21 @@ public class LoginActivity extends Activity {
             public Void call() throws Exception {
                 if (Repo.isXtream()) {
                     Xtream.login();
-                } else {
-                    java.util.List<Channel> list = M3uParser.download(Repo.m3uUrl);
-                    java.util.List<String> groups = new java.util.ArrayList<String>();
-                    for (Channel c : list) if (!groups.contains(c.group)) groups.add(c.group);
-                    Repo.channels = list;
-                    Repo.liveGroups = groups;
+                    return null;
                 }
+                // M3U links from Xtream servers carry the login; the API gives movies, series and EPG.
+                String m3u = Repo.m3uUrl;
+                String[] x = M3uCatalog.xtreamCredentials(m3u);
+                if (x != null) {
+                    Repo.saveXtream(x[0], x[1], x[2]);
+                    try {
+                        Xtream.login();
+                        return null;
+                    } catch (java.io.IOException e) {
+                        Repo.saveM3u(m3u);
+                    }
+                }
+                M3uCatalog.load(m3u);
                 return null;
             }
         }, new Task.Done<Void>() {

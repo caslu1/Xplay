@@ -10,9 +10,11 @@ public final class VodItem {
     public final String categoryId;
     public final String extension;
     public final long added;
+    /** Direct stream address for movies from M3U lists; null for Xtream titles. */
+    public final String url;
 
     public VodItem(boolean series, String id, String name, String poster, double rating,
-                   String categoryId, String extension, long added) {
+                   String categoryId, String extension, long added, String url) {
         this.series = series;
         this.id = id;
         this.name = name;
@@ -21,6 +23,7 @@ public final class VodItem {
         this.categoryId = categoryId;
         this.extension = extension;
         this.added = added;
+        this.url = url;
     }
 
     public String favKey() {
