@@ -74,6 +74,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         buildUi();
         showGroups();
         preloadCatalogs();
+        Updater.checkOnStart(this);
 
         String last = Repo.prefs().getString("last_channel", null);
         for (Channel c : Repo.channels) {
@@ -488,9 +489,11 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     private void listMenu() {
         new AlertDialog.Builder(this)
                 .setTitle("Minha lista")
-                .setItems(new String[] {"Atualizar lista", "Sair e trocar de lista"}, new DialogInterface.OnClickListener() {
+                .setItems(new String[] {"Atualizar lista", "Verificar atualizações do app (versão "
+                        + Updater.currentName(this) + ")", "Sair e trocar de lista"}, new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface d, int which) {
                         if (which == 0) reload();
+                        else if (which == 1) Updater.check(LiveActivity.this, true);
                         else confirmLogout();
                     }
                 })

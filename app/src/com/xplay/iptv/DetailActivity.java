@@ -2,6 +2,7 @@ package com.xplay.iptv;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -26,7 +27,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-/** Movie / series page: poster, rating, genres, plot, play button, favorites and tabs. */
+/**
+ * Movie / series page: a hero with poster, info and actions over a blurred backdrop, then the
+ * seasons and episodes (series), related titles and credits, stacked for easy remote navigation.
+ */
 public class DetailActivity extends Activity {
 
     private static final String EXTRA_SERIES = "series";
@@ -34,16 +38,16 @@ public class DetailActivity extends Activity {
 
     private VodItem item;
     private JSONObject info;
-    /** Seasons in order; each holds its episodes. */
     private final List<String> seasonNames = new ArrayList<String>();
     private final List<List<JSONObject>> seasons = new ArrayList<List<JSONObject>>();
     private int season;
-    private int tab;
 
-    private TextView subtitle, meta, plot, more, playLabel, favLabel;
-    private ImageView favIcon;
-    private LinearLayout genres, tabsRow, tabContent, actions;
-    private View playButton;
+    private ImageView backdrop;
+    private TextView subtitle, meta, plot, more, playLabel;
+    private LinearLayout genres, actions, seasonChips, episodeStrip, credits;
+    private TextView episodesState;
+    private LinearLayout favButton;
+    private View trailerButton;
     private ProgressBar infoLoading;
 
     public static void start(Activity from, VodItem v) {
@@ -66,82 +70,167 @@ public class DetailActivity extends Activity {
         loadInfo();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (playLabel == null) return;
+        updateFav();
+        updatePlayLabel();
+        if (item.series && info != null && !seasons.isEmpty()) renderEpisodes();
+    }
+
     // ---------------------------------------------------------------- layout
 
     private void buildUi() {
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(Palette.BLACK);
-        LinearLayout c = Ui.column(this);
+        scroll.setFillViewport(true);
+        LinearLayout page = Ui.column(this);
+        scroll.addView(page);
+
+        page.addView(buildHero(), Ui.lp(-1, -2));
+
         int p = Ui.dp(this, 32);
-        c.setPadding(p, Ui.dp(this, 8), p, p);
-        scroll.addView(c);
+        LinearLayout body = Ui.column(this);
+        body.setPadding(p, 0, p, p);
+        page.addView(body, Ui.lp(-1, -2));
+
+        if (item.series) {
+            body.addView(sectionTitle("Episódios"));
+            HorizontalScrollView chipScroll = new HorizontalScrollView(this);
+            chipScroll.setHorizontalScrollBarEnabled(false);
+            seasonChips = Ui.row(this);
+            chipScroll.addView(seasonChips);
+            body.addView(chipScroll, Ui.lp(-1, -2));
+            episodesState = Ui.text(this, "Carregando episódios…", 15, Palette.TEXT_DIM, false);
+            episodesState.setPadding(0, Ui.dp(this, 12), 0, 0);
+            body.addView(episodesState);
+            HorizontalScrollView epScroll = new HorizontalScrollView(this);
+            epScroll.setHorizontalScrollBarEnabled(false);
+            episodeStrip = Ui.row(this);
+            episodeStrip.setGravity(Gravity.TOP);
+            episodeStrip.setPadding(0, Ui.dp(this, 12), Ui.dp(this, 16), 0);
+            epScroll.addView(episodeStrip);
+            body.addView(epScroll, Ui.lp(-1, -2));
+        }
+
+        List<VodItem> related = related();
+        if (!related.isEmpty()) {
+            body.addView(sectionTitle("Relacionados"));
+            HorizontalScrollView hs = new HorizontalScrollView(this);
+            hs.setHorizontalScrollBarEnabled(false);
+            LinearLayout strip = Ui.row(this);
+            strip.setGravity(Gravity.TOP);
+            hs.addView(strip);
+            int w = Ui.posterDp(this);
+            for (VodItem v : related) {
+                LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
+                lp.rightMargin = Ui.dp(this, 8);
+                strip.addView(Posters.card(this, v, w), lp);
+            }
+            body.addView(hs, Ui.lp(-1, -2));
+        }
+
+        credits = Ui.column(this);
+        body.addView(credits, Ui.lp(-1, -2));
+
+        setContentView(scroll);
+    }
+
+    private View buildHero() {
+        FrameLayout hero = new FrameLayout(this);
+        backdrop = new ImageView(this);
+        backdrop.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        backdrop.setAlpha(0.55f);
+        ImageLoader.loadBlurred(item.poster, backdrop);
+        hero.addView(backdrop, new FrameLayout.LayoutParams(-1, -1));
+        View shadeLeft = new View(this);
+        shadeLeft.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[] {0xF2000000, 0x99000000, 0x66000000}));
+        hero.addView(shadeLeft, new FrameLayout.LayoutParams(-1, -1));
+        View shadeBottom = new View(this);
+        shadeBottom.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
+                new int[] {Palette.BLACK, 0x00000000}));
+        hero.addView(shadeBottom, new FrameLayout.LayoutParams(-1, Ui.dp(this, 80), Gravity.BOTTOM));
+
+        LinearLayout content = Ui.column(this);
+        content.setPadding(Ui.dp(this, 20), Ui.dp(this, 10), Ui.dp(this, 32), Ui.dp(this, 20));
+        hero.addView(content, new FrameLayout.LayoutParams(-1, -2));
 
         ImageView back = Ui.iconButton(this, R.drawable.ic_back, Palette.TEXT, Palette.GOLD);
-        LinearLayout.LayoutParams bl = Ui.lp(Ui.dp(this, 48), Ui.dp(this, 48));
-        bl.leftMargin = -Ui.dp(this, 8);
         back.setContentDescription("Voltar");
-        c.addView(back, bl);
+        content.addView(back, Ui.lp(Ui.dp(this, 46), Ui.dp(this, 46)));
         back.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { finish(); }
         });
 
-        LinearLayout header = Ui.row(this);
-        header.setGravity(Gravity.TOP);
+        LinearLayout row = Ui.row(this);
+        row.setGravity(Gravity.TOP);
+        row.setPadding(Ui.dp(this, 12), Ui.dp(this, 4), 0, 0);
+        content.addView(row, Ui.lp(-1, -2));
+
+        int pw = Math.max(Ui.posterDp(this) + 30, 140);
         FrameLayout poster = new FrameLayout(this);
-        float r = Ui.dp(this, 10);
+        float r = Ui.dp(this, 12);
         poster.setBackground(Ui.round(Palette.SURFACE_HI, r));
         Ui.clipRound(poster, r);
+        poster.setElevation(Ui.dp(this, 8));
         ImageView img = new ImageView(this);
         img.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        ImageLoader.load(item.poster, img, Ui.dp(this, 170), 0);
+        ImageLoader.load(item.poster, img, Ui.dp(this, pw), 0);
         poster.addView(img, new FrameLayout.LayoutParams(-1, -1));
-        header.addView(poster, Ui.lp(Ui.dp(this, 170), Ui.dp(this, 255)));
+        row.addView(poster, Ui.lp(Ui.dp(this, pw), Ui.dp(this, pw) * 3 / 2));
 
         LinearLayout side = Ui.column(this);
         side.setPadding(Ui.dp(this, 28), 0, 0, 0);
-        TextView title = Ui.text(this, item.name, 24, Palette.TEXT, true);
-        title.setMaxLines(3);
+        row.addView(side, Ui.weight(1));
+
+        TextView title = Ui.text(this, item.name, 28, Palette.TEXT, true);
+        title.setMaxLines(2);
         title.setEllipsize(TextUtils.TruncateAt.END);
         side.addView(title);
         subtitle = Ui.text(this, "", 15, Palette.TEXT_DIM, false);
+        subtitle.setVisibility(View.GONE);
         side.addView(subtitle);
+
+        LinearLayout metaRow = Ui.row(this);
         if (item.ratingText() != null) {
-            LinearLayout rating = Ui.row(this);
-            rating.addView(Ui.icon(this, R.drawable.ic_star, Palette.GOLD), Ui.lp(Ui.dp(this, 20), Ui.dp(this, 20)));
-            TextView rt = Ui.text(this, item.ratingText(), 17, Palette.GOLD, true);
-            rt.setPadding(Ui.dp(this, 6), 0, 0, 0);
-            rating.addView(rt);
-            LinearLayout.LayoutParams rl = Ui.lp(-2, -2);
-            rl.topMargin = Ui.dp(this, 6);
-            side.addView(rating, rl);
+            metaRow.addView(Ui.icon(this, R.drawable.ic_star, Palette.GOLD), Ui.lp(Ui.dp(this, 18), Ui.dp(this, 18)));
+            TextView rt = Ui.text(this, item.ratingText(), 16, Palette.GOLD, true);
+            rt.setPadding(Ui.dp(this, 5), 0, Ui.dp(this, 16), 0);
+            metaRow.addView(rt);
         }
-        meta = Ui.text(this, "", 14, 0xFFBBBBBB, false);
+        meta = Ui.text(this, "", 14, 0xFFCCCCCC, false);
+        metaRow.addView(meta);
+        infoLoading = new ProgressBar(this);
+        infoLoading.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(Palette.GOLD));
+        LinearLayout.LayoutParams il = Ui.lp(Ui.dp(this, 20), Ui.dp(this, 20));
+        il.leftMargin = Ui.dp(this, 12);
+        metaRow.addView(infoLoading, il);
         LinearLayout.LayoutParams ml = Ui.lp(-1, -2);
-        ml.topMargin = Ui.dp(this, 6);
-        side.addView(meta, ml);
+        ml.topMargin = Ui.dp(this, 8);
+        side.addView(metaRow, ml);
+
         HorizontalScrollView gs = new HorizontalScrollView(this);
         gs.setHorizontalScrollBarEnabled(false);
         genres = Ui.row(this);
         gs.addView(genres);
         LinearLayout.LayoutParams gl = Ui.lp(-1, -2);
-        gl.topMargin = Ui.dp(this, 12);
+        gl.topMargin = Ui.dp(this, 10);
         side.addView(gs, gl);
-        infoLoading = new ProgressBar(this);
-        infoLoading.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(Palette.GOLD));
-        side.addView(infoLoading, Ui.lp(Ui.dp(this, 28), Ui.dp(this, 28)));
-        header.addView(side, Ui.weight(1));
-        c.addView(header, Ui.lp(-1, -2));
 
-        plot = Ui.text(this, "", 15, 0xFFBBBBBB, false);
+        plot = Ui.text(this, "", 15, 0xFFCFCFCF, false);
         plot.setMaxLines(3);
         plot.setEllipsize(TextUtils.TruncateAt.END);
         plot.setLineSpacing(0, 1.15f);
         LinearLayout.LayoutParams pl = Ui.lp(-1, -2);
-        pl.topMargin = Ui.dp(this, 14);
+        pl.topMargin = Ui.dp(this, 12);
         side.addView(plot, pl);
-        more = Ui.text(this, "Saiba mais", 15, Palette.GOLD, true);
+        more = Ui.text(this, "Saiba mais", 14, Palette.GOLD, true);
         more.setFocusable(true);
         more.setClickable(true);
+        more.setPadding(0, Ui.dp(this, 4), Ui.dp(this, 8), Ui.dp(this, 4));
+        more.setBackground(Ui.selectable(this, 0, 0x22FFFFFF, Ui.dp(this, 8), Palette.GOLD));
         more.setVisibility(View.GONE);
         side.addView(more);
         more.setOnClickListener(new View.OnClickListener() {
@@ -152,26 +241,18 @@ public class DetailActivity extends Activity {
             }
         });
 
-        FrameLayout play = new FrameLayout(this);
-        play.setFocusable(true);
-        play.setClickable(true);
-        play.setBackground(Ui.selectable(this, Palette.GOLD, Palette.GOLD_LIGHT, Ui.dp(this, 28), Palette.TEXT));
-        playLabel = Ui.text(this, item.series ? "CARREGANDO…" : "REPRODUZIR", 17, Palette.BLACK, true);
-        play.addView(playLabel, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
-        LinearLayout.LayoutParams pb = Ui.lp(Ui.dp(this, 320), Ui.dp(this, 54));
-        pb.topMargin = Ui.dp(this, 18);
-        side.addView(play, pb);
-        playButton = play;
+        actions = Ui.row(this);
+        LinearLayout.LayoutParams al = Ui.lp(-1, -2);
+        al.topMargin = Ui.dp(this, 16);
+        side.addView(actions, al);
+
+        LinearLayout play = pill(R.drawable.ic_play, item.series ? "CARREGANDO…" : "REPRODUZIR", true);
+        playLabel = (TextView) play.getChildAt(1);
         play.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { playMain(); }
         });
-        play.requestFocus();
-
-        actions = Ui.row(this);
-        LinearLayout fav = action(R.drawable.ic_heart, "Favoritos");
-        favIcon = (ImageView) fav.getChildAt(0);
-        favLabel = (TextView) fav.getChildAt(1);
-        fav.setOnClickListener(new View.OnClickListener() {
+        favButton = pill(R.drawable.ic_heart, "Favoritos", false);
+        favButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 boolean on = Repo.toggleFav(item.favKey());
                 updateFav();
@@ -180,53 +261,90 @@ public class DetailActivity extends Activity {
             }
         });
         updateFav();
-        LinearLayout.LayoutParams al = Ui.lp(-1, -2);
-        al.topMargin = Ui.dp(this, 12);
-        side.addView(actions, al);
-
-        tabsRow = Ui.row(this);
-        LinearLayout.LayoutParams tl = Ui.lp(-1, -2);
-        tl.topMargin = Ui.dp(this, 20);
-        c.addView(tabsRow, tl);
-        View line = new View(this);
-        line.setBackgroundColor(0xFF2C2C30);
-        c.addView(line, Ui.lp(-1, 1));
-        tabContent = Ui.column(this);
-        LinearLayout.LayoutParams cl = Ui.lp(-1, -2);
-        cl.topMargin = Ui.dp(this, 14);
-        c.addView(tabContent, cl);
-
-        setContentView(scroll);
-        tab = 0;
-        renderTabs();
+        updatePlayLabel();
+        play.requestFocus();
+        return hero;
     }
 
-    private LinearLayout action(int icon, String label) {
-        LinearLayout a = Ui.column(this);
-        a.setGravity(Gravity.CENTER_HORIZONTAL);
-        a.setFocusable(true);
-        a.setClickable(true);
-        a.setBackground(Ui.selectable(this, 0, 0x1FFFFFFF, Ui.dp(this, 12), Palette.GOLD));
-        a.setPadding(Ui.dp(this, 14), Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 6));
-        ImageView i = Ui.icon(this, icon, Palette.TEXT);
-        i.setBackground(Ui.round(Palette.SURFACE_HI, Ui.dp(this, 22)));
-        int p = Ui.dp(this, 10);
-        i.setPadding(p, p, p, p);
-        a.addView(i, Ui.lp(Ui.dp(this, 44), Ui.dp(this, 44)));
-        TextView t = Ui.text(this, label, 13, Palette.TEXT, false);
-        t.setPadding(0, Ui.dp(this, 6), 0, 0);
-        a.addView(t);
+    private LinearLayout pill(int icon, String label, boolean primary) {
+        LinearLayout b = Ui.row(this);
+        b.setFocusable(true);
+        b.setClickable(true);
+        float r = Ui.dp(this, 26);
+        b.setBackground(primary
+                ? Ui.selectable(this, Palette.GOLD, Palette.GOLD_LIGHT, r, Palette.TEXT)
+                : Ui.selectable(this, 0x26FFFFFF, 0x40FFFFFF, r, Palette.GOLD));
+        b.setPadding(Ui.dp(this, 18), Ui.dp(this, 12), Ui.dp(this, 22), Ui.dp(this, 12));
+        int color = primary ? Palette.BLACK : Palette.TEXT;
+        b.addView(Ui.icon(this, icon, color), Ui.lp(Ui.dp(this, 20), Ui.dp(this, 20)));
+        TextView t = Ui.text(this, label, 15, color, true);
+        t.setSingleLine(true);
+        t.setPadding(Ui.dp(this, 8), 0, 0, 0);
+        b.addView(t);
         LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
-        lp.rightMargin = Ui.dp(this, 8);
-        actions.addView(a, lp);
-        return a;
+        lp.rightMargin = Ui.dp(this, 10);
+        actions.addView(b, lp);
+        return b;
+    }
+
+    private TextView sectionTitle(String text) {
+        TextView t = Ui.text(this, text, 20, Palette.TEXT, true);
+        t.setPadding(0, Ui.dp(this, 22), 0, Ui.dp(this, 10));
+        return t;
     }
 
     private void updateFav() {
         boolean on = Repo.isFav(item.favKey());
-        favIcon.setImageResource(on ? R.drawable.ic_heart_fill : R.drawable.ic_heart);
-        favIcon.setColorFilter(on ? 0xFFFF5C7A : Palette.TEXT);
-        favLabel.setText(on ? "Favorito" : "Favoritos");
+        ImageView icon = (ImageView) favButton.getChildAt(0);
+        icon.setImageResource(on ? R.drawable.ic_heart_fill : R.drawable.ic_heart);
+        icon.setColorFilter(on ? 0xFFFF5C7A : Palette.TEXT);
+        ((TextView) favButton.getChildAt(1)).setText(on ? "Favorito" : "Favoritos");
+    }
+
+    /** "Continuar" when there is saved progress, otherwise play from the start / first episode. */
+    private void updatePlayLabel() {
+        JSONObject resume = resumeEntry();
+        if (resume != null) {
+            String sub = resume.optString("sub", "");
+            int gap = sub.indexOf("  ");
+            String episode = gap > 0 ? sub.substring(0, gap) : sub;
+            playLabel.setText("CONTINUAR" + (item.series && !episode.isEmpty() ? "  " + episode : ""));
+        } else if (item.series) {
+            if (info == null) playLabel.setText("CARREGANDO…");
+            else if (seasons.isEmpty()) playLabel.setText("SEM EPISÓDIOS");
+            else playLabel.setText("ASSISTIR  T" + seasonNumber(0) + ":E" + episodeNumber(seasons.get(0).get(0), 0));
+        } else {
+            playLabel.setText("REPRODUZIR");
+        }
+    }
+
+    private JSONObject resumeEntry() {
+        for (JSONObject e : Repo.continueList(item.series)) {
+            if (item.favKey().equals(e.optString("key"))) return e;
+        }
+        return null;
+    }
+
+    /** Same category first; filled up with the best-rated titles when the category is small. */
+    private List<VodItem> related() {
+        List<VodItem> pool = item.series ? Repo.series : Repo.movies;
+        List<VodItem> out = new ArrayList<VodItem>();
+        if (pool == null) return out;
+        for (VodItem v : pool) {
+            if (v != item && v.categoryId != null && v.categoryId.equals(item.categoryId)) out.add(v);
+            if (out.size() >= 20) return out;
+        }
+        if (out.size() < 8) {
+            List<VodItem> top = new ArrayList<VodItem>(pool);
+            Collections.sort(top, new Comparator<VodItem>() {
+                public int compare(VodItem a, VodItem b) { return Double.compare(b.rating, a.rating); }
+            });
+            for (VodItem v : top) {
+                if (out.size() >= 20) break;
+                if (v != item && !out.contains(v)) out.add(v);
+            }
+        }
+        return out;
     }
 
     // ---------------------------------------------------------------- data
@@ -234,7 +352,6 @@ public class DetailActivity extends Activity {
     private void loadInfo() {
         if (!Repo.isXtream()) {
             // M3U titles have no info API: show what the playlist gave and its episodes.
-            infoLoading.setVisibility(View.GONE);
             info = new JSONObject();
             if (item.series) loadM3uEpisodes();
             fillInfo();
@@ -246,7 +363,6 @@ public class DetailActivity extends Activity {
             }
         }, new Task.Done<JSONObject>() {
             public void ok(JSONObject o) {
-                infoLoading.setVisibility(View.GONE);
                 info = o.optJSONObject("info");
                 if (info == null) info = new JSONObject();
                 if (item.series) parseEpisodes(o);
@@ -254,34 +370,11 @@ public class DetailActivity extends Activity {
             }
 
             public void fail(Exception e) {
-                infoLoading.setVisibility(View.GONE);
                 info = new JSONObject();
+                fillInfo();
                 plot.setText("Não foi possível carregar os detalhes: " + Task.message(e));
-                if (item.series) playLabel.setText("TENTE NOVAMENTE");
             }
         });
-    }
-
-    private void parseEpisodes(JSONObject o) {
-        seasonNames.clear();
-        seasons.clear();
-        Object eps = o.opt("episodes");
-        List<String> keys = new ArrayList<String>();
-        if (eps instanceof JSONObject) {
-            Iterator<String> it = ((JSONObject) eps).keys();
-            while (it.hasNext()) keys.add(it.next());
-            Collections.sort(keys, new Comparator<String>() {
-                public int compare(String a, String b) { return Integer.compare(num(a), num(b)); }
-            });
-            for (String k : keys) {
-                JSONArray arr = ((JSONObject) eps).optJSONArray(k);
-                addSeason("Temporada " + k, arr);
-            }
-        } else if (eps instanceof JSONArray) {
-            // Some servers send a list of seasons instead of an object keyed by season.
-            JSONArray outer = (JSONArray) eps;
-            for (int i = 0; i < outer.length(); i++) addSeason("Temporada " + (i + 1), outer.optJSONArray(i));
-        }
     }
 
     private void loadM3uEpisodes() {
@@ -297,6 +390,25 @@ public class DetailActivity extends Activity {
         }
     }
 
+    private void parseEpisodes(JSONObject o) {
+        seasonNames.clear();
+        seasons.clear();
+        Object eps = o.opt("episodes");
+        if (eps instanceof JSONObject) {
+            List<String> keys = new ArrayList<String>();
+            Iterator<String> it = ((JSONObject) eps).keys();
+            while (it.hasNext()) keys.add(it.next());
+            Collections.sort(keys, new Comparator<String>() {
+                public int compare(String a, String b) { return Integer.compare(num(a), num(b)); }
+            });
+            for (String k : keys) addSeason("Temporada " + k, ((JSONObject) eps).optJSONArray(k));
+        } else if (eps instanceof JSONArray) {
+            // Some servers send a list of seasons instead of an object keyed by season.
+            JSONArray outer = (JSONArray) eps;
+            for (int i = 0; i < outer.length(); i++) addSeason("Temporada " + (i + 1), outer.optJSONArray(i));
+        }
+    }
+
     private void addSeason(String name, JSONArray arr) {
         if (arr == null || arr.length() == 0) return;
         List<JSONObject> list = new ArrayList<JSONObject>();
@@ -304,6 +416,11 @@ public class DetailActivity extends Activity {
             JSONObject e = arr.optJSONObject(i);
             if (e != null) list.add(e);
         }
+        Collections.sort(list, new Comparator<JSONObject>() {
+            public int compare(JSONObject a, JSONObject b) {
+                return Integer.compare(num(a.optString("episode_num", "")), num(b.optString("episode_num", "")));
+            }
+        });
         seasonNames.add(name);
         seasons.add(list);
     }
@@ -317,10 +434,12 @@ public class DetailActivity extends Activity {
     }
 
     private void fillInfo() {
+        infoLoading.setVisibility(View.GONE);
         String original = str(info, "o_name");
-        String genre = str(info, "genre");
-        subtitle.setText(!original.isEmpty() && !original.equalsIgnoreCase(item.name) ? original : "");
-        subtitle.setVisibility(subtitle.getText().length() == 0 ? View.GONE : View.VISIBLE);
+        if (!original.isEmpty() && !original.equalsIgnoreCase(item.name)) {
+            subtitle.setText(original);
+            subtitle.setVisibility(View.VISIBLE);
+        }
 
         List<String> parts = new ArrayList<String>();
         String date = first(info, "releasedate", "release_date", "releaseDate");
@@ -332,20 +451,23 @@ public class DetailActivity extends Activity {
         if (item.series && !seasons.isEmpty()) {
             parts.add(seasons.size() + (seasons.size() == 1 ? " temporada" : " temporadas"));
         }
-        meta.setText(TextUtils.join("   ", parts));
+        meta.setText(TextUtils.join("  •  ", parts));
 
         genres.removeAllViews();
-        if (!genre.isEmpty()) {
-            for (String g : genre.split("[,/]")) {
-                String t = g.trim();
-                if (t.isEmpty()) continue;
-                TextView chip = Ui.text(this, t, 14, Palette.TEXT, false);
-                chip.setBackground(Ui.round(Palette.SURFACE_HI, Ui.dp(this, 8)));
-                chip.setPadding(Ui.dp(this, 14), Ui.dp(this, 7), Ui.dp(this, 14), Ui.dp(this, 7));
-                LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
-                lp.rightMargin = Ui.dp(this, 8);
-                genres.addView(chip, lp);
-            }
+        String genre = str(info, "genre");
+        java.util.Map<String, String> cats = item.series ? Repo.seriesCategories : Repo.movieCategories;
+        if (genre.isEmpty() && cats != null && item.categoryId != null && cats.get(item.categoryId) != null) {
+            genre = cats.get(item.categoryId);
+        }
+        for (String g : genre.split("[,/]")) {
+            String t = g.trim();
+            if (t.isEmpty()) continue;
+            TextView chip = Ui.text(this, t, 13, Palette.TEXT, false);
+            chip.setBackground(Ui.stroke(0x33000000, Ui.dp(this, 8), Ui.dp(this, 1), 0x55FFFFFF));
+            chip.setPadding(Ui.dp(this, 12), Ui.dp(this, 5), Ui.dp(this, 12), Ui.dp(this, 5));
+            LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
+            lp.rightMargin = Ui.dp(this, 8);
+            genres.addView(chip, lp);
         }
 
         String text = first(info, "plot", "description");
@@ -358,9 +480,16 @@ public class DetailActivity extends Activity {
             }
         });
 
+        String back = Xtream.httpOrNull(str(info, "backdrop_path"));
+        if (back != null) {
+            backdrop.setAlpha(0.45f);
+            ImageLoader.load(back, backdrop, getResources().getDisplayMetrics().widthPixels / 2, 0);
+        }
+
         final String trailer = str(info, "youtube_trailer");
-        if (!trailer.isEmpty()) {
-            LinearLayout t = action(R.drawable.ic_play, "Trailer");
+        if (!trailer.isEmpty() && trailerButton == null) {
+            LinearLayout t = pill(R.drawable.ic_movie, "Trailer", false);
+            trailerButton = t;
             t.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     String url = trailer.startsWith("http") ? trailer : "https://www.youtube.com/watch?v=" + trailer;
@@ -373,22 +502,19 @@ public class DetailActivity extends Activity {
             });
         }
 
-        if (item.series) {
-            if (seasons.isEmpty()) playLabel.setText("SEM EPISÓDIOS");
-            else playLabel.setText("REPRODUZIR  T" + seasonNumber(0) + ":E" + episodeNumber(seasons.get(0).get(0), 0));
-        }
-        renderTabs();
+        updatePlayLabel();
+        if (item.series) renderSeasons();
+        renderCredits();
     }
 
     private String durationText() {
         int secs = info.optInt("duration_secs", 0);
         if (secs <= 0 && item.series) return "";
         if (secs <= 0) {
-            String d = str(info, "duration");
-            String[] hms = d.split(":");
+            String[] hms = str(info, "duration").split(":");
             if (hms.length == 3) {
                 secs = num(hms[0]) * 3600 + num(hms[1]) * 60 + num(hms[2]);
-                if (secs >= 9999) secs = 0;
+                if (secs >= 9999 * 60) secs = 0;
             }
         }
         return secs > 0 ? (secs / 60) + " min" : "";
@@ -423,9 +549,162 @@ public class DetailActivity extends Activity {
         return "";
     }
 
+    // ---------------------------------------------------------------- seasons and episodes
+
+    private void renderSeasons() {
+        seasonChips.removeAllViews();
+        if (seasons.isEmpty()) {
+            episodesState.setText("Nenhum episódio disponível.");
+            episodesState.setVisibility(View.VISIBLE);
+            episodeStrip.removeAllViews();
+            return;
+        }
+        episodesState.setVisibility(View.GONE);
+        for (int i = 0; i < seasonNames.size(); i++) {
+            final int which = i;
+            boolean on = i == season;
+            TextView chip = Ui.text(this, seasonNames.get(i), 14, on ? Palette.BLACK : Palette.TEXT, true);
+            chip.setSingleLine(true);
+            chip.setFocusable(true);
+            chip.setClickable(true);
+            chip.setBackground(Ui.selectable(this, on ? Palette.GOLD : Palette.SURFACE_HI,
+                    on ? Palette.GOLD_LIGHT : 0xFF2C2C2C, Ui.dp(this, 18), Palette.GOLD));
+            chip.setPadding(Ui.dp(this, 16), Ui.dp(this, 8), Ui.dp(this, 16), Ui.dp(this, 8));
+            LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
+            lp.rightMargin = Ui.dp(this, 8);
+            seasonChips.addView(chip, lp);
+            chip.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    if (season == which) return;
+                    season = which;
+                    renderSeasons();
+                    // Keep the remote on the season row after it is rebuilt.
+                    seasonChips.getChildAt(which).requestFocus();
+                }
+            });
+        }
+        renderEpisodes();
+    }
+
+    private void renderEpisodes() {
+        episodeStrip.removeAllViews();
+        ((HorizontalScrollView) episodeStrip.getParent()).scrollTo(0, 0);
+        JSONObject resume = resumeEntry();
+        String resumeUrl = resume == null ? null : resume.optString("url");
+        List<JSONObject> eps = seasons.get(season);
+        int w = Ui.dp(this, 220);
+        for (int i = 0; i < eps.size(); i++) {
+            final int index = i;
+            JSONObject e = eps.get(i);
+            JSONObject ei = e.optJSONObject("info");
+
+            LinearLayout card = Ui.column(this);
+            card.setFocusable(true);
+            card.setClickable(true);
+            int p = Ui.dp(this, 4);
+            card.setPadding(p, p, p, p);
+            card.setBackground(Ui.selectable(this, 0, 0x1FFFFFFF, Ui.dp(this, 12), Palette.GOLD));
+
+            FrameLayout thumb = new FrameLayout(this);
+            float r = Ui.dp(this, 10);
+            thumb.setBackground(Ui.round(Palette.SURFACE_HI, r));
+            Ui.clipRound(thumb, r);
+            ImageView img = new ImageView(this);
+            img.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            String still = Xtream.httpOrNull(str(ei, "movie_image"));
+            ImageLoader.load(still != null ? still : item.poster, img, w, 0);
+            thumb.addView(img, new FrameLayout.LayoutParams(-1, -1));
+            View shade = new View(this);
+            shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
+                    new int[] {0xB3000000, 0x00000000}));
+            thumb.addView(shade, new FrameLayout.LayoutParams(-1, Ui.dp(this, 50), Gravity.BOTTOM));
+            TextView number = Ui.text(this, "E" + episodeNumber(e, i), 13, Palette.TEXT, true);
+            number.setBackground(Ui.round(0xCC000000, Ui.dp(this, 6)));
+            number.setPadding(Ui.dp(this, 7), Ui.dp(this, 2), Ui.dp(this, 7), Ui.dp(this, 2));
+            FrameLayout.LayoutParams nl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.START);
+            nl.setMargins(Ui.dp(this, 8), Ui.dp(this, 8), 0, 0);
+            thumb.addView(number, nl);
+            ImageView playIcon = Ui.icon(this, R.drawable.ic_play, Palette.BLACK);
+            playIcon.setBackground(Ui.round(Palette.GOLD, Ui.dp(this, 16)));
+            int ip = Ui.dp(this, 6);
+            playIcon.setPadding(ip, ip, ip, ip);
+            thumb.addView(playIcon, new FrameLayout.LayoutParams(Ui.dp(this, 32), Ui.dp(this, 32), Gravity.CENTER));
+            String url = episodeUrl(e);
+            if (url != null && url.equals(resumeUrl)) {
+                FrameLayout track = new FrameLayout(this);
+                track.setBackgroundColor(0x66FFFFFF);
+                View bar = new View(this);
+                bar.setBackgroundColor(Palette.GOLD);
+                int dur = Math.max(1, resume.optInt("dur", 1));
+                track.addView(bar, new FrameLayout.LayoutParams(w * Math.min(dur, resume.optInt("pos")) / dur, -1));
+                thumb.addView(track, new FrameLayout.LayoutParams(-1, Ui.dp(this, 4), Gravity.BOTTOM));
+            }
+            card.addView(thumb, Ui.lp(w, w * 9 / 16));
+
+            String title = str(e, "title");
+            TextView t = Ui.text(this, title.isEmpty() ? "Episódio " + episodeNumber(e, i) : title, 14, Palette.TEXT, true);
+            t.setSingleLine(true);
+            t.setEllipsize(TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams tl = Ui.lp(w, -2);
+            tl.topMargin = Ui.dp(this, 8);
+            card.addView(t, tl);
+            String dur = str(ei, "duration");
+            String desc = str(ei, "plot");
+            String line = dur.isEmpty() ? desc : (desc.isEmpty() ? dur : dur + "  •  " + desc);
+            if (!line.isEmpty()) {
+                TextView d = Ui.text(this, line, 12, Palette.TEXT_DIM, false);
+                d.setMaxLines(2);
+                d.setEllipsize(TextUtils.TruncateAt.END);
+                card.addView(d, Ui.lp(w, -2));
+            }
+            LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
+            lp.rightMargin = Ui.dp(this, 10);
+            episodeStrip.addView(card, lp);
+            card.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { playEpisode(season, index); }
+            });
+        }
+    }
+
+    private void renderCredits() {
+        credits.removeAllViews();
+        String[][] rows = {
+                {"Elenco", first(info, "cast", "actors")},
+                {"Direção", str(info, "director")},
+                {"Lançamento", first(info, "releasedate", "release_date", "releaseDate")},
+                {"País", str(info, "country")},
+        };
+        boolean any = false;
+        for (String[] r : rows) if (!r[1].isEmpty()) any = true;
+        if (!any) return;
+        credits.addView(sectionTitle("Elenco e produção"));
+        LinearLayout box = Ui.column(this);
+        box.setBackground(Ui.round(Palette.SURFACE, Ui.dp(this, 14)));
+        int p = Ui.dp(this, 18);
+        box.setPadding(p, Ui.dp(this, 8), p, Ui.dp(this, 8));
+        for (String[] r : rows) {
+            if (r[1].isEmpty()) continue;
+            LinearLayout line = Ui.row(this);
+            line.setGravity(Gravity.TOP);
+            line.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 8));
+            line.addView(Ui.text(this, r[0], 14, Palette.TEXT_DIM, true), Ui.lp(Ui.dp(this, 120), -2));
+            TextView v = Ui.text(this, r[1], 14, Palette.TEXT, false);
+            v.setLineSpacing(0, 1.1f);
+            line.addView(v, Ui.weight(1));
+            box.addView(line, Ui.lp(-1, -2));
+        }
+        credits.addView(box, Ui.lp(-1, -2));
+    }
+
     // ---------------------------------------------------------------- playback
 
     private void playMain() {
+        JSONObject resume = resumeEntry();
+        if (resume != null) {
+            play(resume.optString("url"), resume.optString("title", item.name),
+                    resume.has("sub") ? resume.optString("sub") : null);
+            return;
+        }
         if (!item.series) {
             try {
                 play(item.url != null ? item.url : Xtream.movieUrl(item.id, item.extension), item.name, null);
@@ -436,23 +715,33 @@ public class DetailActivity extends Activity {
         }
         if (info == null) return;
         if (seasons.isEmpty()) {
+            infoLoading.setVisibility(View.VISIBLE);
             loadInfo();
             return;
         }
         playEpisode(0, 0);
     }
 
+    private String episodeUrl(JSONObject e) {
+        if (e.has("url")) return e.optString("url");
+        try {
+            return Xtream.episodeUrl(e.optString("id"), e.optString("container_extension", "mp4"));
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
     private void playEpisode(int seasonIndex, int episodeIndex) {
         JSONObject e = seasons.get(seasonIndex).get(episodeIndex);
-        try {
-            String url = e.has("url") ? e.optString("url")
-                    : Xtream.episodeUrl(e.optString("id"), e.optString("container_extension", "mp4"));
-            String sub = "T" + seasonNumber(seasonIndex) + ":E" + episodeNumber(e, episodeIndex)
-                    + "  " + str(e, "title");
-            play(url, item.name, sub);
-        } catch (Exception ex) {
-            Toast.makeText(this, Task.message(ex), Toast.LENGTH_SHORT).show();
+        String url = episodeUrl(e);
+        if (url == null) {
+            Toast.makeText(this, "Episódio indisponível", Toast.LENGTH_SHORT).show();
+            return;
         }
+        String title = str(e, "title");
+        String sub = "T" + seasonNumber(seasonIndex) + ":E" + episodeNumber(e, episodeIndex)
+                + (title.isEmpty() ? "" : "  " + title);
+        play(url, item.name, sub);
     }
 
     private void play(String url, String title, String subtitle) {
@@ -462,200 +751,5 @@ public class DetailActivity extends Activity {
         if (subtitle != null) i.putExtra(PlayerActivity.EXTRA_SUBTITLE, subtitle);
         i.putExtra(PlayerActivity.EXTRA_KEY, item.favKey());
         startActivity(i);
-    }
-
-    // ---------------------------------------------------------------- tabs
-
-    private List<String> tabNames() {
-        List<String> t = new ArrayList<String>();
-        if (item.series) t.add("Episódios");
-        t.add("Similares");
-        t.add("Elenco & Produção");
-        return t;
-    }
-
-    private void renderTabs() {
-        tabsRow.removeAllViews();
-        List<String> names = tabNames();
-        for (int i = 0; i < names.size(); i++) {
-            final int which = i;
-            LinearLayout t = Ui.column(this);
-            t.setFocusable(true);
-            t.setClickable(true);
-            t.setBackground(Ui.selectable(this, 0, 0x1FFFFFFF, Ui.dp(this, 8), 0));
-            TextView label = Ui.text(this, names.get(i), 17, i == tab ? Palette.TEXT : Palette.TEXT_DIM, i == tab);
-            label.setPadding(Ui.dp(this, 4), Ui.dp(this, 8), Ui.dp(this, 4), Ui.dp(this, 10));
-            t.addView(label);
-            View bar = new View(this);
-            bar.setBackgroundColor(i == tab ? Palette.GOLD : 0);
-            t.addView(bar, Ui.lp(-1, Ui.dp(this, 3)));
-            LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
-            lp.rightMargin = Ui.dp(this, 22);
-            tabsRow.addView(t, lp);
-            t.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) {
-                    tab = which;
-                    renderTabs();
-                }
-            });
-        }
-        tabContent.removeAllViews();
-        String current = names.get(tab);
-        if (current.equals("Episódios")) renderEpisodes();
-        else if (current.equals("Similares")) renderSimilar();
-        else renderCredits();
-    }
-
-    private void renderEpisodes() {
-        if (info == null) {
-            tabContent.addView(Ui.text(this, "Carregando episódios…", 15, Palette.TEXT_DIM, false));
-            return;
-        }
-        if (seasons.isEmpty()) {
-            tabContent.addView(Ui.text(this, "Nenhum episódio disponível.", 15, Palette.TEXT_DIM, false));
-            return;
-        }
-        HorizontalScrollView hs = new HorizontalScrollView(this);
-        hs.setHorizontalScrollBarEnabled(false);
-        LinearLayout chips = Ui.row(this);
-        hs.addView(chips);
-        for (int i = 0; i < seasonNames.size(); i++) {
-            final int which = i;
-            boolean on = i == season;
-            TextView chip = Ui.text(this, seasonNames.get(i), 15, on ? Palette.BLACK : Palette.TEXT, true);
-            chip.setFocusable(true);
-            chip.setClickable(true);
-            chip.setBackground(Ui.selectable(this, on ? Palette.GOLD : Palette.SURFACE_HI, on ? Palette.GOLD_LIGHT : 0xFF4A4A4E,
-                    Ui.dp(this, 20), Palette.TEXT));
-            chip.setPadding(Ui.dp(this, 18), Ui.dp(this, 8), Ui.dp(this, 18), Ui.dp(this, 8));
-            LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
-            lp.rightMargin = Ui.dp(this, 8);
-            chips.addView(chip, lp);
-            chip.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) {
-                    season = which;
-                    renderTabs();
-                }
-            });
-        }
-        tabContent.addView(hs, Ui.lp(-1, -2));
-
-        List<JSONObject> eps = seasons.get(season);
-        for (int i = 0; i < eps.size(); i++) {
-            final int index = i;
-            JSONObject e = eps.get(i);
-            JSONObject ei = e.optJSONObject("info");
-            LinearLayout row = Ui.row(this);
-            row.setGravity(Gravity.TOP);
-            row.setFocusable(true);
-            row.setClickable(true);
-            row.setBackground(Ui.selectable(this, 0, 0x1FFFFFFF, Ui.dp(this, 10), Palette.GOLD));
-            int p = Ui.dp(this, 6);
-            row.setPadding(p, p, p, p);
-
-            FrameLayout thumb = new FrameLayout(this);
-            float r = Ui.dp(this, 8);
-            thumb.setBackground(Ui.round(Palette.SURFACE_HI, r));
-            Ui.clipRound(thumb, r);
-            ImageView img = new ImageView(this);
-            img.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            String still = Xtream.httpOrNull(str(ei, "movie_image"));
-            ImageLoader.load(still != null ? still : item.poster, img, Ui.dp(this, 128), 0);
-            thumb.addView(img, new FrameLayout.LayoutParams(-1, -1));
-            ImageView playIcon = Ui.icon(this, R.drawable.ic_play, Palette.TEXT);
-            playIcon.setBackground(Ui.round(0x99000000, Ui.dp(this, 16)));
-            int ip = Ui.dp(this, 4);
-            playIcon.setPadding(ip, ip, ip, ip);
-            thumb.addView(playIcon, new FrameLayout.LayoutParams(Ui.dp(this, 32), Ui.dp(this, 32), Gravity.CENTER));
-            row.addView(thumb, Ui.lp(Ui.dp(this, 128), Ui.dp(this, 72)));
-
-            LinearLayout text = Ui.column(this);
-            text.setPadding(Ui.dp(this, 12), 0, 0, 0);
-            String title = str(e, "title");
-            TextView t = Ui.text(this, episodeNumber(e, i) + ". " + (title.isEmpty() ? "Episódio" : title), 15,
-                    Palette.TEXT, true);
-            t.setMaxLines(2);
-            t.setEllipsize(TextUtils.TruncateAt.END);
-            text.addView(t);
-            String dur = str(ei, "duration");
-            if (!dur.isEmpty()) text.addView(Ui.text(this, dur, 13, Palette.TEXT_DIM, false));
-            String desc = str(ei, "plot");
-            if (!desc.isEmpty()) {
-                TextView d = Ui.text(this, desc, 13, 0xFF9E9EA3, false);
-                d.setMaxLines(2);
-                d.setEllipsize(TextUtils.TruncateAt.END);
-                text.addView(d);
-            }
-            row.addView(text, Ui.weight(1));
-            LinearLayout.LayoutParams lp = Ui.lp(-1, -2);
-            lp.topMargin = Ui.dp(this, 10);
-            tabContent.addView(row, lp);
-            row.setOnClickListener(new View.OnClickListener() {
-                public void onClick(View v) { playEpisode(season, index); }
-            });
-        }
-    }
-
-    private void renderSimilar() {
-        List<VodItem> pool = item.series ? Repo.series : Repo.movies;
-        List<VodItem> similar = new ArrayList<VodItem>();
-        if (pool != null) {
-            for (VodItem v : pool) {
-                if (v != item && v.categoryId.equals(item.categoryId)) similar.add(v);
-                if (similar.size() >= 12) break;
-            }
-        }
-        if (similar.isEmpty()) {
-            tabContent.addView(Ui.text(this, "Nada parecido por aqui ainda.", 15, Palette.TEXT_DIM, false));
-            return;
-        }
-        int width = getResources().getDisplayMetrics().widthPixels - Ui.dp(this, 40);
-        int columns = Math.max(2, width / Ui.dp(this, Ui.posterDp(this) + 16));
-        int cardDp = (int) ((width / (float) columns) / getResources().getDisplayMetrics().density) - 10;
-        LinearLayout row = null;
-        for (int i = 0; i < similar.size(); i++) {
-            if (i % columns == 0) {
-                row = Ui.row(this);
-                row.setGravity(Gravity.TOP);
-                LinearLayout.LayoutParams lp = Ui.lp(-1, -2);
-                lp.bottomMargin = Ui.dp(this, 10);
-                tabContent.addView(row, lp);
-            }
-            row.addView(Posters.card(this, similar.get(i), cardDp), Ui.weight(1));
-        }
-        // Keep the last row's cards the same width as the others.
-        while (row != null && row.getChildCount() < columns) row.addView(new View(this), Ui.spacer());
-    }
-
-    private void renderCredits() {
-        if (info == null) {
-            tabContent.addView(Ui.text(this, "Carregando…", 15, Palette.TEXT_DIM, false));
-            return;
-        }
-        boolean any = false;
-        any |= credit("Elenco", first(info, "cast", "actors"));
-        any |= credit("Direção", str(info, "director"));
-        any |= credit("Gênero", str(info, "genre"));
-        any |= credit("Lançamento", first(info, "releasedate", "release_date", "releaseDate"));
-        any |= credit("País", str(info, "country"));
-        if (!any) tabContent.addView(Ui.text(this, "Sem informações de elenco.", 15, Palette.TEXT_DIM, false));
-    }
-
-    private boolean credit(String label, String value) {
-        if (value.isEmpty()) return false;
-        tabContent.addView(Ui.text(this, label, 14, Palette.TEXT_DIM, true));
-        TextView v = Ui.text(this, value, 15, Palette.TEXT, false);
-        v.setLineSpacing(0, 1.1f);
-        LinearLayout.LayoutParams lp = Ui.lp(-1, -2);
-        lp.topMargin = Ui.dp(this, 2);
-        lp.bottomMargin = Ui.dp(this, 14);
-        tabContent.addView(v, lp);
-        return true;
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (favIcon != null) updateFav();
     }
 }

@@ -245,6 +245,22 @@ public class VodActivity extends Activity implements TopBar.Listener {
         LinearLayout.LayoutParams bl = Ui.lp(-1, -2);
         bl.topMargin = Ui.dp(this, 18);
         right.addView(buttons, bl);
+
+        TextView settingsTitle = Ui.text(this, "Configurações", 18, Palette.TEXT, true);
+        settingsTitle.setPadding(Ui.dp(this, 4), Ui.dp(this, 24), 0, Ui.dp(this, 10));
+        right.addView(settingsTitle);
+        LinearLayout settings = Ui.column(this);
+        settings.setBackground(Ui.round(Palette.SURFACE_HI, Ui.dp(this, 16)));
+        settings.setPadding(Ui.dp(this, 20), Ui.dp(this, 8), Ui.dp(this, 20), Ui.dp(this, 16));
+        infoRow(settings, "Versão do app", Updater.currentName(this));
+        View update = button("VERIFICAR ATUALIZAÇÕES", true);
+        LinearLayout.LayoutParams ul = Ui.lp(-1, -2);
+        ul.topMargin = Ui.dp(this, 8);
+        settings.addView(update, ul);
+        right.addView(settings, Ui.lp(-1, -2));
+        update.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { Updater.check(VodActivity.this, true); }
+        });
         row.addView(right, Ui.weight(1.5f));
 
         refresh.setOnClickListener(new View.OnClickListener() {

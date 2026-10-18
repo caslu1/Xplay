@@ -15,3 +15,9 @@ sudo apt-get install android-sdk-platform-23 aapt apksigner zipalign dalvik-exch
 ```
 
 O APK é assinado com `tools/xplay.keystore` (senha `xplay123`). Use sempre a mesma chave para que as atualizações instalem por cima da versão anterior.
+
+## Publicar uma versão
+
+1. Aumente `versionCode` e `versionName` em `app/AndroidManifest.xml`.
+2. Rode `tools/release.sh "o que mudou"`. Ele gera `releases/Xplay-<versão>.apk` e `releases/latest.json`.
+3. Faça commit e push. Os apps instalados leem `latest.json` ao abrir e oferecem a atualização.
