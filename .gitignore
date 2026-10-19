@@ -1,1 +1,3 @@
 build/
+launcher/build/
+launcher/res/raw/default_config.json

@@ -1,0 +1,76 @@
+{
+  "branding": {
+    "name": "Xplay Launcher",
+    "logo": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-c1251b75-o5q4e9/config/media/logo.png",
+    "background": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-c1251b75-o5q4e9/config/media/background.jpg",
+    "backgroundColor": "#05080F",
+    "overlay": 45
+  },
+  "theme": {
+    "active": "azul",
+    "themes": [
+      {"id": "azul", "name": "Azul", "accent": "#3B82F6", "card": "#CC111827", "text": "#FFFFFF", "muted": "#9CA3AF", "focus": "#FFFFFF"},
+      {"id": "dourado", "name": "Preto e dourado", "accent": "#E5B53A", "card": "#CC141414", "text": "#FFFFFF", "muted": "#A3A3A3", "focus": "#E5B53A"},
+      {"id": "roxo", "name": "Roxo neon", "accent": "#A855F7", "card": "#CC1E1033", "text": "#FFFFFF", "muted": "#C4B5FD", "focus": "#E9D5FF"}
+    ]
+  },
+  "ads": {
+    "enabled": true,
+    "interval": 8,
+    "items": [
+      {"image": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-c1251b75-o5q4e9/config/media/ad1.jpg", "title": "", "action": {"type": "store", "value": ""}},
+      {"image": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-c1251b75-o5q4e9/config/media/ad2.jpg", "title": "", "action": {"type": "none", "value": ""}}
+    ]
+  },
+  "buttons": [
+    {"label": "TV AO VIVO", "icon": "tv", "image": "", "color": "#2563EB", "action": {"type": "app", "value": "com.xplay.iptv"}},
+    {"label": "YOUTUBE", "icon": "", "image": "", "color": "#DC2626", "action": {"type": "app", "value": "com.google.android.youtube.tv,com.google.android.youtube"}},
+    {"label": "LOJA DE APPS", "icon": "store", "image": "", "color": "#059669", "action": {"type": "store", "value": ""}},
+    {"label": "TODOS OS APPS", "icon": "apps", "image": "", "color": "#7C3AED", "action": {"type": "allapps", "value": ""}}
+  ],
+  "grid": {
+    "title": "Meus apps",
+    "allowUserApps": true,
+    "apps": [
+      {"label": "Xplay", "package": "com.xplay.iptv", "icon": ""},
+      {"label": "YouTube", "package": "com.google.android.youtube.tv,com.google.android.youtube", "icon": ""},
+      {"label": "Netflix", "package": "com.netflix.ninja,com.netflix.mediaclient", "icon": ""},
+      {"label": "Chrome", "package": "com.android.chrome", "icon": ""},
+      {"label": "Configurações", "package": "com.android.tv.settings,com.android.settings", "icon": ""}
+    ]
+  },
+  "store": {
+    "title": "XPLAY STORE",
+    "subtitle": "OS MELHORES APPS PARA SUA TV",
+    "apps": [
+      {
+        "name": "Xplay",
+        "package": "com.xplay.iptv",
+        "versionCode": 12,
+        "versionName": "2.8",
+        "icon": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-c1251b75-o5q4e9/app/res/drawable/ic_launcher.png",
+        "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-2.8.apk",
+        "description": "Player IPTV com canais, filmes e séries"
+      }
+    ]
+  },
+  "devices": {
+    "mode": "open",
+    "message": "Este aparelho ainda não foi ativado. Envie o código abaixo para o seu revendedor.",
+    "allowed": [],
+    "blocked": []
+  },
+  "plans": [
+    {"name": "Mensal", "price": "R$ 19,90", "days": 30, "features": "Acesso completo ao launcher e à loja"},
+    {"name": "Trimestral", "price": "R$ 49,90", "days": 90, "features": "Economize 16%"},
+    {"name": "Anual", "price": "R$ 159,90", "days": 365, "features": "Melhor preço"}
+  ],
+  "settings": {
+    "support": "WhatsApp: (00) 00000-0000",
+    "refreshMinutes": 30,
+    "showClock": true,
+    "showWifi": true,
+    "settingsPin": "",
+    "launcherUpdateUrl": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-c1251b75-o5q4e9/releases/launcher/latest.json"
+  }
+}

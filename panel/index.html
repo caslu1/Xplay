@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Painel Xplay Launcher</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<section id="login" class="login hidden">
+  <form id="login-form">
+    <div class="brand" style="padding:0"><div class="logo"><i></i><i></i><i></i><i></i></div><div><b>Xplay</b><small>launcher</small></div></div>
+    <h1>Entrar no painel</h1>
+    <p>O painel salva a configuração do launcher direto no repositório do GitHub. Use um token com permissão de escrita em <b>Contents</b>.</p>
+    <label class="f"><span>Repositório (dono/nome)</span><input type="text" id="l-repo" required></label>
+    <label class="f"><span>Branch</span><input type="text" id="l-branch" required></label>
+    <label class="f"><span>Token do GitHub</span><input type="password" id="l-token" required autocomplete="off" placeholder="github_pat_…"></label>
+    <p style="font-size:13px"><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Criar token</a> (fine-grained → só este repositório → Contents: Read and write). Ele fica salvo apenas neste navegador.</p>
+    <button class="btn primary" style="width:100%;justify-content:center" type="submit">Entrar</button>
+    <p id="login-err" style="color:#fca5a5;margin-top:12px"></p>
+  </form>
+</section>
+
+<section id="app" class="app hidden">
+  <aside class="side" id="side">
+    <div class="brand"><div class="logo"><i></i><i></i><i></i><i></i></div><div><b id="side-name">Xplay</b><small>launcher</small></div></div>
+    <h6>MENU PRINCIPAL</h6>
+    <div id="nav-main"></div>
+    <h6>LAUNCHER</h6>
+    <div id="nav-launcher"></div>
+    <h6>ACESSO</h6>
+    <button class="nav" id="logout"><svg viewBox="0 0 24 24"><path d="M10.09 15.59 11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5a2 2 0 0 0-2 2v4h2V5h14v14H5v-4H3v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/></svg>Sair</button>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+  <main class="main">
+    <header class="top">
+      <button class="btn menu-btn" id="menu-btn" aria-label="Menu">☰</button>
+      <h2 id="page-title">Dashboard</h2>
+      <span class="dirty hidden" id="dirty">● alterações não publicadas</span>
+      <button class="btn primary" id="save">Publicar</button>
+    </header>
+    <div class="content" id="content"></div>
+  </main>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>

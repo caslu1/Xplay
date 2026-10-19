@@ -1,0 +1,61 @@
+name: Launcher
+
+on:
+  push:
+    paths:
+      - 'launcher/**'
+      - 'config/config.json'
+      - 'tools/launcher-shots/**'
+      - '.github/workflows/launcher.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq android-sdk-platform-23 aapt apksigner zipalign dalvik-exchange
+
+      - name: Build APK
+        run: launcher/build.sh
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XplayLauncher-apk
+          path: launcher/build/XplayLauncher.apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Screenshots on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_c
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash tools/launcher-shots/capture.sh
+
+      - name: Publish to the launcher-screenshots branch
+        if: always()
+        run: |
+          [ -d shots ] || exit 0
+          cd shots
+          git init -q -b launcher-screenshots
+          git add .
+          git -c user.name="github-actions" -c user.email="actions@github.com" commit -qm "Launcher screenshots for ${GITHUB_SHA}"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" launcher-screenshots
