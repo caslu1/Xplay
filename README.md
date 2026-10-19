@@ -44,8 +44,9 @@ Para usar como tela inicial: instale, aperte HOME e escolha **Xplay Launcher →
 
 ## Painel
 
-Abra `panel/index.html` (no computador ou celular). Para testar sem instalar nada:
-`https://raw.githack.com/caslu1/Xplay/ccr-c1251b75-o5q4e9/panel/index.html`
+O painel fica em `docs/` e é publicado pelo GitHub Pages em **https://caslu1.github.io/Xplay/**.
+
+Para ativar (uma vez só): no GitHub, abra o repositório → **Settings** → **Pages** → em *Build and deployment* escolha **Source: Deploy from a branch**, **Branch: `ccr-c1251b75-o5q4e9`** e pasta **`/docs`** → **Save**. Em 1–2 minutos o endereço acima abre.
 
 Entre com o repositório, a branch e um token do GitHub (fine-grained, só este repositório, **Contents: Read and write**). O token fica só no seu navegador. Edite e clique em **Publicar**; as TVs aplicam ao abrir o launcher, no ⟳ ou a cada X minutos.
 
