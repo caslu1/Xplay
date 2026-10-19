@@ -201,6 +201,7 @@ public class HomeActivity extends Activity {
 
         Device.Access access = Device.check(this, cfg);
         LinearLayout page = Ui.column(this);
+        page.setClipChildren(false);
         int h = Ui.dp(this, 40), v = Ui.dp(this, 18);
         page.setPadding(h, v, h, v);
         root.addView(page, new FrameLayout.LayoutParams(-1, -1));
@@ -214,6 +215,7 @@ public class HomeActivity extends Activity {
         }
 
         LinearLayout middle = Ui.row(this);
+        middle.setClipChildren(false);
         LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(-1, 0, 1);
         ml.topMargin = Ui.dp(this, 14);
         page.addView(middle, ml);

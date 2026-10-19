@@ -85,8 +85,9 @@ public final class Ui {
         v.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             public void onFocusChange(View view, boolean has) {
                 float s = has ? zoom : 1f;
-                view.animate().scaleX(s).scaleY(s).setDuration(120).start();
-                if (has) view.bringToFront();
+                // translationZ draws the zoomed view above its neighbours; bringToFront() would
+                // reorder the children of a LinearLayout.
+                view.animate().scaleX(s).scaleY(s).translationZ(has ? 12f : 0f).setDuration(120).start();
             }
         });
     }

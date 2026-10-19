@@ -11,7 +11,7 @@ KS_PASS=${KS_PASS:-xplay123}
 OUT=build
 
 rm -rf "$OUT" && mkdir -p "$OUT/gen" "$OUT/classes"
-cp ../config/config.json res/raw/default_config.json
+mkdir -p res/raw && cp ../config/config.json res/raw/default_config.json
 
 aapt package -f -m -J "$OUT/gen" -M AndroidManifest.xml -S res -I "$ANDROID_JAR"
 
