@@ -16,15 +16,15 @@ shot 02-home-focus 1
 key KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN KEYCODE_DPAD_DOWN
 shot 03-home-apps 1
 
-adb shell am start -W -n com.xplay.launcher/.AppsActivity --ez pick true
+adb shell am start -W -a com.xplay.launcher.APPS --ez pick true
 shot 04-pick-app 4
 key KEYCODE_BACK
 
-adb shell am start -W -n com.xplay.launcher/.StoreActivity
+adb shell am start -W -a com.xplay.launcher.STORE
 shot 05-store 6
 key KEYCODE_BACK
 
-adb shell am start -W -n com.xplay.launcher/.SettingsActivity
+key KEYCODE_MENU
 shot 06-settings 3
 key KEYCODE_BACK
 
