@@ -21,7 +21,11 @@ const axios = require('axios');
 
 const config = require('./config');
 
-const BASE_URL = String(config.BASE_URL).replace(/\/+$/, '');
+// Aceita só o domínio ou a URL inteira copiada do painel (…/player_api.php?username=…).
+const BASE_URL = String(config.BASE_URL)
+  .trim()
+  .replace(/\/player_api\.php.*$/i, '')
+  .replace(/\/+$/, '');
 const { USERNAME, PASSWORD } = config;
 const PORT = config.PORT || 7000;
 const CACHE_TTL_MS = (config.CACHE_TTL_SECONDS || 7200) * 1000;
@@ -93,6 +97,8 @@ const LISTS = {
 const memory = {};
 // Requisições em andamento, para não bater no painel duas vezes ao mesmo tempo.
 const inflight = new Map();
+// Último erro de cada chave de cache, exibido em /status.
+const lastErrors = {};
 
 fs.mkdirSync(CACHE_DIR, { recursive: true });
 
@@ -147,9 +153,11 @@ async function cached(name, fetcher, { force = false } = {}) {
     try {
       const data = await fetcher();
       writeCache(name, data);
+      delete lastErrors[name];
       console.log(`[cache] ${name} atualizado`);
       return data;
     } catch (err) {
+      lastErrors[name] = err.message;
       if (age !== null) {
         console.warn(`[cache] falha ao atualizar ${name} (${err.message}); usando cópia antiga`);
         return readCache(name);
@@ -164,12 +172,20 @@ async function cached(name, fetcher, { force = false } = {}) {
   return job;
 }
 
+/** ID do TMDB de um item; alguns painéis usam 'tmdb' em vez de 'tmdb_id'. */
+function tmdbOf(item) {
+  if (!item) return '';
+  const raw = item.tmdb_id != null && item.tmdb_id !== '' ? item.tmdb_id : item.tmdb;
+  const tmdb = raw != null ? String(raw).trim() : '';
+  return /^\d+$/.test(tmdb) && tmdb !== '0' ? tmdb : '';
+}
+
 /** Converte a lista do painel num Map tmdb_id -> [itens]. */
 function indexByTmdb(list) {
   const map = new Map();
   for (const item of Array.isArray(list) ? list : []) {
-    const tmdb = item && item.tmdb_id != null ? String(item.tmdb_id).trim() : '';
-    if (!tmdb || tmdb === '0') continue;
+    const tmdb = tmdbOf(item);
+    if (!tmdb) continue;
     if (!map.has(tmdb)) map.set(tmdb, []);
     map.get(tmdb).push(item);
   }
@@ -256,7 +272,7 @@ function isoDate(value) {
 /** Item resumido para a grade do catálogo. */
 function toPreview(type, item) {
   return {
-    id: `tmdb:${String(item.tmdb_id).trim()}`,
+    id: `tmdb:${tmdbOf(item)}`,
     type,
     name: item.name,
     poster: firstImage(type === 'movie' ? item.stream_icon : item.cover),
@@ -445,7 +461,8 @@ app.get('/catalog/:type/:id/:extra?.json', async (req, res) => {
   const extra = Object.fromEntries(new URLSearchParams(req.params.extra || ''));
   try {
     const metas = await catalogMetas(req.params.id, extra);
-    res.json({ metas, cacheMaxAge: CACHE_TTL_MS / 1000 });
+    // Lista vazia não fica guardada no Stremio por 2h, para aparecer assim que o painel responder.
+    res.json({ metas, cacheMaxAge: metas.length ? CACHE_TTL_MS / 1000 : 60 });
   } catch (err) {
     console.error(`[catalog] ${req.params.id}: ${err.message}`);
     res.json({ metas: [] });
@@ -487,6 +504,29 @@ app.get('/stream/:type/:id.json', async (req, res) => {
     console.error(`[stream] ${type} ${req.params.id}: ${err.message}`);
     res.json({ streams: [] });
   }
+});
+
+// Diagnóstico: o painel respondeu? Quantos itens têm ID do TMDB? (sem expor a senha)
+app.get('/status', async (req, res) => {
+  const report = async (name) => {
+    try {
+      const { list, index } = await loadList(name);
+      const sample = list[0] || {};
+      return {
+        total: list.length,
+        withTmdb: [...index.values()].reduce((n, group) => n + group.length, 0),
+        sampleName: sample.name,
+        sampleTmdb: sample.tmdb_id !== undefined ? sample.tmdb_id : sample.tmdb,
+        sampleFields: Object.keys(sample),
+        error: lastErrors[name],
+      };
+    } catch (err) {
+      return { error: err.message };
+    }
+  };
+
+  const [movies, series] = await Promise.all([report('vod_streams'), report('series')]);
+  res.json({ panel: BASE_URL, username: USERNAME, movies, series });
 });
 
 // Estado do cache: idade de cada arquivo e quanto falta para expirar.
