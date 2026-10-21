@@ -132,9 +132,20 @@ function writeCache(name, data) {
   fs.renameSync(tmp, file);
 }
 
+/** Página de verificação da Cloudflare ("Just a moment...") em vez da resposta da API. */
+function isChallenge(err) {
+  const res = err && err.response;
+  if (!res || (res.status !== 403 && res.status !== 503 && res.status !== 429)) return false;
+  const body = typeof res.data === 'string' ? res.data : '';
+  return res.status === 429 || /just a moment|cf-chl|challenge-platform|cloudflare/i.test(body) || !!res.headers['cf-mitigated'];
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
  * Chamada ao player_api.php com as credenciais. Se o endereço atual não
- * responder (domínio errado, fora do ar), tenta os outros espelhos.
+ * responder (domínio errado, fora do ar) ou cair na verificação da
+ * Cloudflare, tenta os outros espelhos.
  */
 async function playerApi(params) {
   const order = [BASE_URL, ...PANEL_URLS.filter((url) => url !== BASE_URL)];
@@ -149,8 +160,8 @@ async function playerApi(params) {
       return data;
     } catch (err) {
       lastError = err;
-      // O painel respondeu com erro HTTP: outro espelho não vai resolver.
-      if (err.response) throw err;
+      // O painel respondeu com erro HTTP de verdade: outro espelho não vai resolver.
+      if (err.response && !isChallenge(err)) throw err;
     }
   }
   throw lastError;
@@ -241,6 +252,8 @@ async function fetchList(name) {
     const seen = new Set();
     let answered = 0;
     for (const category of categories) {
+      // Ritmo leve para não acionar a proteção da Cloudflare do painel.
+      await sleep(300);
       try {
         const part = await playerApi({ action, category_id: category.category_id });
         if (!Array.isArray(part)) continue;
@@ -253,6 +266,8 @@ async function fetchList(name) {
         }
       } catch (partErr) {
         console.warn(`[painel] ${action} categoria ${category.category_id} falhou: ${describeError(partErr)}`);
+        // Bloqueado pela Cloudflare: insistir só piora; tenta de novo na próxima renovação.
+        if (isChallenge(partErr)) break;
       }
     }
     if (!answered) throw err;
