@@ -8,6 +8,10 @@
  * O addon procura esse tmdb_id nas listas do painel (get_vod_streams /
  * get_series), que ficam em cache no disco por 2 horas, e devolve a URL
  * direta do arquivo no painel.
+ *
+ * Também publica catálogos ("MegaEmbed Filmes" / "MegaEmbed Séries") e as
+ * páginas de detalhes (meta) montadas com os dados do próprio painel, para
+ * que o conteúdo apareça no Stremio sem depender de outro addon.
  */
 const fs = require('fs');
 const path = require('path');
@@ -22,6 +26,7 @@ const { USERNAME, PASSWORD } = config;
 const PORT = config.PORT || 7000;
 const CACHE_TTL_MS = (config.CACHE_TTL_SECONDS || 7200) * 1000;
 const CACHE_DIR = path.join(__dirname, 'cache');
+const PAGE_SIZE = 100;
 
 const http = axios.create({
   baseURL: BASE_URL,
@@ -33,17 +38,44 @@ const http = axios.create({
 // Manifesto
 // ---------------------------------------------------------------------------
 
-const manifest = {
-  id: 'org.megaembed.private',
-  version: '1.0.0',
-  name: 'MegaEmbed',
-  description: 'Streams privados de filmes e séries do painel MegaEmbed (Xtream).',
-  resources: ['stream'],
-  types: ['movie', 'series'],
-  idPrefixes: ['tmdb:'],
-  catalogs: [],
-  behaviorHints: { configurable: false, configurationRequired: false },
-};
+/** Monta o manifesto com os gêneros (categorias do painel) atuais. */
+async function buildManifest() {
+  const genres = async (name) => {
+    try {
+      return (await getList(name)).map((c) => c.category_name).filter(Boolean);
+    } catch {
+      return [];
+    }
+  };
+  const [movieGenres, seriesGenres] = await Promise.all([genres('vod_categories'), genres('series_categories')]);
+
+  const catalog = (type, id, name, options) => ({
+    type,
+    id,
+    name,
+    extra: [
+      { name: 'search', isRequired: false },
+      { name: 'genre', isRequired: false, options },
+      { name: 'skip', isRequired: false },
+    ],
+    extraSupported: ['search', 'genre', 'skip'],
+  });
+
+  return {
+    id: 'org.megaembed.private',
+    version: '1.1.0',
+    name: 'MegaEmbed',
+    description: 'Filmes e séries privados do painel MegaEmbed (Xtream).',
+    resources: ['catalog', 'meta', 'stream'],
+    types: ['movie', 'series'],
+    idPrefixes: ['tmdb:'],
+    catalogs: [
+      catalog('movie', 'megaembed-movies', 'MegaEmbed Filmes', movieGenres),
+      catalog('series', 'megaembed-series', 'MegaEmbed Séries', seriesGenres),
+    ],
+    behaviorHints: { configurable: false, configurationRequired: false },
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Cache em disco (2 horas)
@@ -53,9 +85,11 @@ const manifest = {
 const LISTS = {
   vod_streams: { action: 'get_vod_streams' },
   series: { action: 'get_series' },
+  vod_categories: { action: 'get_vod_categories' },
+  series_categories: { action: 'get_series_categories' },
 };
 
-// Índices em memória (tmdb_id -> itens), refeitos quando o arquivo muda.
+// Listas e índices em memória (tmdb_id -> itens), refeitos quando o arquivo muda.
 const memory = {};
 // Requisições em andamento, para não bater no painel duas vezes ao mesmo tempo.
 const inflight = new Map();
@@ -142,8 +176,8 @@ function indexByTmdb(list) {
   return map;
 }
 
-/** Índice tmdb_id de uma lista, reconstruído só quando o arquivo de cache muda. */
-async function getIndex(name, opts) {
+/** Lista + índice tmdb_id, reconstruídos só quando o arquivo de cache muda. */
+async function loadList(name, opts) {
   const data = await cached(
     name,
     async () => {
@@ -156,9 +190,17 @@ async function getIndex(name, opts) {
   );
   const mtime = fs.statSync(cacheFile(name)).mtimeMs;
   if (!memory[name] || memory[name].mtime !== mtime) {
-    memory[name] = { mtime, index: indexByTmdb(data) };
+    memory[name] = { mtime, list: data, index: indexByTmdb(data) };
   }
-  return memory[name].index;
+  return memory[name];
+}
+
+async function getList(name, opts) {
+  return (await loadList(name, opts)).list;
+}
+
+async function getIndex(name, opts) {
+  return (await loadList(name, opts)).index;
 }
 
 /** Detalhes de uma série (episódios), também em cache de 2h por série. */
@@ -168,6 +210,150 @@ function getSeriesInfo(seriesId, opts) {
     () => playerApi({ action: 'get_series_info', series_id: seriesId }),
     opts,
   );
+}
+
+/** Detalhes de um filme (sinopse, elenco, capa), em cache de 2h por filme. */
+function getVodInfo(streamId, opts) {
+  return cached(`vod_info_${streamId}`, () => playerApi({ action: 'get_vod_info', vod_id: streamId }), opts);
+}
+
+// ---------------------------------------------------------------------------
+// Catálogos e metadados
+// ---------------------------------------------------------------------------
+
+const CATALOGS = {
+  'megaembed-movies': { type: 'movie', list: 'vod_streams', categories: 'vod_categories', sortKey: 'added' },
+  'megaembed-series': { type: 'series', list: 'series', categories: 'series_categories', sortKey: 'last_modified' },
+};
+
+function firstImage(value) {
+  const img = Array.isArray(value) ? value[0] : value;
+  return typeof img === 'string' && /^https?:\/\//.test(img) ? img : undefined;
+}
+
+function splitList(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return value ? String(value).split(/\s*[,/]\s*/).filter(Boolean) : [];
+}
+
+function yearOf(value) {
+  const m = String(value || '').match(/\d{4}/);
+  return m ? m[0] : undefined;
+}
+
+function rating(value) {
+  const n = Number(value);
+  return n > 0 ? n.toFixed(1) : undefined;
+}
+
+/** Converte datas do painel (texto ou timestamp unix) em ISO, se possível. */
+function isoDate(value) {
+  if (!value) return undefined;
+  const d = /^\d+$/.test(String(value)) ? new Date(Number(value) * 1000) : new Date(value);
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
+/** Item resumido para a grade do catálogo. */
+function toPreview(type, item) {
+  return {
+    id: `tmdb:${String(item.tmdb_id).trim()}`,
+    type,
+    name: item.name,
+    poster: firstImage(type === 'movie' ? item.stream_icon : item.cover),
+    posterShape: 'poster',
+    background: firstImage(item.backdrop_path),
+    description: item.plot || undefined,
+    genres: splitList(item.genre),
+    releaseInfo: yearOf(item.releaseDate || item.year),
+    imdbRating: rating(item.rating),
+  };
+}
+
+async function catalogMetas(catalogId, extra) {
+  const cat = CATALOGS[catalogId];
+  const { list, index } = await loadList(cat.list);
+  let items = [...index.values()].map((group) => group[0]);
+
+  if (extra.genre) {
+    const categories = await getList(cat.categories).catch(() => []);
+    const wanted = categories.find((c) => c.category_name === extra.genre);
+    items = wanted ? items.filter((i) => String(i.category_id) === String(wanted.category_id)) : [];
+  }
+
+  if (extra.search) {
+    const q = extra.search.toLowerCase();
+    items = items.filter((i) => String(i.name || '').toLowerCase().includes(q));
+  } else {
+    // Mais recentes primeiro (mantém a ordem do painel quando não há data).
+    const order = new Map(list.map((item, pos) => [item, pos]));
+    items.sort((a, b) => Number(b[cat.sortKey] || 0) - Number(a[cat.sortKey] || 0) || order.get(a) - order.get(b));
+  }
+
+  const skip = Math.max(0, Number(extra.skip) || 0);
+  return items.slice(skip, skip + PAGE_SIZE).map((item) => toPreview(cat.type, item));
+}
+
+async function movieMeta(tmdbId) {
+  const [movie] = (await getIndex('vod_streams')).get(tmdbId) || [];
+  if (!movie) return null;
+
+  const meta = toPreview('movie', movie);
+  try {
+    const info = (await getVodInfo(movie.stream_id)).info || {};
+    Object.assign(meta, {
+      poster: firstImage(info.cover_big) || firstImage(info.movie_image) || meta.poster,
+      background: firstImage(info.backdrop_path) || meta.background,
+      description: info.plot || info.description || meta.description,
+      genres: splitList(info.genre).length ? splitList(info.genre) : meta.genres,
+      director: splitList(info.director),
+      cast: splitList(info.cast || info.actors),
+      releaseInfo: yearOf(info.releasedate || info.release_date) || meta.releaseInfo,
+      runtime: info.duration || undefined,
+      imdbRating: rating(info.rating) || meta.imdbRating,
+      trailers: info.youtube_trailer ? [{ source: info.youtube_trailer, type: 'Trailer' }] : undefined,
+    });
+  } catch (err) {
+    console.warn(`[meta] get_vod_info ${movie.stream_id} falhou: ${err.message}`);
+  }
+  return meta;
+}
+
+async function seriesMeta(tmdbId) {
+  const [show] = (await getIndex('series')).get(tmdbId) || [];
+  if (!show) return null;
+
+  const meta = toPreview('series', show);
+  const data = await getSeriesInfo(show.series_id);
+  const info = (data && data.info) || {};
+  const episodes = (data && data.episodes) || {};
+  const all = Array.isArray(episodes) ? episodes.flat() : Object.values(episodes).flat();
+
+  Object.assign(meta, {
+    poster: firstImage(info.cover) || meta.poster,
+    background: firstImage(info.backdrop_path) || meta.background,
+    description: info.plot || meta.description,
+    genres: splitList(info.genre).length ? splitList(info.genre) : meta.genres,
+    director: splitList(info.director),
+    cast: splitList(info.cast),
+    releaseInfo: yearOf(info.releaseDate) || meta.releaseInfo,
+    imdbRating: rating(info.rating) || meta.imdbRating,
+    trailers: info.youtube_trailer ? [{ source: info.youtube_trailer, type: 'Trailer' }] : undefined,
+    videos: all.map((ep) => {
+      const season = Number(ep.season);
+      const episode = Number(ep.episode_num);
+      const epInfo = ep.info || {};
+      return {
+        id: `tmdb:${tmdbId}:${season}:${episode}`,
+        title: ep.title || `Episódio ${episode}`,
+        season,
+        episode,
+        released: isoDate(epInfo.releasedate || epInfo.air_date || ep.added) || new Date(0).toISOString(),
+        thumbnail: firstImage(epInfo.movie_image),
+        overview: epInfo.plot || undefined,
+      };
+    }),
+  });
+  return meta;
 }
 
 // ---------------------------------------------------------------------------
@@ -247,8 +433,38 @@ app.use(cors());
 
 app.get('/', (req, res) => res.redirect('/manifest.json'));
 
-app.get('/manifest.json', (req, res) => {
-  res.json(manifest);
+app.get('/manifest.json', async (req, res) => {
+  res.json(await buildManifest());
+});
+
+// Catálogo: /catalog/movie/megaembed-movies.json ou .../search=x&skip=100.json
+app.get('/catalog/:type/:id/:extra?.json', async (req, res) => {
+  const cat = CATALOGS[req.params.id];
+  if (!cat || cat.type !== req.params.type) return res.json({ metas: [] });
+
+  const extra = Object.fromEntries(new URLSearchParams(req.params.extra || ''));
+  try {
+    const metas = await catalogMetas(req.params.id, extra);
+    res.json({ metas, cacheMaxAge: CACHE_TTL_MS / 1000 });
+  } catch (err) {
+    console.error(`[catalog] ${req.params.id}: ${err.message}`);
+    res.json({ metas: [] });
+  }
+});
+
+app.get('/meta/:type/:id.json', async (req, res) => {
+  const { type } = req.params;
+  const parsed = parseId(req.params.id);
+  if (!parsed || (type !== 'movie' && type !== 'series')) return res.status(404).json({ meta: null });
+
+  try {
+    const meta = type === 'movie' ? await movieMeta(parsed.tmdbId) : await seriesMeta(parsed.tmdbId);
+    if (!meta) return res.status(404).json({ meta: null });
+    res.json({ meta, cacheMaxAge: CACHE_TTL_MS / 1000 });
+  } catch (err) {
+    console.error(`[meta] ${type} ${req.params.id}: ${err.message}`);
+    res.status(404).json({ meta: null });
+  }
 });
 
 app.get('/stream/:type/:id.json', async (req, res) => {
@@ -295,6 +511,8 @@ app.post('/cache/refresh', async (req, res) => {
     const [vod, series] = await Promise.all([
       getIndex('vod_streams', { force: true }),
       getIndex('series', { force: true }),
+      getList('vod_categories', { force: true }).catch(() => []),
+      getList('series_categories', { force: true }).catch(() => []),
     ]);
     res.json({ ok: true, movies: vod.size, series: series.size });
   } catch (err) {

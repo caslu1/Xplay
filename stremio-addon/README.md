@@ -1,6 +1,6 @@
 # MegaEmbed — addon privado do Stremio
 
-Resolve streams de filmes (`tmdb:ID`) e episódios (`tmdb:ID:T:E`) a partir do painel Xtream da MegaEmbed. As listas `get_vod_streams`, `get_series` e cada `get_series_info` ficam em `cache/*.json` por 2 horas.
+Mostra os filmes e séries do painel Xtream da MegaEmbed no Stremio (catálogos "MegaEmbed Filmes" e "MegaEmbed Séries", com busca e gêneros) e resolve os streams de filmes (`tmdb:ID`) e episódios (`tmdb:ID:T:E`). As respostas do painel ficam em `cache/*.json` por 2 horas. Só aparecem itens que têm `tmdb_id` no painel.
 
 ```sh
 npm install
@@ -12,8 +12,14 @@ No Stremio: **Addons → campo de busca → cole** `http://SEU_IP:7000/manifest.
 
 Rotas:
 - `GET /manifest.json`
+- `GET /catalog/:type/:id/:extra?.json` — grade de filmes/séries (`search`, `genre`, `skip`)
+- `GET /meta/:type/:id.json` — página de detalhes e lista de episódios
 - `GET /stream/:type/:id.json`
 - `GET /cache/status` — idade de cada arquivo de cache
 - `POST /cache/refresh` — força a renovação das listas
 
-O Stremio só pede streams `tmdb:` quando o item vem de um addon de catálogo que usa IDs do TMDB (ex.: "TMDB Addon"). Itens do Cinemeta usam IDs IMDb (`tt...`) e não chegam a este addon.
+Depois de atualizar o addon, desinstale e instale de novo no Stremio: ele guarda uma cópia do manifesto antigo.
+
+Fora de `127.0.0.1` / rede local, o Stremio exige HTTPS no endereço do addon.
+
+Itens do Cinemeta usam IDs IMDb (`tt...`) e não chegam a este addon; use os catálogos "MegaEmbed".
