@@ -283,9 +283,35 @@ async function getIndex(name, opts) {
 function getSeriesInfo(seriesId, opts) {
   return cached(
     `series_info_${seriesId}`,
-    () => playerApi({ action: 'get_series_info', series_id: seriesId }),
+    async () => {
+      const data = await playerApi({ action: 'get_series_info', series_id: seriesId });
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        throw new Error(`resposta inesperada do painel em get_series_info ${seriesId}`);
+      }
+      return data;
+    },
     opts,
   );
+}
+
+/**
+ * Episódios de um get_series_info como { season, episode, ep }.
+ * 'episodes' vem como { "1": [ ... ], "2": [ ... ] } (às vezes como array);
+ * a temporada sai do próprio episódio ou, na falta dela, da chave.
+ */
+function episodesOf(data) {
+  const episodes = (data && data.episodes) || {};
+  const groups = Array.isArray(episodes) ? episodes.map((group) => [null, group]) : Object.entries(episodes);
+  const out = [];
+  for (const [key, group] of groups) {
+    for (const ep of Array.isArray(group) ? group : [group]) {
+      if (!ep || typeof ep !== 'object') continue;
+      const season = Number(ep.season != null && ep.season !== '' ? ep.season : key);
+      const episode = Number(ep.episode_num);
+      if (Number.isInteger(season) && Number.isInteger(episode)) out.push({ season, episode, ep });
+    }
+  }
+  return out;
 }
 
 /** Detalhes de um filme (sinopse, elenco, capa), em cache de 2h por filme. */
@@ -399,10 +425,14 @@ async function seriesMeta(tmdbId) {
   if (!show) return null;
 
   const meta = toPreview('series', show);
-  const data = await getSeriesInfo(show.series_id);
+  let data = {};
+  try {
+    data = await getSeriesInfo(show.series_id);
+  } catch (err) {
+    // Sem os episódios a página ainda abre com capa e sinopse da lista.
+    console.warn(`[meta] get_series_info ${show.series_id} falhou: ${describeError(err)}`);
+  }
   const info = (data && data.info) || {};
-  const episodes = (data && data.episodes) || {};
-  const all = Array.isArray(episodes) ? episodes.flat() : Object.values(episodes).flat();
 
   Object.assign(meta, {
     poster: firstImage(info.cover) || meta.poster,
@@ -414,9 +444,7 @@ async function seriesMeta(tmdbId) {
     releaseInfo: yearOf(info.releaseDate) || meta.releaseInfo,
     imdbRating: rating(info.rating) || meta.imdbRating,
     trailers: info.youtube_trailer ? [{ source: info.youtube_trailer, type: 'Trailer' }] : undefined,
-    videos: all.map((ep) => {
-      const season = Number(ep.season);
-      const episode = Number(ep.episode_num);
+    videos: episodesOf(data).map(({ season, episode, ep }) => {
       const epInfo = ep.info || {};
       return {
         id: `tmdb:${tmdbId}:${season}:${episode}`,
@@ -479,14 +507,9 @@ async function seriesStreams(tmdbId, season, episode) {
       continue;
     }
 
-    // 'episodes' vem como { "1": [ ... ], "2": [ ... ] } (às vezes como array).
-    const episodes = (info && info.episodes) || {};
-    const seasonList = Array.isArray(episodes)
-      ? episodes.flat().filter((ep) => Number(ep.season) === season)
-      : episodes[String(season)] || [];
-
-    for (const ep of seasonList) {
-      if (Number(ep.episode_num) !== episode) continue;
+    for (const found of episodesOf(info)) {
+      if (found.season !== season || found.episode !== episode) continue;
+      const { ep } = found;
       const label = ep.title || `${show.name} S${season}E${episode}`;
       streams.push({
         name: 'MegaEmbed',
@@ -537,7 +560,9 @@ app.get('/meta/:type/:id.json', async (req, res) => {
   try {
     const meta = type === 'movie' ? await movieMeta(parsed.tmdbId) : await seriesMeta(parsed.tmdbId);
     if (!meta) return res.status(404).json({ meta: null });
-    res.json({ meta, cacheMaxAge: CACHE_TTL_MS / 1000 });
+    // Série sem episódios (painel falhou) não fica guardada por 2h no Stremio.
+    const incomplete = type === 'series' && !(meta.videos && meta.videos.length);
+    res.json({ meta, cacheMaxAge: incomplete ? 60 : CACHE_TTL_MS / 1000 });
   } catch (err) {
     console.error(`[meta] ${type} ${req.params.id}: ${err.message}`);
     res.status(404).json({ meta: null });
@@ -598,7 +623,30 @@ app.get('/status', async (req, res) => {
     countOf('vod_categories'),
     countOf('series_categories'),
   ]);
-  res.json({ panel: BASE_URL, tried: PANEL_URLS, username: USERNAME, movieCategories, seriesCategories, movies, series });
+
+  // Testa os episódios da primeira série com ID do TMDB.
+  let seriesInfoTest;
+  try {
+    const [first] = [...(await getIndex('series')).values()];
+    if (first) {
+      const show = first[0];
+      const eps = episodesOf(await getSeriesInfo(show.series_id));
+      seriesInfoTest = { id: `tmdb:${tmdbOf(show)}`, name: show.name, episodes: eps.length };
+    }
+  } catch (err) {
+    seriesInfoTest = { error: describeError(err) };
+  }
+
+  res.json({
+    panel: BASE_URL,
+    tried: PANEL_URLS,
+    username: USERNAME,
+    movieCategories,
+    seriesCategories,
+    movies,
+    series,
+    seriesInfoTest,
+  });
 });
 
 // Estado do cache: idade de cada arquivo e quanto falta para expirar.
