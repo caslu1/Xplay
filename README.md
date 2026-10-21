@@ -32,4 +32,14 @@ node stremio-addon/server.js     # porta 7000; use PORT=8080 para mudar
 
 Abra `http://<ip-do-servidor>:7000/configure`, preencha DNS, usuário e senha e toque em **Instalar no Stremio** (ou copie o link e cole na busca de addons do Stremio). O login vai codificado no link do addon, então um único servidor atende várias pessoas — e quem tiver o link tem o seu login.
 
+### Publicar e pegar o link (Render, grátis)
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/caslu1/Xplay)
+
+1. Toque no botão acima, entre (ou crie uma conta) no Render e confirme. O `render.yaml` já configura tudo.
+2. Quando terminar, o Render mostra um endereço como `https://xplay-stremio.onrender.com`.
+3. Abra `https://xplay-stremio.onrender.com/configure`, preencha DNS, usuário e senha e toque em **Copiar link do addon**. Esse é o seu link (`https://.../<código>/manifest.json`); cole na busca de addons do Stremio ou toque em **Instalar no Stremio**.
+
+No plano grátis o servidor dorme após 15 minutos sem uso; a primeira abertura depois disso demora uns 30 segundos.
+
 O Stremio só aceita addons remotos por **HTTPS** (`http://127.0.0.1` funciona apenas no mesmo aparelho). Para usar na TV ou no celular, publique o addon atrás de HTTPS, por exemplo num serviço como Render/Railway/Fly.io ou com um túnel (`cloudflared tunnel --url http://localhost:7000`).

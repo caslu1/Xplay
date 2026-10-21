@@ -1,0 +1,9 @@
+{
+  "name": "xplay-stremio-addon",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Addon do Stremio para listas Xtream (canais, filmes e séries)",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}
