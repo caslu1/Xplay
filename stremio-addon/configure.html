@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xplay para Stremio</title>
+<style>
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+           background: #000; color: #eee; font: 16px system-ui, sans-serif; }
+    form { width: min(420px, calc(100% - 32px)); padding: 28px; border: 1px solid #3a2f12; border-radius: 12px; background: #111; }
+    h1 { margin: 0 0 4px; color: #d4a017; font-size: 26px; }
+    p { margin: 0 0 20px; color: #aaa; font-size: 14px; }
+    label { display: block; margin: 14px 0 6px; font-size: 14px; color: #ccc; }
+    input { box-sizing: border-box; width: 100%; padding: 12px; border: 1px solid #333; border-radius: 8px;
+            background: #000; color: #fff; font-size: 16px; }
+    input:focus { outline: none; border-color: #d4a017; }
+    button { width: 100%; margin-top: 22px; padding: 14px; border: 0; border-radius: 8px; background: #d4a017;
+             color: #000; font-size: 16px; font-weight: 700; cursor: pointer; }
+    button.secondary { margin-top: 10px; background: #222; color: #d4a017; }
+    #url { margin-top: 16px; word-break: break-all; font-size: 13px; color: #888; }
+</style>
+</head>
+<body>
+<form id="f">
+    <h1>Xplay</h1>
+    <p>Canais ao vivo, filmes e séries da sua lista Xtream no Stremio.</p>
+    <label for="dns">DNS</label>
+    <input id="dns" placeholder="http://servidor:8080" required autocomplete="url">
+    <label for="user">Usuário</label>
+    <input id="user" required autocomplete="username">
+    <label for="pass">Senha</label>
+    <input id="pass" type="password" required autocomplete="current-password">
+    <button type="submit">Instalar no Stremio</button>
+    <button type="button" class="secondary" id="copy">Copiar link do addon</button>
+    <div id="url"></div>
+</form>
+<script>
+    function manifestUrl() {
+        var cfg = JSON.stringify({
+            dns: document.getElementById('dns').value.trim(),
+            user: document.getElementById('user').value.trim(),
+            pass: document.getElementById('pass').value
+        });
+        var b64 = btoa(unescape(encodeURIComponent(cfg))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        return location.origin + '/' + b64 + '/manifest.json';
+    }
+    var form = document.getElementById('f');
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var url = manifestUrl();
+        document.getElementById('url').textContent = url;
+        location.href = url.replace(/^https?:\/\//, 'stremio://');
+    });
+    document.getElementById('copy').addEventListener('click', function () {
+        if (!form.reportValidity()) return;
+        var url = manifestUrl();
+        document.getElementById('url').textContent = url;
+        if (navigator.clipboard) navigator.clipboard.writeText(url).catch(function () {});
+    });
+</script>
+</body>
+</html>

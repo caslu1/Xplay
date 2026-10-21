@@ -21,3 +21,15 @@ O APK é assinado com `tools/xplay.keystore` (senha `xplay123`). Use sempre a me
 1. Aumente `versionCode` e `versionName` em `app/AndroidManifest.xml`.
 2. Rode `tools/release.sh "o que mudou"`. Ele gera `releases/Xplay-<versão>.apk` e `releases/latest.json`.
 3. Faça commit e push. Os apps instalados leem `latest.json` ao abrir e oferecem a atualização.
+
+## Addon para Stremio
+
+A pasta `stremio-addon/` tem um addon que leva a mesma lista Xtream (canais ao vivo, filmes e séries, com categorias, busca e guia "Agora") para dentro do Stremio. Precisa só do Node 18 ou mais novo, sem `npm install`.
+
+```sh
+node stremio-addon/server.js     # porta 7000; use PORT=8080 para mudar
+```
+
+Abra `http://<ip-do-servidor>:7000/configure`, preencha DNS, usuário e senha e toque em **Instalar no Stremio** (ou copie o link e cole na busca de addons do Stremio). O login vai codificado no link do addon, então um único servidor atende várias pessoas — e quem tiver o link tem o seu login.
+
+O Stremio só aceita addons remotos por **HTTPS** (`http://127.0.0.1` funciona apenas no mesmo aparelho). Para usar na TV ou no celular, publique o addon atrás de HTTPS, por exemplo num serviço como Render/Railway/Fly.io ou com um túnel (`cloudflared tunnel --url http://localhost:7000`).
