@@ -156,6 +156,14 @@ async function playerApi(params) {
   throw lastError;
 }
 
+/** Mensagem de erro legível, com o trecho da resposta do painel (sem a senha). */
+function describeError(err) {
+  if (!err.response) return err.message;
+  const body = typeof err.response.data === 'string' ? err.response.data : JSON.stringify(err.response.data || '');
+  const snippet = body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+  return `HTTP ${err.response.status}${snippet ? `: ${snippet}` : ''}`.split(PASSWORD).join('***');
+}
+
 /**
  * Devolve os dados de uma chave de cache.
  * - Arquivo com menos de 2h: lê do disco.
@@ -178,9 +186,9 @@ async function cached(name, fetcher, { force = false } = {}) {
       console.log(`[cache] ${name} atualizado`);
       return data;
     } catch (err) {
-      lastErrors[name] = err.message;
+      lastErrors[name] = describeError(err);
       if (age !== null) {
-        console.warn(`[cache] falha ao atualizar ${name} (${err.message}); usando cópia antiga`);
+        console.warn(`[cache] falha ao atualizar ${name} (${describeError(err)}); usando cópia antiga`);
         return readCache(name);
       }
       throw err;
@@ -213,18 +221,49 @@ function indexByTmdb(list) {
   return map;
 }
 
+// Categorias usadas para buscar uma lista aos pedaços quando o painel recusa a lista inteira.
+const BY_CATEGORY = { vod_streams: 'vod_categories', series: 'series_categories' };
+
+/** Busca uma lista no painel; se a lista inteira for recusada, junta categoria por categoria. */
+async function fetchList(name) {
+  const { action } = LISTS[name];
+  try {
+    const list = await playerApi(LISTS[name]);
+    // Login inválido ou erro do painel vem como objeto: não pode ir para o cache.
+    if (!Array.isArray(list)) throw new Error(`resposta inesperada do painel em ${action}`);
+    return list;
+  } catch (err) {
+    if (!BY_CATEGORY[name]) throw err;
+    console.warn(`[painel] ${action} falhou (${describeError(err)}); buscando por categoria`);
+
+    const categories = await getList(BY_CATEGORY[name]);
+    const merged = [];
+    const seen = new Set();
+    let answered = 0;
+    for (const category of categories) {
+      try {
+        const part = await playerApi({ action, category_id: category.category_id });
+        if (!Array.isArray(part)) continue;
+        answered++;
+        for (const item of part) {
+          const key = item.stream_id != null ? item.stream_id : item.series_id;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          merged.push(item);
+        }
+      } catch (partErr) {
+        console.warn(`[painel] ${action} categoria ${category.category_id} falhou: ${describeError(partErr)}`);
+      }
+    }
+    if (!answered) throw err;
+    console.log(`[painel] ${action}: ${merged.length} itens de ${answered}/${categories.length} categorias`);
+    return merged;
+  }
+}
+
 /** Lista + índice tmdb_id, reconstruídos só quando o arquivo de cache muda. */
 async function loadList(name, opts) {
-  const data = await cached(
-    name,
-    async () => {
-      const list = await playerApi(LISTS[name]);
-      // Login inválido ou erro do painel vem como objeto: não pode ir para o cache.
-      if (!Array.isArray(list)) throw new Error(`resposta inesperada do painel em ${LISTS[name].action}`);
-      return list;
-    },
-    opts,
-  );
+  const data = await cached(name, () => fetchList(name), opts);
   const mtime = fs.statSync(cacheFile(name)).mtimeMs;
   if (!memory[name] || memory[name].mtime !== mtime) {
     memory[name] = { mtime, list: data, index: indexByTmdb(data) };
@@ -542,12 +581,24 @@ app.get('/status', async (req, res) => {
         error: lastErrors[name],
       };
     } catch (err) {
-      return { error: err.message };
+      return { error: describeError(err) };
+    }
+  };
+  const countOf = async (name) => {
+    try {
+      return (await getList(name)).length;
+    } catch (err) {
+      return describeError(err);
     }
   };
 
-  const [movies, series] = await Promise.all([report('vod_streams'), report('series')]);
-  res.json({ panel: BASE_URL, tried: PANEL_URLS, username: USERNAME, movies, series });
+  const [movies, series, movieCategories, seriesCategories] = await Promise.all([
+    report('vod_streams'),
+    report('series'),
+    countOf('vod_categories'),
+    countOf('series_categories'),
+  ]);
+  res.json({ panel: BASE_URL, tried: PANEL_URLS, username: USERNAME, movieCategories, seriesCategories, movies, series });
 });
 
 // Estado do cache: idade de cada arquivo e quanto falta para expirar.
