@@ -22,10 +22,16 @@ const axios = require('axios');
 const config = require('./config');
 
 // Aceita só o domínio ou a URL inteira copiada do painel (…/player_api.php?username=…).
-const BASE_URL = String(config.BASE_URL)
-  .trim()
-  .replace(/\/player_api\.php.*$/i, '')
-  .replace(/\/+$/, '');
+const cleanUrl = (url) =>
+  String(url || '')
+    .trim()
+    .replace(/\/player_api\.php.*$/i, '')
+    .replace(/\/+$/, '');
+
+// Endereço configurado primeiro, depois os espelhos do painel como reserva.
+const PANEL_URLS = [...new Set([config.BASE_URL, ...(config.MIRRORS || [])].map(cleanUrl).filter(Boolean))];
+// Endereço que respondeu por último; usado também nas URLs de stream.
+let BASE_URL = PANEL_URLS[0];
 const { USERNAME, PASSWORD } = config;
 const PORT = config.PORT || 7000;
 const CACHE_TTL_MS = (config.CACHE_TTL_SECONDS || 7200) * 1000;
@@ -33,7 +39,6 @@ const CACHE_DIR = path.join(__dirname, 'cache');
 const PAGE_SIZE = 100;
 
 const http = axios.create({
-  baseURL: BASE_URL,
   timeout: 60000,
   headers: { 'User-Agent': 'stremio-megaembed-addon/1.0' },
 });
@@ -127,12 +132,28 @@ function writeCache(name, data) {
   fs.renameSync(tmp, file);
 }
 
-/** Chamada ao player_api.php com as credenciais. */
+/**
+ * Chamada ao player_api.php com as credenciais. Se o endereço atual não
+ * responder (domínio errado, fora do ar), tenta os outros espelhos.
+ */
 async function playerApi(params) {
-  const { data } = await http.get('/player_api.php', {
-    params: { username: USERNAME, password: PASSWORD, ...params },
-  });
-  return data;
+  const order = [BASE_URL, ...PANEL_URLS.filter((url) => url !== BASE_URL)];
+  let lastError;
+  for (const base of order) {
+    try {
+      const { data } = await http.get(`${base}/player_api.php`, {
+        params: { username: USERNAME, password: PASSWORD, ...params },
+      });
+      if (base !== BASE_URL) console.log(`[painel] usando ${base}`);
+      BASE_URL = base;
+      return data;
+    } catch (err) {
+      lastError = err;
+      // O painel respondeu com erro HTTP: outro espelho não vai resolver.
+      if (err.response) throw err;
+    }
+  }
+  throw lastError;
 }
 
 /**
@@ -526,7 +547,7 @@ app.get('/status', async (req, res) => {
   };
 
   const [movies, series] = await Promise.all([report('vod_streams'), report('series')]);
-  res.json({ panel: BASE_URL, username: USERNAME, movies, series });
+  res.json({ panel: BASE_URL, tried: PANEL_URLS, username: USERNAME, movies, series });
 });
 
 // Estado do cache: idade de cada arquivo e quanto falta para expirar.

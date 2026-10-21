@@ -9,6 +9,9 @@ module.exports = {
   // Domínio do painel, com https:// e sem barra no final.
   BASE_URL: process.env.MEGAEMBED_BASE_URL || 'https://mgeb.site',
 
+  // Outros endereços do mesmo painel, usados se o principal não responder.
+  MIRRORS: ['https://mgeb.site', 'https://mgeb.lat', 'https://mgeb.space'],
+
   // Credenciais da sua linha Xtream.
   USERNAME: process.env.MEGAEMBED_USERNAME || 'SEU_USUARIO',
   PASSWORD: process.env.MEGAEMBED_PASSWORD || 'SUA_SENHA',
