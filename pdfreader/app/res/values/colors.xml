@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bar">#FF202124</color>
+    <color name="accent">#FFE53935</color>
+    <color name="page_bg">#FF525659</color>
+</resources>
