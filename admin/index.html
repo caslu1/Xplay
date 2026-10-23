@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Xplay Painel</title>
+<style>
+  :root { --bg:#050505; --card:#121212; --card2:#1b1b1b; --line:#2a2a2a; --gold:#e8b84a; --gold2:#f5cd6a;
+          --text:#fff; --dim:#9a9a9a; --red:#ff6b5e; --green:#4cd787; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  header { display:flex; align-items:center; gap:16px; padding:16px 24px; border-bottom:1px solid var(--line); position:sticky; top:0; background:rgba(5,5,5,.95); z-index:5; }
+  .logo { font-weight:800; font-size:22px; } .logo b { color:var(--gold); }
+  nav { display:flex; gap:6px; flex-wrap:wrap; }
+  nav button { background:none; border:0; color:var(--dim); padding:8px 16px; border-radius:20px; font-weight:600; cursor:pointer; font-size:15px; }
+  nav button.on { background:rgba(255,255,255,.12); color:var(--text); }
+  .spacer { flex:1; }
+  main { max-width:1180px; margin:0 auto; padding:24px 16px 60px; }
+  h2 { margin:0 0 4px; font-size:22px; } .sub { color:var(--dim); margin:0 0 18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; margin-bottom:18px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+  label { display:block; color:var(--dim); font-size:13px; margin:0 0 6px; }
+  input, select, textarea { width:100%; background:var(--card2); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:11px 12px; font:inherit; }
+  input:focus, select:focus, textarea:focus { outline:2px solid var(--gold); border-color:transparent; }
+  .btn { background:var(--gold); color:#000; border:0; border-radius:22px; padding:10px 18px; font-weight:700; cursor:pointer; font-size:14px; white-space:nowrap; }
+  .btn:hover { background:var(--gold2); }
+  .btn.ghost { background:rgba(255,255,255,.1); color:var(--text); } .btn.ghost:hover { background:rgba(255,255,255,.18); }
+  .btn.danger { background:rgba(255,107,94,.14); color:var(--red); }
+  .btn.small { padding:6px 12px; font-size:13px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:12px 10px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  th { color:var(--dim); font-size:12px; text-transform:uppercase; letter-spacing:.06em; font-weight:600; }
+  .code { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:16px; letter-spacing:.08em; color:var(--gold); cursor:pointer; }
+  .pill { display:inline-block; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700; }
+  .ok { background:rgba(76,215,135,.14); color:var(--green); } .bad { background:rgba(255,107,94,.14); color:var(--red); }
+  .muted { color:var(--dim); } .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .table-wrap { overflow-x:auto; }
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:#222; border:1px solid var(--line); padding:12px 18px; border-radius:12px; display:none; z-index:20; }
+  .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.7); display:none; align-items:center; justify-content:center; z-index:10; padding:16px; }
+  .modal { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:22px; width:100%; max-width:460px; }
+  .modal h3 { margin:0 0 14px; }
+  .center { max-width:420px; margin:60px auto; }
+  @media (max-width:640px) { header { flex-wrap:wrap; } th:nth-child(4), td:nth-child(4) { display:none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><b>X</b>play <span class="muted" style="font-weight:500;font-size:14px">Painel</span></div>
+  <nav id="nav" style="display:none">
+    <button data-tab="clients" class="on">Clientes</button>
+    <button data-tab="devices">Aparelhos</button>
+    <button data-tab="settings">Configurações</button>
+  </nav>
+  <div class="spacer"></div>
+  <button id="logout" class="btn ghost small" style="display:none">Sair</button>
+</header>
+
+<main>
+  <!-- Conexão com o Supabase (uma vez por navegador) -->
+  <section id="setup" class="center card" style="display:none">
+    <h2>Conectar ao Supabase</h2>
+    <p class="sub">No Supabase: Project Settings → API. Copie a Project URL e a chave anon public.</p>
+    <label>Project URL</label><input id="sbUrl" placeholder="https://xxxx.supabase.co">
+    <div style="height:12px"></div>
+    <label>Chave anon public</label><input id="sbKey" placeholder="eyJ...">
+    <div style="height:16px"></div>
+    <button class="btn" id="saveSetup">Salvar</button>
+  </section>
+
+  <section id="login" class="center card" style="display:none">
+    <h2>Entrar no painel</h2>
+    <p class="sub">Use o e-mail e a senha do usuário admin criado no Supabase (Authentication → Users).</p>
+    <label>E-mail</label><input id="email" type="email" autocomplete="username">
+    <div style="height:12px"></div>
+    <label>Senha</label><input id="password" type="password" autocomplete="current-password">
+    <div style="height:16px"></div>
+    <div class="row"><button class="btn" id="doLogin">Entrar</button>
+      <button class="btn ghost small" id="resetSetup">Trocar projeto</button></div>
+  </section>
+
+  <section id="clients" style="display:none">
+    <h2>Clientes</h2>
+    <p class="sub">Cada cliente recebe um código de 9 dígitos para entrar no app. Recargas somam dias à validade.</p>
+    <div class="card">
+      <h3 style="margin-top:0">Novo cliente</h3>
+      <div class="grid">
+        <div><label>Nome</label><input id="cName" placeholder="Ex.: João Silva"></div>
+        <div><label>Dias da primeira recarga</label><input id="cDays" type="number" value="30" min="1"></div>
+        <div><label>Usuário do aparelho (opcional)</label><input id="cDevice" placeholder="ABC123" maxlength="6"></div>
+      </div>
+      <div style="height:12px"></div>
+      <label>Link M3U do cliente</label><input id="cM3u" placeholder="http://servidor:porta/get.php?username=...&password=...&type=m3u_plus">
+      <div style="height:14px"></div>
+      <button class="btn" id="addClient">Criar cliente e gerar código</button>
+    </div>
+    <div class="card">
+      <div class="row" style="margin-bottom:12px"><input id="search" placeholder="Buscar por nome, código ou aparelho" style="max-width:360px">
+        <span class="spacer"></span><span class="muted" id="count"></span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Cliente</th><th>Código</th><th>Validade</th><th>Aparelho</th><th>Ações</th></tr></thead>
+        <tbody id="clientRows"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <section id="devices" style="display:none">
+    <h2>Aparelhos</h2>
+    <p class="sub">Todo app instalado tem um usuário (3 letras e 3 números). Vincule ao cliente para controlar as recargas dele.</p>
+    <div class="card table-wrap"><table>
+      <thead><tr><th>Usuário</th><th>Aparelho</th><th>Último acesso</th><th>Cliente</th><th></th></tr></thead>
+      <tbody id="deviceRows"></tbody>
+    </table></div>
+  </section>
+
+  <section id="settings" style="display:none">
+    <h2>Configurações</h2>
+    <p class="sub">Valem para todos os apps.</p>
+    <div class="card">
+      <label>Chave da API do TMDB (logos dos streamings, sinopses e imagens)</label>
+      <input id="tmdbKey" placeholder="Chave da API (v3) ou Token de leitura (v4)">
+      <p class="muted" style="font-size:13px">Grátis em themoviedb.org → Configurações → API. Os apps recebem a chave no próximo login.</p>
+      <button class="btn" id="saveTmdb">Salvar</button>
+    </div>
+  </section>
+</main>
+
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+                set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+                del(k) { try { localStorage.removeItem(k); } catch (e) {} } };
+let sb = null, clients = [], devices = [];
+
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600); }
+function show(id) { ['setup', 'login', 'clients', 'devices', 'settings'].forEach(s => $(s).style.display = s === id ? '' : 'none'); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmt(d) { return new Date(d).toLocaleDateString('pt-BR'); }
+function daysLeft(d) { return Math.ceil((new Date(d) - Date.now()) / 86400000); }
+
+function modal(html, onReady) { $('modal').innerHTML = html; $('modalBg').style.display = 'flex'; if (onReady) onReady(); }
+function closeModal() { $('modalBg').style.display = 'none'; }
+$('modalBg').addEventListener('click', e => { if (e.target === $('modalBg')) closeModal(); });
+
+async function boot() {
+  const url = store.get('sb_url'), key = store.get('sb_key');
+  if (!url || !key) { show('setup'); return; }
+  sb = supabase.createClient(url, key);
+  const { data } = await sb.auth.getSession();
+  if (!data.session) { show('login'); $('nav').style.display = 'none'; $('logout').style.display = 'none'; return; }
+  $('nav').style.display = ''; $('logout').style.display = '';
+  tab('clients');
+}
+
+$('saveSetup').onclick = () => {
+  const u = $('sbUrl').value.trim().replace(/\/$/, ''), k = $('sbKey').value.trim();
+  if (!/^https:\/\/.+\.supabase\.co$/.test(u) || k.length < 20) { toast('Confira a URL e a chave'); return; }
+  store.set('sb_url', u); store.set('sb_key', k); boot();
+};
+$('resetSetup').onclick = () => { store.del('sb_url'); store.del('sb_key'); boot(); };
+$('doLogin').onclick = async () => {
+  const { error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
+  if (error) { toast('Login falhou: ' + error.message); return; }
+  boot();
+};
+$('logout').onclick = async () => { await sb.auth.signOut(); boot(); };
+document.querySelectorAll('#nav button').forEach(b => b.onclick = () => tab(b.dataset.tab));
+
+function tab(name) {
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === name));
+  show(name);
+  if (name === 'clients') loadClients();
+  if (name === 'devices') loadDevices();
+  if (name === 'settings') loadSettings();
+}
+
+// ----- clientes
+async function loadClients() {
+  const { data, error } = await sb.from('clients').select('*').order('created_at', { ascending: false });
+  if (error) { toast(error.message); return; }
+  clients = data; renderClients();
+}
+
+function renderClients() {
+  const q = $('search').value.trim().toLowerCase();
+  const list = clients.filter(c => !q || [c.name, c.code, c.device_user].join(' ').toLowerCase().includes(q));
+  $('count').textContent = list.length + ' cliente(s)';
+  $('clientRows').innerHTML = list.map(c => {
+    const d = daysLeft(c.expires_at);
+    const state = !c.active ? '<span class="pill bad">Bloqueado</span>'
+      : d > 0 ? `<span class="pill ok">${d} dia(s)</span>` : '<span class="pill bad">Vencido</span>';
+    return `<tr>
+      <td><b>${esc(c.name)}</b><div class="muted" style="font-size:12px">${esc((c.m3u || '').slice(0, 48))}…</div></td>
+      <td><span class="code" data-copy="${c.code}" title="Copiar">${c.code.slice(0,3)} ${c.code.slice(3,6)} ${c.code.slice(6)}</span></td>
+      <td>${state}<div class="muted" style="font-size:12px">até ${fmt(c.expires_at)}</div></td>
+      <td>${c.device_user ? `<span class="code" style="font-size:14px">${esc(c.device_user)}</span>` : '<span class="muted">—</span>'}</td>
+      <td><div class="row">
+        <button class="btn small" data-act="recharge" data-id="${c.id}">Recarga</button>
+        <button class="btn ghost small" data-act="edit" data-id="${c.id}">Editar</button>
+        <button class="btn ghost small" data-act="toggle" data-id="${c.id}">${c.active ? 'Bloquear' : 'Liberar'}</button>
+        <button class="btn danger small" data-act="delete" data-id="${c.id}">Excluir</button>
+      </div></td></tr>`;
+  }).join('') || '<tr><td colspan="5" class="muted">Nenhum cliente ainda.</td></tr>';
+}
+$('search').oninput = renderClients;
+
+$('clientRows').onclick = async (e) => {
+  const copy = e.target.closest('[data-copy]');
+  if (copy) { navigator.clipboard && navigator.clipboard.writeText(copy.dataset.copy); toast('Código copiado'); return; }
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const c = clients.find(x => x.id === b.dataset.id); if (!c) return;
+  if (b.dataset.act === 'recharge') rechargeModal(c);
+  if (b.dataset.act === 'edit') editModal(c);
+  if (b.dataset.act === 'toggle') { await sb.from('clients').update({ active: !c.active }).eq('id', c.id); loadClients(); }
+  if (b.dataset.act === 'delete') modal(`<h3>Excluir ${esc(c.name)}?</h3><p class="muted">O código ${c.code} deixa de funcionar.</p>
+      <div class="row"><button class="btn danger" id="yes">Excluir</button><button class="btn ghost" onclick="closeModal()">Cancelar</button></div>`,
+      () => $('yes').onclick = async () => { await sb.from('clients').delete().eq('id', c.id); closeModal(); loadClients(); toast('Cliente excluído'); });
+};
+
+function rechargeModal(c) {
+  modal(`<h3>Recarga — ${esc(c.name)}</h3>
+    <p class="muted">Validade atual: ${fmt(c.expires_at)} (${Math.max(0, daysLeft(c.expires_at))} dia(s)). Os dias somam a partir de hoje ou da validade, o que for maior.</p>
+    <div class="row" style="margin-bottom:12px">${[30, 60, 90, 180, 365].map(d => `<button class="btn ghost small" data-days="${d}">+${d} dias</button>`).join('')}</div>
+    <label>Outro valor (dias)</label><input id="rDays" type="number" min="1" value="30">
+    <div style="height:10px"></div><label>Observação (opcional)</label><input id="rNote" placeholder="Ex.: pago via Pix">
+    <div style="height:16px"></div>
+    <div class="row"><button class="btn" id="rSave">Aplicar recarga</button><button class="btn ghost" onclick="closeModal()">Cancelar</button></div>`,
+    () => {
+      $('modal').querySelectorAll('[data-days]').forEach(x => x.onclick = () => $('rDays').value = x.dataset.days);
+      $('rSave').onclick = async () => {
+        const days = parseInt($('rDays').value, 10);
+        if (!(days > 0)) { toast('Informe os dias'); return; }
+        const { error } = await sb.from('recharges').insert({ client_id: c.id, days, note: $('rNote').value || null });
+        if (error) { toast(error.message); return; }
+        closeModal(); loadClients(); toast('Recarga de ' + days + ' dia(s) aplicada');
+      };
+    });
+}
+
+function editModal(c) {
+  modal(`<h3>Editar cliente</h3>
+    <label>Nome</label><input id="eName" value="${esc(c.name)}">
+    <div style="height:10px"></div><label>Link M3U</label><input id="eM3u" value="${esc(c.m3u)}">
+    <div style="height:10px"></div><label>Usuário do aparelho</label><input id="eDev" maxlength="6" value="${esc(c.device_user || '')}" placeholder="ABC123">
+    <div style="height:10px"></div><label>Observações</label><textarea id="eNotes" rows="2">${esc(c.notes || '')}</textarea>
+    <div style="height:16px"></div>
+    <div class="row"><button class="btn" id="eSave">Salvar</button><button class="btn ghost" id="eCode">Gerar novo código</button>
+      <button class="btn ghost" onclick="closeModal()">Cancelar</button></div>`,
+    () => {
+      $('eSave').onclick = async () => {
+        const dev = $('eDev').value.trim().toUpperCase() || null;
+        if (dev && !/^[A-Z]{3}[0-9]{3}$/.test(dev)) { toast('Usuário do aparelho: 3 letras e 3 números'); return; }
+        const { error } = await sb.from('clients').update({ name: $('eName').value.trim(), m3u: $('eM3u').value.trim(),
+          device_user: dev, notes: $('eNotes').value || null }).eq('id', c.id);
+        if (error) { toast(error.message); return; }
+        if (dev) await sb.from('devices').upsert({ user_code: dev, client_id: c.id });
+        closeModal(); loadClients(); toast('Salvo');
+      };
+      $('eCode').onclick = async () => {
+        const { data, error } = await sb.rpc('new_client_code');
+        if (error) { toast(error.message); return; }
+        await sb.from('clients').update({ code: data }).eq('id', c.id);
+        closeModal(); loadClients(); toast('Novo código: ' + data);
+      };
+    });
+}
+
+$('addClient').onclick = async () => {
+  const name = $('cName').value.trim(), m3u = $('cM3u').value.trim(), days = parseInt($('cDays').value, 10);
+  const dev = $('cDevice').value.trim().toUpperCase() || null;
+  if (!name || !/^https?:\/\//.test(m3u)) { toast('Preencha o nome e um link M3U válido'); return; }
+  if (dev && !/^[A-Z]{3}[0-9]{3}$/.test(dev)) { toast('Usuário do aparelho: 3 letras e 3 números'); return; }
+  const { data, error } = await sb.from('clients').insert({ name, m3u, device_user: dev }).select().single();
+  if (error) { toast(error.message); return; }
+  if (days > 0) await sb.from('recharges').insert({ client_id: data.id, days, note: 'Primeira recarga' });
+  if (dev) await sb.from('devices').upsert({ user_code: dev, client_id: data.id });
+  $('cName').value = ''; $('cM3u').value = ''; $('cDevice').value = '';
+  loadClients();
+  modal(`<h3>Cliente criado</h3><p class="muted">Passe este código para ${esc(name)} entrar no app:</p>
+    <div class="code" style="font-size:34px;margin:10px 0 18px">${data.code.slice(0,3)} ${data.code.slice(3,6)} ${data.code.slice(6)}</div>
+    <div class="row"><button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText('${data.code}');toast('Código copiado')">Copiar código</button>
+    <button class="btn ghost" onclick="closeModal()">Fechar</button></div>`);
+};
+
+// ----- aparelhos
+async function loadDevices() {
+  const [d, c] = await Promise.all([sb.from('devices').select('*').order('last_seen', { ascending: false }),
+                                    sb.from('clients').select('id,name,code').order('name')]);
+  if (d.error) { toast(d.error.message); return; }
+  devices = d.data; clients = c.data || clients;
+  $('deviceRows').innerHTML = devices.map(x => {
+    const owner = clients.find(c => c.id === x.client_id);
+    return `<tr><td><span class="code">${esc(x.user_code)}</span></td><td class="muted">${esc(x.model || '—')}</td>
+      <td class="muted">${new Date(x.last_seen).toLocaleString('pt-BR')}</td>
+      <td><select data-dev="${x.user_code}"><option value="">— sem cliente —</option>${clients.map(c =>
+        `<option value="${c.id}" ${c.id === x.client_id ? 'selected' : ''}>${esc(c.name)} (${c.code})</option>`).join('')}</select></td>
+      <td>${owner ? '<span class="pill ok">Vinculado</span>' : '<span class="pill bad">Livre</span>'}</td></tr>`;
+  }).join('') || '<tr><td colspan="5" class="muted">Nenhum aparelho abriu o app ainda.</td></tr>';
+  document.querySelectorAll('select[data-dev]').forEach(s => s.onchange = async () => {
+    const id = s.value || null, user = s.dataset.dev;
+    await sb.from('devices').update({ client_id: id }).eq('user_code', user);
+    if (id) await sb.from('clients').update({ device_user: user }).eq('id', id);
+    toast('Aparelho atualizado'); loadDevices();
+  });
+}
+
+// ----- configurações
+async function loadSettings() {
+  const { data } = await sb.from('config').select('value').eq('key', 'tmdb_key').maybeSingle();
+  $('tmdbKey').value = data ? data.value : '';
+}
+$('saveTmdb').onclick = async () => {
+  const { error } = await sb.from('config').upsert({ key: 'tmdb_key', value: $('tmdbKey').value.trim() });
+  toast(error ? error.message : 'Chave do TMDB salva');
+};
+
+boot();
+</script>
+</body>
+</html>

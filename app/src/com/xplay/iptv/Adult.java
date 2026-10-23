@@ -1,8 +1,6 @@
 package com.xplay.iptv;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.text.InputType;
 import android.view.Gravity;
 import android.widget.EditText;
@@ -122,28 +120,18 @@ public final class Adult {
 
     /** Asks for the PIN and runs onOk when it is right. */
     public static void askPin(final Activity a, String title, final Runnable onOk) {
-        final EditText input = new EditText(a);
-        input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
-        input.setGravity(Gravity.CENTER);
-        input.setTextSize(24);
-        input.setHint("Senha");
-        LinearLayout box = new LinearLayout(a);
-        box.setPadding(Ui.dp(a, 24), Ui.dp(a, 8), Ui.dp(a, 24), 0);
-        box.addView(input, new LinearLayout.LayoutParams(-1, -2));
-        final AlertDialog d = new AlertDialog.Builder(a)
-                .setTitle(title)
-                .setMessage("Digite a senha para continuar.")
-                .setView(box)
-                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int w) {
-                        if (input.getText().toString().equals(pin())) onOk.run();
-                        else Toast.makeText(a, "Senha incorreta", Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .setNegativeButton("Cancelar", null)
-                .create();
-        d.show();
-        input.requestFocus();
+        final Popup p = new Popup(a, title, "Digite a senha para continuar.");
+        final EditText input = p.pinInput("Senha");
+        p.button("Cancelar", false, null).button("OK", true, new Runnable() {
+            public void run() {
+                if (input.getText().toString().equals(pin())) {
+                    p.dismiss();
+                    onOk.run();
+                } else {
+                    p.error("Senha incorreta");
+                }
+            }
+        }, true).show();
     }
 
     public static String pin() {

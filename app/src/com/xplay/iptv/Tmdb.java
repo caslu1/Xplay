@@ -19,7 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Optional TMDB lookup (the user's own free API key, set in Settings): where a title streams in
+ * Optional TMDB lookup (the API key the admin sets in the Xplay panel): where a title streams in
  * Brazil (Netflix, Globoplay…), runtime, year, country, rating, genres, Portuguese plot and backdrop.
  */
 public final class Tmdb {

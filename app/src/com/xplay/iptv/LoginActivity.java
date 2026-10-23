@@ -16,7 +16,10 @@ import android.widget.TextView;
 
 import java.util.concurrent.Callable;
 
-/** Entry screen: Xtream login (DNS, user, password) or an M3U link. Auto-logs in when saved. */
+/**
+ * Entry screen. With the Xplay panel configured the client types the 9-digit code from their recharge;
+ * otherwise an Xtream login (DNS, user, password) or an M3U link. Auto-logs in when saved.
+ */
 public class LoginActivity extends Activity {
 
     private boolean xtreamTab = true;
@@ -27,11 +30,30 @@ public class LoginActivity extends Activity {
     private View formRoot;
     private TextView splashStatus;
     private View button;
+    private EditText code;
+    private TextView codeError, codeLabel;
+    private ProgressBar codeProgress;
+    private View codeButton, codeRoot;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Repo.init(this);
+        new Thread(new Runnable() {
+            public void run() { Backend.registerDevice(); }
+        }, "register-device").start();
+        if (Backend.configured()) {
+            buildCodeUi();
+            String saved = Backend.savedCode();
+            if (saved != null) {
+                code.setText(saved);
+                setContentView(buildSplash());
+                loginWithCode(saved, true);
+            } else {
+                setContentView(codeRoot);
+            }
+            return;
+        }
         buildUi();
         if (Repo.hasLogin()) {
             xtreamTab = Repo.isXtream();
@@ -261,32 +283,11 @@ public class LoginActivity extends Activity {
         setBusy(true);
         Task.run(this, new Callable<Void>() {
             public Void call() throws Exception {
-                if (Repo.isXtream()) {
-                    Xtream.login();
-                    return null;
-                }
-                // M3U links from Xtream servers carry the login; the API gives movies, series and EPG.
-                String m3u = Repo.m3uUrl;
-                String[] x = M3uCatalog.xtreamCredentials(m3u);
-                if (x != null) {
-                    Repo.saveXtream(x[0], x[1], x[2]);
-                    try {
-                        Xtream.login();
-                        return null;
-                    } catch (java.io.IOException e) {
-                        Repo.saveM3u(m3u);
-                    }
-                }
-                M3uCatalog.load(m3u);
+                openSavedLogin();
                 return null;
             }
         }, new Task.Done<Void>() {
-            public void ok(Void v) {
-                if (splashStatus != null) splashStatus.setText("Abrindo canais…");
-                startActivity(new Intent(LoginActivity.this, LiveActivity.class));
-                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-                finish();
-            }
+            public void ok(Void v) { openChannels(); }
 
             public void fail(Exception e) {
                 setBusy(false);
@@ -299,6 +300,210 @@ public class LoginActivity extends Activity {
             }
         });
     }
+
+    /** Signs in with the saved Xtream login or M3U list. Worker thread. */
+    private static void openSavedLogin() throws Exception {
+        if (Repo.isXtream()) {
+            Xtream.login();
+            return;
+        }
+        // M3U links from Xtream servers carry the login; the API gives movies, series and EPG.
+        String m3u = Repo.m3uUrl;
+        String[] x = M3uCatalog.xtreamCredentials(m3u);
+        if (x != null) {
+            Repo.saveXtream(x[0], x[1], x[2]);
+            try {
+                Xtream.login();
+                return;
+            } catch (java.io.IOException e) {
+                Repo.saveM3u(m3u);
+            }
+        }
+        M3uCatalog.load(m3u);
+    }
+
+    private void openChannels() {
+        if (splashStatus != null) splashStatus.setText("Abrindo canais…");
+        startActivity(new Intent(LoginActivity.this, LiveActivity.class));
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+        finish();
+    }
+
+    // ---------------------------------------------------------------- code login (Xplay panel)
+
+    private void buildCodeUi() {
+        LinearLayout root = Ui.row(this);
+        root.setBackgroundColor(Palette.BLACK);
+
+        LinearLayout brand = Ui.column(this);
+        brand.setGravity(Gravity.CENTER);
+        brand.setBackground(new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR, new int[] {0xFF1A1508, Palette.BLACK}));
+        brand.addView(Ui.logo(this, 44));
+        View line = new View(this);
+        line.setBackground(Ui.round(Palette.GOLD, Ui.dp(this, 2)));
+        LinearLayout.LayoutParams ll = Ui.lp(Ui.dp(this, 56), Ui.dp(this, 4));
+        ll.topMargin = Ui.dp(this, 18);
+        brand.addView(line, ll);
+        TextView subtitle = Ui.text(this, "TV ao vivo, filmes e séries\nem um só lugar", 18, Palette.TEXT_DIM, false);
+        subtitle.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams sp = Ui.lp(-2, -2);
+        sp.topMargin = Ui.dp(this, 18);
+        brand.addView(subtitle, sp);
+        root.addView(brand, new LinearLayout.LayoutParams(0, -1, 1f));
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        FrameLayout center = new FrameLayout(this);
+        scroll.addView(center);
+        root.addView(scroll, new LinearLayout.LayoutParams(0, -1, 1f));
+
+        LinearLayout box = Ui.column(this);
+        int pad = Ui.dp(this, 24);
+        box.setPadding(pad, pad, pad, pad);
+        center.addView(box, new FrameLayout.LayoutParams(
+                Math.min(Ui.dp(this, 440), getResources().getDisplayMetrics().widthPixels / 2), -2, Gravity.CENTER));
+
+        box.addView(Ui.text(this, "Entrar", 26, Palette.TEXT, true));
+        TextView hint = Ui.text(this, "Digite o código de 9 dígitos da sua recarga.", 15, Palette.TEXT_DIM, false);
+        LinearLayout.LayoutParams hl = Ui.lp(-1, -2);
+        hl.topMargin = Ui.dp(this, 6);
+        box.addView(hint, hl);
+
+        code = new EditText(this);
+        code.setHint("000 000 000");
+        code.setHintTextColor(0xFF4A4A4A);
+        code.setTextColor(Palette.TEXT);
+        code.setTextSize(28);
+        code.setLetterSpacing(0.25f);
+        code.setGravity(Gravity.CENTER);
+        code.setSingleLine(true);
+        code.setInputType(InputType.TYPE_CLASS_NUMBER);
+        code.setFilters(new android.text.InputFilter[] {new android.text.InputFilter.LengthFilter(9)});
+        code.setImeOptions(EditorInfo.IME_ACTION_DONE);
+        code.setPadding(Ui.dp(this, 16), Ui.dp(this, 14), Ui.dp(this, 16), Ui.dp(this, 14));
+        code.setBackground(Ui.selectable(this, Palette.SURFACE_HI, Palette.SURFACE_HI, Ui.dp(this, 14), Palette.GOLD));
+        code.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            public boolean onEditorAction(TextView v, int id, android.view.KeyEvent e) {
+                submitCode();
+                return true;
+            }
+        });
+        LinearLayout.LayoutParams cl = Ui.lp(-1, -2);
+        cl.topMargin = Ui.dp(this, 20);
+        box.addView(code, cl);
+
+        codeError = Ui.text(this, "", 14, Palette.ERROR, false);
+        codeError.setGravity(Gravity.CENTER);
+        codeError.setVisibility(View.GONE);
+        LinearLayout.LayoutParams ep = Ui.lp(-1, -2);
+        ep.topMargin = Ui.dp(this, 12);
+        box.addView(codeError, ep);
+
+        FrameLayout btn = new FrameLayout(this);
+        btn.setFocusable(true);
+        btn.setClickable(true);
+        btn.setBackground(Ui.selectable(this, Palette.GOLD, Palette.GOLD_LIGHT, Ui.dp(this, 28), Palette.TEXT));
+        codeLabel = Ui.text(this, "ENTRAR", 16, Palette.BLACK, true);
+        btn.addView(codeLabel, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
+        codeProgress = new ProgressBar(this);
+        codeProgress.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(Palette.BLACK));
+        codeProgress.setVisibility(View.GONE);
+        btn.addView(codeProgress, new FrameLayout.LayoutParams(Ui.dp(this, 28), Ui.dp(this, 28), Gravity.CENTER));
+        LinearLayout.LayoutParams btp = Ui.lp(-1, Ui.dp(this, 54));
+        btp.topMargin = Ui.dp(this, 20);
+        box.addView(btn, btp);
+        codeButton = btn;
+        btn.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { submitCode(); }
+        });
+
+        // The install's own user: the reseller links it to the client's recharges.
+        LinearLayout device = Ui.row(this);
+        device.setGravity(Gravity.CENTER_VERTICAL);
+        device.setBackground(Ui.round(0x14E8B84A, Ui.dp(this, 14)));
+        device.setPadding(Ui.dp(this, 16), Ui.dp(this, 12), Ui.dp(this, 16), Ui.dp(this, 12));
+        LinearLayout dl = Ui.column(this);
+        dl.addView(Ui.text(this, "Usuário deste aparelho", 13, Palette.TEXT_DIM, false));
+        dl.addView(Ui.text(this, "Informe ao seu revendedor para recarregar", 12, 0xFF6E6E6E, false));
+        device.addView(dl, Ui.weight(1));
+        TextView user = Ui.text(this, Backend.deviceUser(), 22, Palette.GOLD, true);
+        user.setLetterSpacing(0.12f);
+        device.addView(user);
+        LinearLayout.LayoutParams dp = Ui.lp(-1, -2);
+        dp.topMargin = Ui.dp(this, 24);
+        box.addView(device, dp);
+
+        TextView version = Ui.text(this, "versão " + Updater.currentName(this), 12, 0xFF555555, false);
+        version.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams vp = Ui.lp(-1, -2);
+        vp.topMargin = Ui.dp(this, 16);
+        box.addView(version, vp);
+
+        codeRoot = root;
+    }
+
+    private void submitCode() {
+        String c = code.getText().toString().replaceAll("\\D", "");
+        if (c.length() != 9) {
+            showCodeError("O código tem 9 números");
+            return;
+        }
+        loginWithCode(c, false);
+    }
+
+    /** Checks the code on the panel, then opens the client's list. auto: started from the saved code. */
+    private void loginWithCode(final String c, final boolean auto) {
+        setCodeBusy(true);
+        Task.run(this, new Callable<Void>() {
+            public Void call() throws Exception {
+                String m3u;
+                try {
+                    m3u = Backend.login(c);
+                } catch (Backend.Refused e) {
+                    throw e;
+                } catch (Exception e) {
+                    // Panel unreachable: keep watching with the list from the last successful login.
+                    if (!auto || !Repo.hasLogin()) throw e;
+                    openSavedLogin();
+                    return null;
+                }
+                Repo.saveM3u(m3u);
+                openSavedLogin();
+                return null;
+            }
+        }, new Task.Done<Void>() {
+            public void ok(Void v) { openChannels(); }
+
+            public void fail(Exception e) {
+                setCodeBusy(false);
+                if (e instanceof Backend.Refused) {
+                    Backend.clearCode();
+                    Repo.logout();
+                }
+                if (codeRoot.getParent() == null) setContentView(codeRoot);
+                if (e instanceof Backend.Refused && auto) {
+                    Popup.message(LoginActivity.this, "Acesso suspenso", Task.message(e));
+                }
+                showCodeError(Task.message(e));
+                code.requestFocus();
+            }
+        });
+    }
+
+    private void setCodeBusy(boolean busy) {
+        codeButton.setEnabled(!busy);
+        codeLabel.setVisibility(busy ? View.INVISIBLE : View.VISIBLE);
+        codeProgress.setVisibility(busy ? View.VISIBLE : View.GONE);
+        if (busy) codeError.setVisibility(View.GONE);
+    }
+
+    private void showCodeError(String msg) {
+        codeError.setText(msg);
+        codeError.setVisibility(View.VISIBLE);
+    }
+
+    // ---------------------------------------------------------------- manual login
 
     private void setBusy(boolean busy) {
         button.setEnabled(!busy);

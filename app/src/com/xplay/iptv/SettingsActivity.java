@@ -1,8 +1,6 @@
 package com.xplay.iptv;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
@@ -33,10 +31,9 @@ import java.util.concurrent.Callable;
 /** Settings: account, parental control, connection test, updates and about, one section at a time. */
 public class SettingsActivity extends Activity implements TopBar.Listener {
 
-    private static final String[] SECTIONS = {"Conta", "Controle parental", "Filmes e séries (TMDB)",
-            "Teste de conexão", "Atualizações", "Sobre"};
-    private static final int[] ICONS = {R.drawable.ic_person, R.drawable.ic_heart, R.drawable.ic_movie,
-            R.drawable.ic_refresh, R.drawable.ic_arrow_right, R.drawable.ic_settings};
+    private static final String[] SECTIONS = {"Conta", "Controle parental", "Teste de conexão", "Atualizações", "Sobre"};
+    private static final int[] ICONS = {R.drawable.ic_person, R.drawable.ic_heart, R.drawable.ic_refresh,
+            R.drawable.ic_arrow_right, R.drawable.ic_settings};
 
     private final List<TextView> menuItems = new ArrayList<TextView>();
     private LinearLayout content;
@@ -133,9 +130,8 @@ public class SettingsActivity extends Activity implements TopBar.Listener {
         switch (which) {
             case 0: account(); break;
             case 1: parental(); break;
-            case 2: tmdb(); break;
-            case 3: connection(); break;
-            case 4: updates(); break;
+            case 2: connection(); break;
+            case 3: updates(); break;
             default: about(); break;
         }
     }
@@ -156,7 +152,7 @@ public class SettingsActivity extends Activity implements TopBar.Listener {
     private LinearLayout card() {
         LinearLayout c = Ui.column(this);
         c.setBackground(Ui.round(Palette.SURFACE_HI, Ui.dp(this, 14)));
-        c.setPadding(Ui.dp(this, 20), Ui.dp(this, 6), Ui.dp(this, 20), Ui.dp(this, 6));
+        c.setPadding(Ui.dp(this, 10), Ui.dp(this, 6), Ui.dp(this, 10), Ui.dp(this, 6));
         LinearLayout.LayoutParams lp = Ui.lp(-1, -2);
         lp.bottomMargin = Ui.dp(this, 16);
         content.addView(c, lp);
@@ -170,7 +166,10 @@ public class SettingsActivity extends Activity implements TopBar.Listener {
             card.addView(line, Ui.lp(-1, 1));
         }
         LinearLayout r = Ui.row(this);
-        r.setPadding(0, Ui.dp(this, 13), 0, Ui.dp(this, 13));
+        // Focusable so the remote can walk (and scroll) through the information.
+        r.setFocusable(true);
+        r.setBackground(Ui.selectable(this, 0, 0x14FFFFFF, Ui.dp(this, 10), Palette.GOLD));
+        r.setPadding(Ui.dp(this, 10), Ui.dp(this, 13), Ui.dp(this, 10), Ui.dp(this, 13));
         r.addView(Ui.text(this, label, 15, Palette.TEXT_DIM, false), Ui.weight(1));
         TextView v = Ui.text(this, value == null || value.isEmpty() ? "-" : value, 15, Palette.TEXT, true);
         v.setGravity(Gravity.END);
@@ -218,7 +217,8 @@ public class SettingsActivity extends Activity implements TopBar.Listener {
     // ---------------------------------------------------------------- sections
 
     private void account() {
-        heading("Conta", Repo.isXtream() ? "Login Xtream" : "Lista M3U");
+        heading("Conta", Backend.savedCode() != null ? "Entrou com código de recarga"
+                : Repo.isXtream() ? "Login Xtream" : "Lista M3U");
         LinearLayout profile = Ui.row(this);
         ImageView avatar = Ui.icon(this, R.drawable.ic_person, Palette.BLACK);
         avatar.setBackground(Ui.round(Palette.GOLD, Ui.dp(this, 30)));
@@ -227,7 +227,9 @@ public class SettingsActivity extends Activity implements TopBar.Listener {
         profile.addView(avatar, Ui.lp(Ui.dp(this, 60), Ui.dp(this, 60)));
         LinearLayout names = Ui.column(this);
         names.setPadding(Ui.dp(this, 16), 0, 0, 0);
-        names.addView(Ui.text(this, Repo.isXtream() ? Repo.user : "Minha lista", 20, Palette.TEXT, true));
+        String who = Backend.clientName();
+        if (who == null || who.isEmpty()) who = Repo.isXtream() ? Repo.user : "Minha lista";
+        names.addView(Ui.text(this, who, 20, Palette.TEXT, true));
         org.json.JSONObject a = Repo.account;
         String status = a == null ? "" : a.optString("status", "");
         boolean active = status.isEmpty() || status.equalsIgnoreCase("Active");
@@ -237,6 +239,14 @@ public class SettingsActivity extends Activity implements TopBar.Listener {
         LinearLayout.LayoutParams pl = Ui.lp(-1, -2);
         pl.bottomMargin = Ui.dp(this, 18);
         content.addView(profile, pl);
+
+        LinearLayout access = card();
+        row(access, "Usuário do aparelho", Backend.deviceUser()).setTextColor(Palette.GOLD);
+        if (Backend.savedCode() != null) {
+            String c = Backend.savedCode();
+            row(access, "Código de acesso", c.substring(0, 3) + " " + c.substring(3, 6) + " " + c.substring(6));
+            row(access, "Recarga válida até", Backend.date(Backend.expiresAt()));
+        }
 
         LinearLayout info = card();
         if (Repo.isXtream()) {
@@ -295,71 +305,6 @@ public class SettingsActivity extends Activity implements TopBar.Listener {
         });
     }
 
-    private void tmdb() {
-        heading("Filmes e séries (TMDB)", "Com uma chave gratuita do TMDB, o destaque mostra o logo do streaming "
-                + "(Netflix, Globoplay…), duração, país, nota e sinopse em português.");
-        LinearLayout c = card();
-        final TextView state = row(c, "Situação", Tmdb.enabled() ? "Ativado" : "Desativado");
-        state.setTextColor(Tmdb.enabled() ? 0xFF4CD787 : Palette.TEXT_DIM);
-
-        TextView how = Ui.text(this, "Como conseguir a chave: crie uma conta grátis em themoviedb.org, abra "
-                + "Configurações → API e copie a \"Chave da API\" (ou o \"Token de leitura\").", 14, Palette.TEXT_DIM, false);
-        how.setLineSpacing(0, 1.15f);
-        LinearLayout.LayoutParams hl = Ui.lp(-1, -2);
-        hl.bottomMargin = Ui.dp(this, 12);
-        content.addView(how, hl);
-
-        final EditText input = new EditText(this);
-        input.setHint("Cole aqui a chave do TMDB");
-        input.setHintTextColor(0xFF777777);
-        input.setTextColor(Palette.TEXT);
-        input.setSingleLine(true);
-        input.setText(Tmdb.key());
-        input.setPadding(Ui.dp(this, 16), Ui.dp(this, 12), Ui.dp(this, 16), Ui.dp(this, 12));
-        input.setBackground(Ui.selectable(this, Palette.SURFACE_HI, Palette.SURFACE_HI, Ui.dp(this, 12), Palette.GOLD));
-        LinearLayout.LayoutParams il = Ui.lp(-1, -2);
-        il.bottomMargin = Ui.dp(this, 14);
-        content.addView(input, il);
-
-        final TextView save = button("Salvar e testar", true);
-        TextView clear = button("Remover", false);
-        buttons(save, clear);
-        save.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                final String k = input.getText().toString().trim();
-                if (k.isEmpty()) return;
-                save.setText("Testando…");
-                Task.run(SettingsActivity.this, new Callable<String>() {
-                    public String call() { return Tmdb.test(k); }
-                }, new Task.Done<String>() {
-                    public void ok(String error) {
-                        save.setText("Salvar e testar");
-                        if (error == null) {
-                            Tmdb.setKey(k);
-                            state.setText("Ativado");
-                            state.setTextColor(0xFF4CD787);
-                            Toast.makeText(SettingsActivity.this, "TMDB ativado", Toast.LENGTH_SHORT).show();
-                        } else {
-                            Toast.makeText(SettingsActivity.this, "TMDB: " + error, Toast.LENGTH_LONG).show();
-                        }
-                    }
-
-                    public void fail(Exception e) {
-                        save.setText("Salvar e testar");
-                    }
-                });
-            }
-        });
-        clear.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                Tmdb.setKey("");
-                input.setText("");
-                state.setText("Desativado");
-                state.setTextColor(Palette.TEXT_DIM);
-            }
-        });
-    }
-
     private void updates() {
         heading("Atualizações", "O app avisa sozinho ao abrir quando existe uma versão nova.");
         LinearLayout c = card();
@@ -403,7 +348,6 @@ public class SettingsActivity extends Activity implements TopBar.Listener {
         content.addView(verdict, vl);
         final TextView start = button("Iniciar teste", true);
         buttons(start);
-        start.requestFocus();
         start.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 if (testing) return;
@@ -557,50 +501,106 @@ public class SettingsActivity extends Activity implements TopBar.Listener {
     }
 
     private void confirmLogout() {
-        new AlertDialog.Builder(this)
-                .setTitle("Sair da conta?")
-                .setMessage("Você poderá entrar com outro login ou lista.")
-                .setPositiveButton("Sair", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface d, int w) {
-                        Repo.logout();
-                        Intent i = new Intent(SettingsActivity.this, LoginActivity.class);
-                        i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(i);
-                        finish();
-                    }
-                })
-                .setNegativeButton("Cancelar", null)
-                .show();
+        Popup.confirm(this, "Sair da conta?", Backend.savedCode() != null
+                ? "Para voltar, digite de novo o código da sua recarga."
+                : "Você poderá entrar com outro login ou lista.", "Sair", new Runnable() {
+            public void run() {
+                Backend.clearCode();
+                Repo.logout();
+                Intent i = new Intent(SettingsActivity.this, LoginActivity.class);
+                i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(i);
+                finish();
+            }
+        });
     }
 
     private void changePin() {
         Adult.askPin(this, "Senha atual", new Runnable() {
             public void run() {
-                final EditText input = new EditText(SettingsActivity.this);
-                input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
-                input.setGravity(Gravity.CENTER);
-                input.setTextSize(24);
-                LinearLayout box = new LinearLayout(SettingsActivity.this);
-                box.setPadding(Ui.dp(SettingsActivity.this, 24), Ui.dp(SettingsActivity.this, 8),
-                        Ui.dp(SettingsActivity.this, 24), 0);
-                box.addView(input, new LinearLayout.LayoutParams(-1, -2));
-                new AlertDialog.Builder(SettingsActivity.this)
-                        .setTitle("Nova senha (4 números ou mais)")
-                        .setView(box)
-                        .setPositiveButton("Salvar", new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface d, int w) {
-                                String pin = input.getText().toString();
-                                if (pin.length() < 4) {
-                                    Toast.makeText(SettingsActivity.this, "Use pelo menos 4 números", Toast.LENGTH_SHORT).show();
-                                    return;
-                                }
-                                Adult.setPin(pin);
-                                Toast.makeText(SettingsActivity.this, "Senha alterada", Toast.LENGTH_SHORT).show();
-                            }
-                        })
-                        .setNegativeButton("Cancelar", null)
-                        .show();
+                final Popup p = new Popup(SettingsActivity.this, "Nova senha", "Use 4 números ou mais.");
+                final EditText input = p.pinInput("Nova senha");
+                p.button("Cancelar", false, null).button("Salvar", true, new Runnable() {
+                    public void run() {
+                        String pin = input.getText().toString();
+                        if (pin.length() < 4) {
+                            p.error("Use pelo menos 4 números");
+                            return;
+                        }
+                        p.dismiss();
+                        Adult.setPin(pin);
+                        Toast.makeText(SettingsActivity.this, "Senha alterada", Toast.LENGTH_SHORT).show();
+                    }
+                }, true).show();
             }
         });
+    }
+
+    // ---------------------------------------------------------------- remote navigation
+
+    @Override
+    public boolean dispatchKeyEvent(android.view.KeyEvent e) {
+        if (e.getAction() == android.view.KeyEvent.ACTION_DOWN && section >= 0) {
+            View f = getCurrentFocus();
+            int k = e.getKeyCode();
+            boolean inMenu = f != null && menuItems.contains(f);
+            boolean inContent = f != null && isInside(f, contentScroll);
+            if (inMenu && k == android.view.KeyEvent.KEYCODE_DPAD_RIGHT) {
+                // Into the open section, starting at its top.
+                contentScroll.scrollTo(0, 0);
+                View first = firstFocusable(content);
+                if (first != null) first.requestFocus();
+                return true;
+            }
+            if (inContent && k == android.view.KeyEvent.KEYCODE_DPAD_LEFT) {
+                View left = f.focusSearch(View.FOCUS_LEFT);
+                if (left == null || !isInside(left, contentScroll)) {
+                    // Back to the section that is open, not whichever menu item happens to be beside.
+                    menuItems.get(section).requestFocus();
+                    return true;
+                }
+            }
+            if (inContent && k == android.view.KeyEvent.KEYCODE_DPAD_UP) {
+                View up = f.focusSearch(View.FOCUS_UP);
+                if (up == null || !isInside(up, contentScroll)) {
+                    contentScroll.smoothScrollTo(0, 0);
+                    menuItems.get(section).requestFocus();
+                    return true;
+                }
+            }
+            if (inContent && k == android.view.KeyEvent.KEYCODE_DPAD_DOWN) {
+                View down = f.focusSearch(View.FOCUS_DOWN);
+                if (down == null || !isInside(down, contentScroll)) {
+                    contentScroll.smoothScrollBy(0, Ui.dp(this, 120));
+                    return true;
+                }
+            }
+            if (inContent && k == android.view.KeyEvent.KEYCODE_BACK) {
+                menuItems.get(section).requestFocus();
+                return true;
+            }
+        }
+        return super.dispatchKeyEvent(e);
+    }
+
+    private static boolean isInside(View v, View parent) {
+        while (v != null) {
+            if (v == parent) return true;
+            v = v.getParent() instanceof View ? (View) v.getParent() : null;
+        }
+        return false;
+    }
+
+    private static View firstFocusable(android.view.ViewGroup g) {
+        for (int i = 0; i < g.getChildCount(); i++) {
+            View c = g.getChildAt(i);
+            if (c.getVisibility() != View.VISIBLE) continue;
+            if (c.isFocusable()) return c;
+            if (c instanceof android.view.ViewGroup) {
+                View r = firstFocusable((android.view.ViewGroup) c);
+                if (r != null) return r;
+            }
+        }
+        return null;
     }
 }

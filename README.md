@@ -16,6 +16,10 @@ sudo apt-get install android-sdk-platform-23 aapt apksigner zipalign dalvik-exch
 
 O APK é assinado com `tools/xplay.keystore` (senha `xplay123`). Use sempre a mesma chave para que as atualizações instalem por cima da versão anterior.
 
+## Painel de clientes
+
+Códigos de 9 dígitos, recargas, usuários dos aparelhos e a chave do TMDB: veja [docs/PAINEL.md](docs/PAINEL.md).
+
 ## Publicar uma versão
 
 1. Aumente `versionCode` e `versionName` em `app/AndroidManifest.xml`.

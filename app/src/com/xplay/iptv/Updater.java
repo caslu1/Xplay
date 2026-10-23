@@ -1,8 +1,6 @@
 package com.xplay.iptv;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.res.ColorStateList;
@@ -86,22 +84,18 @@ public final class Updater {
 
     private static void offer(final Activity a, final JSONObject latest) {
         String notes = latest.optString("notes", "");
-        new AlertDialog.Builder(a)
-                .setTitle("Nova versão disponível")
-                .setMessage("Xplay " + latest.optString("versionName") + " está disponível."
-                        + (notes.isEmpty() ? "" : "\n\n" + notes)
-                        + "\n\nVocê está usando a versão " + currentName(a) + ".")
-                .setPositiveButton("Atualizar agora", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface d, int w) { download(a, latest.optString("apk")); }
+        new Popup(a, "Nova versão disponível", "Xplay " + latest.optString("versionName") + " está disponível."
+                + (notes.isEmpty() ? "" : "\n\n" + notes)
+                + "\n\nVocê está usando a versão " + currentName(a) + ".")
+                .button("Depois", false, null)
+                .button("Atualizar agora", true, new Runnable() {
+                    public void run() { download(a, latest.optString("apk")); }
                 })
-                .setNegativeButton("Depois", null)
                 .show();
     }
 
     private static void download(final Activity a, final String apkUrl) {
         LinearLayout box = Ui.column(a);
-        int p = Ui.dp(a, 24);
-        box.setPadding(p, Ui.dp(a, 12), p, 0);
         final TextView label = Ui.text(a, "Baixando… 0%", 15, Palette.TEXT, false);
         box.addView(label);
         final ProgressBar bar = new ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal);
@@ -110,11 +104,7 @@ public final class Updater {
         LinearLayout.LayoutParams bl = Ui.lp(-1, Ui.dp(a, 8));
         bl.topMargin = Ui.dp(a, 12);
         box.addView(bar, bl);
-        final AlertDialog dialog = new AlertDialog.Builder(a)
-                .setTitle("Atualizando o Xplay")
-                .setView(box)
-                .setCancelable(false)
-                .show();
+        final Popup dialog = new Popup(a, "Atualizando o Xplay", null).add(box).cancelable(false).show();
 
         final File target = UpdateProvider.apkFile(a);
         Task.run(a, new Callable<File>() {

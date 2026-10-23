@@ -1,8 +1,6 @@
 package com.xplay.iptv;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
@@ -523,35 +521,26 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     }
 
     private void askSearch() {
-        final EditText input = new EditText(this);
-        input.setHint("Nome ou número do canal");
-        input.setSingleLine(true);
-        LinearLayout box = new LinearLayout(this);
-        box.setPadding(Ui.dp(this, 20), Ui.dp(this, 8), Ui.dp(this, 20), 0);
-        box.addView(input, new LinearLayout.LayoutParams(-1, -2));
-        new AlertDialog.Builder(this)
-                .setTitle("Buscar canal")
-                .setView(box)
-                .setPositiveButton("Buscar", new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface d, int w) {
-                        String raw = input.getText().toString().trim();
-                        if (raw.isEmpty()) return;
-                        if (raw.matches("\\d+")) {
-                            jumpTo(raw);
-                            return;
-                        }
-                        String q = raw.toLowerCase(Locale.ROOT);
-                        List<Channel> out = new ArrayList<Channel>();
-                        for (Channel c : Adult.channels()) {
-                            if (c.name.toLowerCase(Locale.ROOT).contains(q)) out.add(c);
-                        }
-                        showChannels("Busca: " + raw, Variants.collapse(out));
-                        if (out.isEmpty()) Toast.makeText(LiveActivity.this, "Nenhum canal encontrado",
-                                Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .setNegativeButton("Cancelar", null)
-                .show();
+        final Popup p = new Popup(this, "Buscar canal", null);
+        final EditText input = p.input("Nome ou número do canal", android.text.InputType.TYPE_CLASS_TEXT, null);
+        p.button("Cancelar", false, null).button("Buscar", true, new Runnable() {
+            public void run() {
+                String raw = input.getText().toString().trim();
+                if (raw.isEmpty()) return;
+                if (raw.matches("\\d+")) {
+                    jumpTo(raw);
+                    return;
+                }
+                String q = raw.toLowerCase(Locale.ROOT);
+                List<Channel> out = new ArrayList<Channel>();
+                for (Channel c : Adult.channels()) {
+                    if (c.name.toLowerCase(Locale.ROOT).contains(q)) out.add(c);
+                }
+                showChannels("Busca: " + raw, Variants.collapse(out));
+                if (out.isEmpty()) Toast.makeText(LiveActivity.this, "Nenhum canal encontrado",
+                        Toast.LENGTH_SHORT).show();
+            }
+        }).show();
     }
 
     private void setZoom(float z) {
