@@ -74,6 +74,7 @@ public class SportsActivity extends Activity implements TopBar.Listener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Repo.init(this);
+        Ui.fit(this);
         if (Repo.channels == null) {
             finish();
             return;

@@ -45,6 +45,7 @@ public class SettingsActivity extends Activity implements TopBar.Listener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Repo.init(this);
+        Ui.fit(this);
         if (!Repo.hasLogin() || Repo.channels == null) {
             finish();
             return;

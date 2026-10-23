@@ -101,7 +101,8 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Repo.init(this);
-        if (Repo.channels == null) {
+        Ui.fit(this);
+        if (Repo.channels == null || !Repo.hasLogin()) {
             // Process was recreated: log in again from the saved credentials.
             startActivity(new Intent(this, LoginActivity.class));
             finish();

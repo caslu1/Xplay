@@ -79,6 +79,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Repo.init(this);
+        Ui.fit(this);
         if (!Repo.hasVod() || Repo.channels == null) {
             finish();
             return;

@@ -104,6 +104,7 @@ public class PlayerActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Repo.init(this);
+        Ui.fit(this);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         vodUrl = getIntent().getStringExtra(EXTRA_URL);
         live = vodUrl == null;

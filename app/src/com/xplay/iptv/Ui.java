@@ -133,6 +133,27 @@ public final class Ui {
         return tvMode || !c.getPackageManager().hasSystemFeature("android.hardware.touchscreen");
     }
 
+    /**
+     * TVs often report a high density (1080p as xhdpi = 960dp wide), which blows the layout up.
+     * Rescales this activity so a TV screen is always 1280dp wide, like the layouts were made for.
+     */
+    public static void fit(android.app.Activity a) {
+        if (!isTv(a)) return;
+        fitMetrics(a.getResources().getDisplayMetrics());
+        fitMetrics(a.getApplicationContext().getResources().getDisplayMetrics());
+    }
+
+    private static void fitMetrics(android.util.DisplayMetrics m) {
+        int width = Math.max(m.widthPixels, m.heightPixels);
+        float density = width / 1280f;
+        // Only shrinks: TVs that already show 1280dp or more stay as they are.
+        if (density >= m.density - 0.01f) return;
+        float fontScale = m.scaledDensity / m.density;
+        m.density = density;
+        m.densityDpi = (int) (density * 160);
+        m.scaledDensity = density * fontScale;
+    }
+
     /** Poster width that fits the screen: small phones in landscape get smaller posters than TVs. */
     public static int posterDp(Context c) {
         android.util.DisplayMetrics m = c.getResources().getDisplayMetrics();

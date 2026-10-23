@@ -33,6 +33,7 @@ public class CategoryActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Repo.init(this);
+        Ui.fit(this);
         items = pendingItems;
         if (items == null) {
             finish();

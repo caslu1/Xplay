@@ -62,6 +62,7 @@ public class DetailActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Repo.init(this);
+        Ui.fit(this);
         item = Repo.findVod(getIntent().getBooleanExtra(EXTRA_SERIES, false), getIntent().getStringExtra(EXTRA_ID));
         if (item == null) {
             finish();

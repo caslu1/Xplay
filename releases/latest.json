@@ -1,6 +1,6 @@
 {
-  "versionCode": 15,
-  "versionName": "3.1",
-  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-3.1.apk",
-  "notes": "Login com o código de 9 dígitos do painel Xplay. Mostra o usuário do aparelho para vincular às recargas."
+  "versionCode": 16,
+  "versionName": "3.2",
+  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-3.2.apk",
+  "notes": "Tela de login com código sempre aparece (logins antigos pedem o código). Layout menor e mais equilibrado nas TVs."
 }

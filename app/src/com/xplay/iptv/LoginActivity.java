@@ -39,6 +39,7 @@ public class LoginActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Repo.init(this);
+        Ui.fit(this);
         new Thread(new Runnable() {
             public void run() { Backend.registerDevice(); }
         }, "register-device").start();
