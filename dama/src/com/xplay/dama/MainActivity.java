@@ -44,7 +44,20 @@ public class MainActivity extends Activity implements GameView.Listener {
     protected void onCreate(Bundle saved) {
         super.onCreate(saved);
         prefs = getSharedPreferences("dama", MODE_PRIVATE);
+        Reminder.createChannel(this);
         showMenu();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Reminder.cancel(this);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Reminder.scheduleFirst(this);
     }
 
     @Override
