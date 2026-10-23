@@ -50,6 +50,30 @@ public final class Adult {
         return isAdultName(cat) || isAdultName(v.name);
     }
 
+    /** Same groups with the adult ones moved to the end (order otherwise kept). */
+    public static List<String> lastGroups(List<String> groups) {
+        List<String> out = new ArrayList<String>(groups.size());
+        for (String g : groups) if (!isAdultName(g)) out.add(g);
+        for (String g : groups) if (isAdultName(g)) out.add(g);
+        return out;
+    }
+
+    /** Same categories (id → name) with the adult ones last. */
+    public static java.util.LinkedHashMap<String, String> lastCategories(java.util.LinkedHashMap<String, String> cats) {
+        java.util.LinkedHashMap<String, String> out = new java.util.LinkedHashMap<String, String>();
+        for (Map.Entry<String, String> e : cats.entrySet()) if (!isAdultName(e.getValue())) out.put(e.getKey(), e.getValue());
+        for (Map.Entry<String, String> e : cats.entrySet()) if (isAdultName(e.getValue())) out.put(e.getKey(), e.getValue());
+        return out;
+    }
+
+    /** Channels with the adult ones last, so they also get the highest numbers. */
+    public static List<Channel> lastChannels(List<Channel> list) {
+        List<Channel> out = new ArrayList<Channel>(list.size());
+        for (Channel c : list) if (!isAdult(c)) out.add(c);
+        for (Channel c : list) if (isAdult(c)) out.add(c);
+        return out;
+    }
+
     public static boolean hidden() {
         return Repo.prefs().getBoolean("hide_adult", false);
     }

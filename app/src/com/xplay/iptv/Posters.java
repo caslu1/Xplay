@@ -97,9 +97,7 @@ public final class Posters {
         t.setGravity(Gravity.CENTER);
         t.setPadding(Ui.dp(a, 10), Ui.dp(a, 8), Ui.dp(a, 10), Ui.dp(a, 8));
         inner.addView(t, Ui.lp(w, -2));
-        box.setDuplicateParentStateEnabled(true);
-        box.setForeground(Ui.focusRing(a, r));
-        card.addView(box, Ui.lp(w, -2));
+        card.addView(Ui.ringed(a, box, r), Ui.lp(w + 2 * Ui.ringGap(a), -2));
         card.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) { DetailActivity.start(a, v); }
         });
@@ -207,11 +205,10 @@ public final class Posters {
         LinearLayout card = Ui.column(a);
         card.setFocusable(true);
         card.setClickable(true);
-        int p = Ui.dp(a, 4);
-        card.setPadding(p, p, p, p);
         card.setOnFocusChangeListener(new View.OnFocusChangeListener() {
             public void onFocusChange(View view, boolean has) {
-                view.animate().scaleX(has ? 1.06f : 1f).scaleY(has ? 1.06f : 1f).setDuration(120).start();
+                view.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f).setDuration(110)
+                        .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
             }
         });
         return card;
@@ -222,9 +219,6 @@ public final class Posters {
         FrameLayout frame = new FrameLayout(a);
         frame.setBackground(Ui.round(Palette.SURFACE_HI, r));
         Ui.clipRound(frame, r);
-        // The ring follows the card's focus, drawn on top of the poster.
-        frame.setDuplicateParentStateEnabled(true);
-        frame.setForeground(Ui.focusRing(a, r));
         ImageView placeholder = Ui.icon(a, series ? R.drawable.ic_series : R.drawable.ic_movie, 0xFF55555A);
         frame.addView(placeholder, new FrameLayout.LayoutParams(Ui.dp(a, 36), Ui.dp(a, 36), Gravity.CENTER));
         ImageView img = new ImageView(a);
@@ -236,17 +230,22 @@ public final class Posters {
 
     private static void addPoster(Activity a, LinearLayout card, FrameLayout frame, int widthDp) {
         int w = Ui.dp(a, widthDp);
-        card.addView(frame, Ui.lp(w, w * 3 / 2));
+        int g = 2 * Ui.ringGap(a);
+        // The ring follows the card's focus, just outside the poster.
+        card.addView(Ui.ringed(a, frame, Ui.dp(a, 10)), Ui.lp(w + g, w * 3 / 2 + g));
     }
 
     private static void addTitle(Activity a, LinearLayout card, String title, String subtitle, int widthDp) {
-        int w = Ui.dp(a, widthDp);
-        TextView t = Ui.text(a, title, 14, 0xFFDDDDDD, false);
+        int w = Ui.dp(a, widthDp) + 2 * Ui.ringGap(a);
+        TextView t = Ui.text(a, title, 13, 0xFFBDBDBD, false);
+        t.setDuplicateParentStateEnabled(true);
+        t.setTextColor(new android.content.res.ColorStateList(
+                new int[][] {{android.R.attr.state_focused}, {}}, new int[] {Palette.TEXT, 0xFFBDBDBD}));
         t.setSingleLine(true);
         t.setEllipsize(TextUtils.TruncateAt.END);
         t.setGravity(Gravity.CENTER_HORIZONTAL);
         LinearLayout.LayoutParams tl = Ui.lp(w, -2);
-        tl.topMargin = Ui.dp(a, 6);
+        tl.topMargin = Ui.dp(a, 4);
         card.addView(t, tl);
         if (subtitle != null) {
             TextView s = Ui.text(a, subtitle, 12, Palette.GOLD, false);

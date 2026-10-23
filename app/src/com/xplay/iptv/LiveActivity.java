@@ -89,6 +89,10 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         public void run() { jumpTo(typedNumber); }
     };
     private int retries;
+    /** Versions of the current channel already tried after errors (to fall back to another quality). */
+    private final java.util.Set<Channel> tried = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<Channel, Boolean>());
+    private boolean fallingBack;
     /** Starts the player once zapping pauses, so racing through channels does not error out. */
     private final Runnable startPlayback = new Runnable() {
         public void run() { startPreview(); }
@@ -289,6 +293,17 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                     handler.postDelayed(new Runnable() {
                         public void run() { load(); }
                     }, 800);
+                    return true;
+                }
+                // Off the air: try the same channel in another quality before giving up.
+                tried.add(playing);
+                Channel other = Variants.untried(playing, Adult.channels(), tried);
+                if (other != null) {
+                    Toast.makeText(LiveActivity.this, "Canal fora do ar, abrindo em " + Variants.quality(other),
+                            Toast.LENGTH_SHORT).show();
+                    fallingBack = true;
+                    select(other, true);
+                    fallingBack = false;
                     return true;
                 }
                 previewLoading.setVisibility(View.GONE);
@@ -553,6 +568,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     // ---------------------------------------------------------------- playback
 
     private void select(Channel c, boolean startNow) {
+        if (!fallingBack) tried.clear();
         playing = c;
         Repo.current = c;
         Repo.prefs().edit().putString("last_channel", c.url).apply();

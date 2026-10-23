@@ -103,12 +103,12 @@ public final class M3uCatalog {
                 if (!liveGroups.contains(c.group)) liveGroups.add(c.group);
             }
         }
-        Repo.channels = live;
-        Repo.liveGroups = liveGroups;
+        Repo.channels = Adult.lastChannels(live);
+        Repo.liveGroups = Adult.lastGroups(liveGroups);
         Repo.movies = movies;
-        Repo.movieCategories = movieCats;
+        Repo.movieCategories = Adult.lastCategories(movieCats);
         Repo.series = series;
-        Repo.seriesCategories = seriesCats;
+        Repo.seriesCategories = Adult.lastCategories(seriesCats);
         Epg.setGuideUrl(p.tvgUrl);
     }
 }

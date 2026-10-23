@@ -91,4 +91,21 @@ public final class Variants {
         if (!out.contains(c)) out.add(0, c);
         return out;
     }
+
+    /** Best-ranked version of c's channel not tried yet (for when a stream is off), or null. */
+    public static Channel untried(Channel c, List<Channel> pool, java.util.Set<Channel> tried) {
+        Channel best = null;
+        for (Channel x : of(c, pool)) {
+            if (tried.contains(x)) continue;
+            if (best == null || rank(x) < rank(best)) best = x;
+        }
+        return best;
+    }
+
+    /** Short quality label for messages: "FHD", "SD", "4K"… or "outra versão". */
+    public static String quality(Channel c) {
+        java.util.regex.Matcher m = Pattern.compile("(?i)\\b(sd|hd|fhd|full ?hd|uhd|4k|8k|h\\.?265|hevc|1080p?|720p?)\\b")
+                .matcher(c.name);
+        return m.find() ? m.group(1).toUpperCase(Locale.ROOT) : "outra versão";
+    }
 }

@@ -74,6 +74,8 @@ public class PlayerActivity extends Activity {
     /** Pending seek position while the remote keys are being pressed, or -1. */
     private int seekTarget = -1;
     private int retries;
+    private final java.util.Set<Channel> tried = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<Channel, Boolean>());
     private final Runnable applySeek = new Runnable() {
         public void run() { if (seekTarget >= 0) seekNow(seekTarget); }
     };
@@ -201,6 +203,18 @@ public class PlayerActivity extends Activity {
                     }, 800);
                     return true;
                 }
+                if (live) {
+                    // Off the air: try the same channel in another quality before giving up.
+                    tried.add(channel);
+                    Channel other = Variants.untried(channel, Adult.channels(), tried);
+                    if (other != null) {
+                        Toast.makeText(PlayerActivity.this, "Canal fora do ar, abrindo em " + Variants.quality(other),
+                                Toast.LENGTH_SHORT).show();
+                        channel = other;
+                        play();
+                        return true;
+                    }
+                }
                 loading.setVisibility(View.GONE);
                 message.setText(live ? "Canal indisponível no momento" : "Não foi possível reproduzir este conteúdo");
                 showOverlay();
@@ -232,6 +246,7 @@ public class PlayerActivity extends Activity {
     private void buildLiveOverlay() {
         liveInfo = new LiveOverlay(this, new LiveOverlay.Listener() {
             public void onVariant(Channel c) {
+                tried.clear();
                 channel = c;
                 play();
             }
@@ -247,6 +262,7 @@ public class PlayerActivity extends Activity {
             showOverlay();
             return;
         }
+        tried.clear();
         channel = v;
         play();
     }
@@ -470,6 +486,7 @@ public class PlayerActivity extends Activity {
     }
 
     private void zap(int delta) {
+        tried.clear();
         int n = channels.size();
         int i = channels.indexOf(channel);
         index = (((i < 0 ? index : i) + delta) % n + n) % n;

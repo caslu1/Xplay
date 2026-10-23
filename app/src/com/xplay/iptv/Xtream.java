@@ -85,8 +85,8 @@ public final class Xtream {
                 }
             }
             for (Channel c : list) if (!groups.contains(c.group)) groups.add(c.group);
-            Repo.channels = list;
-            Repo.liveGroups = groups;
+            Repo.channels = Adult.lastChannels(list);
+            Repo.liveGroups = Adult.lastGroups(groups);
         } catch (JSONException e) {
             throw new IOException("Não foi possível ler os canais");
         }
@@ -125,7 +125,7 @@ public final class Xtream {
                         httpOrNull(s.optString("stream_icon", "")), rating(s), s.optString("category_id"),
                         s.optString("container_extension", "mp4"), s.optLong("added", 0), null));
             }
-            Repo.movieCategories = cats;
+            Repo.movieCategories = Adult.lastCategories(cats);
             Repo.movies = list;
         } catch (JSONException e) {
             throw new IOException("Não foi possível ler os filmes");
@@ -145,7 +145,7 @@ public final class Xtream {
                         httpOrNull(s.optString("cover", "")), rating(s), s.optString("category_id"),
                         null, s.optLong("last_modified", 0), null));
             }
-            Repo.seriesCategories = cats;
+            Repo.seriesCategories = Adult.lastCategories(cats);
             Repo.series = list;
         } catch (JSONException e) {
             throw new IOException("Não foi possível ler as séries");

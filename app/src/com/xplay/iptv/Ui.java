@@ -14,6 +14,7 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewOutlineProvider;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -53,17 +54,36 @@ public final class Ui {
         return s;
     }
 
-    /** A gold ring shown only while focused or pressed (never for list selection). */
+    /** A gold ring shown only while focused or pressed (never for list selection); no tint over the image. */
     public static Drawable focusRing(Context c, float radiusPx) {
         StateListDrawable s = new StateListDrawable();
         GradientDrawable ring = new GradientDrawable();
-        ring.setColor(0x14FFFFFF);
+        ring.setColor(0);
         ring.setCornerRadius(radiusPx);
-        ring.setStroke(Math.max(2, dp(c, 1.5f)), Palette.GOLD);
+        ring.setStroke(Math.max(3, dp(c, 2.5f)), Palette.GOLD);
         s.addState(new int[] {android.R.attr.state_focused}, ring);
         s.addState(new int[] {android.R.attr.state_pressed}, ring);
         s.addState(new int[] {}, new ColorDrawable(0));
         return s;
+    }
+
+    /** Space between a card's image and its focus ring. */
+    public static int ringGap(Context c) {
+        return dp(c, 4);
+    }
+
+    /**
+     * Wraps content (already clipped to radiusPx) in a box whose gold ring sits just outside it, with a
+     * small gap, when the parent card is focused. Size the returned view content + 2 × ringGap.
+     */
+    public static FrameLayout ringed(Context c, View content, float radiusPx) {
+        FrameLayout box = new FrameLayout(c);
+        int g = ringGap(c);
+        box.setPadding(g, g, g, g);
+        box.setDuplicateParentStateEnabled(true);
+        box.setForeground(focusRing(c, radiusPx + g));
+        box.addView(content, new FrameLayout.LayoutParams(-1, -1));
+        return box;
     }
 
     public static TextView text(Context c, CharSequence s, float sp, int color, boolean bold) {
@@ -158,6 +178,8 @@ public final class Ui {
     public static int posterDp(Context c) {
         android.util.DisplayMetrics m = c.getResources().getDisplayMetrics();
         float heightDp = Math.min(m.widthPixels, m.heightPixels) / m.density;
+        // TVs: ~8 posters per row, like the big streaming apps.
+        if (isTv(c)) return 124;
         return (int) Math.max(96, Math.min(150, heightDp * 0.27f));
     }
 

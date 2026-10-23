@@ -74,6 +74,11 @@ public class VodActivity extends Activity implements TopBar.Listener {
     private final Runnable loadHeroInfo = new Runnable() {
         public void run() { if (heroItem != null) fetchHeroInfo(heroItem); }
     };
+    /** Title moves at once; chips, art and plot wait until the remote stops for a moment. */
+    private VodItem pendingHero;
+    private final Runnable applyHero = new Runnable() {
+        public void run() { if (pendingHero != null) showHero(pendingHero); }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -103,7 +108,8 @@ public class VodActivity extends Activity implements TopBar.Listener {
         };
         // Favorites and "continue watching" may have changed while away.
         if (page == TopBar.FAVORITES) buildFavorites();
-        else if ((page == TopBar.MOVIES && Repo.movies != null) || (page == TopBar.SERIES && Repo.series != null)) {
+        else if (((page == TopBar.MOVIES && Repo.movies != null) || (page == TopBar.SERIES && Repo.series != null))
+                && !state(page == TopBar.SERIES).equals(builtState)) {
             int first = sectionsList.getFirstVisiblePosition();
             buildCatalog(page == TopBar.SERIES);
             sectionsList.setSelection(first);
@@ -176,7 +182,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
         LinearLayout home = Ui.column(this);
         hero = buildHero();
         int h = getResources().getDisplayMetrics().heightPixels;
-        home.addView(hero, Ui.lp(-1, (int) (h * (Ui.isTv(this) ? 0.38f : 0.34f))));
+        home.addView(hero, Ui.lp(-1, (int) (h * (Ui.isTv(this) ? 0.40f : 0.34f))));
 
         FrameLayout body = new FrameLayout(this);
         sectionsList = new ListView(this);
@@ -184,7 +190,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
         sectionsList.setSelector(new android.graphics.drawable.ColorDrawable(0));
         sectionsList.setItemsCanFocus(true);
         sectionsList.setVerticalScrollBarEnabled(false);
-        sectionsList.setPadding(Ui.dp(this, 26), 0, 0, Ui.dp(this, 24));
+        sectionsList.setPadding(Ui.dp(this, 28), 0, 0, Ui.dp(this, 24));
         sectionsList.setClipToPadding(false);
         sectionsList.setAdapter(sections);
         body.addView(sectionsList, new FrameLayout.LayoutParams(-1, -1));
@@ -199,7 +205,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
     private View buildHero() {
         LinearLayout text = Ui.column(this);
         text.setGravity(Gravity.BOTTOM);
-        text.setPadding(Ui.dp(this, 36), 0, Ui.dp(this, 36), Ui.dp(this, 10));
+        text.setPadding(Ui.dp(this, 40), 0, Ui.dp(this, 40), Ui.dp(this, 12));
         heroMark = new FrameLayout(this);
         LinearLayout.LayoutParams ml = Ui.lp(-2, -2);
         ml.bottomMargin = Ui.dp(this, 10);
@@ -209,20 +215,20 @@ public class VodActivity extends Activity implements TopBar.Listener {
         heroChips = Ui.row(this);
         cs.addView(heroChips);
         text.addView(cs, Ui.lp(-1, -2));
-        heroTitle = Ui.text(this, "", 28, Palette.TEXT, true);
+        heroTitle = Ui.text(this, "", 30, Palette.TEXT, true);
         heroTitle.setMaxLines(1);
         heroTitle.setEllipsize(TextUtils.TruncateAt.END);
         heroTitle.setShadowLayer(10, 0, 2, Palette.BLACK);
-        LinearLayout.LayoutParams tl = Ui.lp(Ui.dp(this, 680), -2);
-        tl.topMargin = Ui.dp(this, 10);
+        LinearLayout.LayoutParams tl = Ui.lp(Ui.dp(this, 640), -2);
+        tl.topMargin = Ui.dp(this, 8);
         text.addView(heroTitle, tl);
-        heroPlot = Ui.text(this, "", 16, 0xFFD0D0D0, false);
-        heroPlot.setMaxLines(3);
+        heroPlot = Ui.text(this, "", 15, 0xFFC8C8C8, false);
+        heroPlot.setMaxLines(2);
         heroPlot.setEllipsize(TextUtils.TruncateAt.END);
         heroPlot.setLineSpacing(0, 1.12f);
         heroPlot.setShadowLayer(6, 0, 1, Palette.BLACK);
-        LinearLayout.LayoutParams pl = Ui.lp(Ui.dp(this, 680), -2);
-        pl.topMargin = Ui.dp(this, 4);
+        LinearLayout.LayoutParams pl = Ui.lp(Ui.dp(this, 600), -2);
+        pl.topMargin = Ui.dp(this, 6);
         text.addView(heroPlot, pl);
         if (!Ui.isTv(this)) {
             // On touch screens the hero gets its own button; on TV, OK on the poster opens it.
@@ -245,6 +251,15 @@ public class VodActivity extends Activity implements TopBar.Listener {
     /** Shows a title in the hero right away; its backdrop and plot follow once the remote settles. */
     private void setHero(VodItem v) {
         if (v == null || v == heroItem) return;
+        heroTitle.setText(v.name);
+        pendingHero = v;
+        handler.removeCallbacks(applyHero);
+        if (heroItem == null) showHero(v);
+        else handler.postDelayed(applyHero, 160);
+    }
+
+    private void showHero(VodItem v) {
+        if (v == heroItem) return;
         heroItem = v;
         heroTitle.setText(v.name);
         heroMark.removeAllViews();
@@ -255,7 +270,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
         else {
             ImageLoader.loadBlurred(v.poster, backdrop);
             handler.removeCallbacks(loadHeroInfo);
-            handler.postDelayed(loadHeroInfo, 450);
+            handler.postDelayed(loadHeroInfo, 300);
         }
     }
 
@@ -491,6 +506,8 @@ public class VodActivity extends Activity implements TopBar.Listener {
             return;
         }
         heroItem = null;
+        pendingHero = null;
+        handler.removeCallbacks(applyHero);
         sections.items = new ArrayList<Section>();
         sections.notifyDataSetChanged();
         emptyText.setText("");
@@ -536,7 +553,17 @@ public class VodActivity extends Activity implements TopBar.Listener {
         });
     }
 
+    /** What the rows depend on besides the catalog: "continue watching" and favorites. */
+    private String builtState = "";
+
+    private static String state(boolean isSeries) {
+        return Repo.continueList(isSeries).toString() + "|"
+                + Repo.prefs().getStringSet("favorites", new java.util.HashSet<String>()).hashCode()
+                + "|" + Adult.visible();
+    }
+
     private void buildCatalog(boolean isSeries) {
+        builtState = state(isSeries);
         List<VodItem> all = isSeries ? Repo.series : Repo.movies;
         LinkedHashMap<String, String> cats = isSeries ? Repo.seriesCategories : Repo.movieCategories;
         LinkedHashMap<String, List<VodItem>> byCat = new LinkedHashMap<String, List<VodItem>>();
@@ -697,21 +724,28 @@ public class VodActivity extends Activity implements TopBar.Listener {
                 int[] loc = new int[2];
                 focused.getLocationOnScreen(loc);
                 final int x = loc[0];
-                sectionsList.setSelectionFromTop(target, Ui.dp(this, 2));
-                sectionsList.post(new Runnable() {
-                    public void run() { focusRow(target, x); }
-                });
+                final int top = Ui.dp(this, 2);
+                if (focusRow(target, x)) {
+                    // The row is already on screen: focus moves at once and the list glides to it.
+                    sectionsList.smoothScrollToPositionFromTop(target, top, 200);
+                } else {
+                    sectionsList.setSelectionFromTop(target, top);
+                    sectionsList.post(new Runnable() {
+                        public void run() { focusRow(target, x); }
+                    });
+                }
                 return true;
             }
         }
         return super.dispatchKeyEvent(e);
     }
 
-    private void focusRow(int position, int x) {
+    /** Focuses the item of that row nearest to x; false when the row is not laid out. */
+    private boolean focusRow(int position, int x) {
         View row = sectionsList.getChildAt(position - sectionsList.getFirstVisiblePosition());
-        if (!(row instanceof ViewGroup) || ((ViewGroup) row).getChildCount() < 2) return;
+        if (!(row instanceof ViewGroup) || ((ViewGroup) row).getChildCount() < 2) return false;
         View hs = ((ViewGroup) row).getChildAt(1);
-        if (!(hs instanceof HorizontalScrollView)) return;
+        if (!(hs instanceof HorizontalScrollView)) return false;
         ViewGroup strip = (ViewGroup) ((HorizontalScrollView) hs).getChildAt(0);
         View best = null;
         int bestDist = Integer.MAX_VALUE;
@@ -726,7 +760,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
                 best = c;
             }
         }
-        if (best != null) best.requestFocus();
+        return best != null && best.requestFocus();
     }
 
     // ---------------------------------------------------------------- sections
@@ -784,17 +818,14 @@ public class VodActivity extends Activity implements TopBar.Listener {
         LinearLayout card = Ui.column(this);
         card.setFocusable(true);
         card.setClickable(true);
-        int p = Ui.dp(this, 4);
-        card.setPadding(p, p, p, p);
         FrameLayout box = new FrameLayout(this);
         float r = Ui.dp(this, 10);
         box.setBackground(Ui.stroke(0xCC1C1C1C, r, Ui.dp(this, 1), 0x33FFFFFF));
-        box.setDuplicateParentStateEnabled(true);
-        box.setForeground(Ui.focusRing(this, r));
         TextView t = Ui.text(this, "Ver todos\n" + s.items.size() + " títulos", 15, Palette.GOLD, true);
         t.setGravity(Gravity.CENTER);
         box.addView(t, new FrameLayout.LayoutParams(-1, -2, Gravity.CENTER));
-        card.addView(box, Ui.lp(w, w * 3 / 2));
+        int g = 2 * Ui.ringGap(this);
+        card.addView(Ui.ringed(this, box, r), Ui.lp(w + g, w * 3 / 2 + g));
         card.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { CategoryActivity.start(VodActivity.this, s.title, s.items); }
         });
@@ -809,10 +840,10 @@ public class VodActivity extends Activity implements TopBar.Listener {
             public void dispatchSetSelected(boolean selected) {}
         };
         row.setOrientation(LinearLayout.VERTICAL);
-        row.setPadding(0, Ui.dp(this, 10), 0, Ui.dp(this, 4));
+        row.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 2));
         LinearLayout header = Ui.row(this);
-        header.setPadding(Ui.dp(this, 10), 0, Ui.dp(this, 24), 0);
-        TextView title = Ui.text(this, "", 20, Palette.TEXT, false);
+        header.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 24), 0);
+        TextView title = Ui.text(this, "", 18, Palette.TEXT, false);
         title.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
         header.addView(title, Ui.weight(1));
         row.addView(header, Ui.lp(-1, -2));
@@ -821,7 +852,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
         LinearLayout strip = Ui.row(this);
         strip.setGravity(Gravity.TOP);
         // Room around the posters so the focused one (slightly enlarged, gold ring) is never clipped.
-        strip.setPadding(Ui.dp(this, 8), Ui.dp(this, 10), Ui.dp(this, 24), Ui.dp(this, 8));
+        strip.setPadding(Ui.dp(this, 8), Ui.dp(this, 8), Ui.dp(this, 40), Ui.dp(this, 6));
         hs.addView(strip);
         row.addView(hs, Ui.lp(-1, -2));
         return row;

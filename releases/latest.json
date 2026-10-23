@@ -1,6 +1,6 @@
 {
-  "versionCode": 16,
-  "versionName": "3.2",
-  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-3.2.apk",
-  "notes": "Tela de login com código sempre aparece (logins antigos pedem o código). Layout menor e mais equilibrado nas TVs."
+  "versionCode": 17,
+  "versionName": "3.3",
+  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-3.3.apk",
+  "notes": "Filmes e séries refeitos para TV: pôsteres menores, destaque mais limpo e navegação mais fluida. Novo seletor dourado em volta do conteúdo. Conteúdo adulto sempre por último. Canal fora do ar abre sozinho em outra qualidade."
 }
