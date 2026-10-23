@@ -19,8 +19,8 @@ import java.security.SecureRandom;
 public final class Backend {
 
     /** Supabase → Project Settings → API. */
-    static final String BASE = "https://SEU-PROJETO.supabase.co";
-    static final String ANON_KEY = "SUA-CHAVE-ANON";
+    static final String BASE = "https://xgubfucijtaazvuzcluw.supabase.co";
+    static final String ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhndWJmdWNpanRhYXp2dXpjbHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3MzcxMDIsImV4cCI6MjEwODMxMzEwMn0.Bjd6ZmbeGBc6_nxjVD8F0rtamnOKKHLQ-uMpCTjnCNI";
 
     private static final String LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 

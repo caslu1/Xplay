@@ -1,6 +1,6 @@
 {
-  "versionCode": 14,
-  "versionName": "3.0",
-  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-3.0.apk",
-  "notes": "Novo painel de clientes: login com código de 9 dígitos, recargas e usuário do aparelho. Janelas próprias do Xplay. Configurações navegáveis pelo controle remoto. A chave do TMDB agora vem do painel."
+  "versionCode": 15,
+  "versionName": "3.1",
+  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-3.1.apk",
+  "notes": "Login com o código de 9 dígitos do painel Xplay. Mostra o usuário do aparelho para vincular às recargas."
 }
