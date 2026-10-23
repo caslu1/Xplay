@@ -25,3 +25,7 @@ Códigos de 9 dígitos, recargas, usuários dos aparelhos e a chave do TMDB: vej
 1. Aumente `versionCode` e `versionName` em `app/AndroidManifest.xml`.
 2. Rode `tools/release.sh "o que mudou"`. Ele gera `releases/Xplay-<versão>.apk` e `releases/latest.json`.
 3. Faça commit e push. Os apps instalados leem `latest.json` ao abrir e oferecem a atualização.
+
+## Gestor Simples
+
+App web/celular (PWA) de gestão de clientes e mensalidades com cobrança pelo WhatsApp: veja [gestor-simples/README.md](gestor-simples/README.md).

@@ -1,0 +1,17 @@
+{
+  "name": "Gestor Simples",
+  "short_name": "Gestor",
+  "description": "Gestão de clientes, mensalidades e cobranças pelo WhatsApp.",
+  "start_url": "/Dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f3ff",
+  "theme_color": "#7c3aed",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
