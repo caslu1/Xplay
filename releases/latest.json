@@ -1,6 +1,6 @@
 {
-  "versionCode": 12,
-  "versionName": "2.8",
-  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-2.8.apk",
-  "notes": "Filmes e séries recriados no estilo ARVIO: imagem de fundo grande do título em destaque com nome, ano, duração, gênero, nota e sinopse. Página de detalhes com fundo em tela cheia. Menu do topo em pílulas com relógio. Borda de seleção mais fina. Sem borda na tela cheia do canal. Nova tela de Configurações com Conta, Controle parental, Teste de conexão, Atualizações e Sobre."
+  "versionCode": 13,
+  "versionName": "2.9",
+  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-2.9.apk",
+  "notes": "Nomes dos canais sem HD/FHD. Abas Novelas e Infantis. Integração com TMDB (chave gratuita em Configurações) mostrando o logo do streaming (Netflix, Globoplay…), duração, ano, país, nota e gêneros no destaque. Navegação com controle: foco começa no conteúdo e Voltar sobe para o menu do topo."
 }

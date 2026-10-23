@@ -66,6 +66,15 @@ public final class Variants {
         return new ArrayList<Channel>(best.values());
     }
 
+    private static final Pattern SHOWN_TAGS = Pattern.compile(
+            "(?i)\\s*[\\[(]?\\b(sd|hd|fhd|full ?hd|uhd|4k|8k|h\\.?26[45]|hevc|1080p?|720p?|480p?)\\b[\\])]?");
+
+    /** The name as written in the list, minus quality tags ("Globo SP HD" → "Globo SP"). */
+    public static String displayName(Channel c) {
+        String n = SHOWN_TAGS.matcher(c.name).replaceAll("").replaceAll("[\\s|\\-–:]+$", "").replaceAll("\\s{2,}", " ").trim();
+        return n.isEmpty() ? c.name : n;
+    }
+
     /** Group name without the redundant word "canais" ("CANAIS | ESPORTES" → "ESPORTES"). */
     public static String cleanGroup(String g) {
         if (g == null) return "";

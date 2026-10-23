@@ -72,6 +72,47 @@ public final class Posters {
         return card;
     }
 
+    /** A wide (16:9) card with the title underneath, for the Infantis grid; widthPx is the column width. */
+    public static View wideCard(final Activity a, final VodItem v, int widthPx) {
+        LinearLayout card = frameCard(a);
+        int w = widthPx - Ui.dp(a, 8);
+        float r = Ui.dp(a, 10);
+        // FrameLayout so the focus ring works as a foreground on Android 5 too.
+        FrameLayout box = new FrameLayout(a);
+        box.setBackground(Ui.round(0xFF1C1C1C, r));
+        Ui.clipRound(box, r);
+        LinearLayout inner = Ui.column(a);
+        box.addView(inner, new FrameLayout.LayoutParams(-1, -2));
+        FrameLayout frame = new FrameLayout(a);
+        ImageView placeholder = Ui.icon(a, v.series ? R.drawable.ic_series : R.drawable.ic_movie, 0xFF55555A);
+        frame.addView(placeholder, new FrameLayout.LayoutParams(Ui.dp(a, 36), Ui.dp(a, 36), Gravity.CENTER));
+        ImageView img = new ImageView(a);
+        img.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        ImageLoader.load(v.poster, img, w, 0);
+        frame.addView(img, new FrameLayout.LayoutParams(-1, -1));
+        inner.addView(frame, Ui.lp(w, w * 9 / 16));
+        TextView t = Ui.text(a, v.name, 16, Palette.TEXT, false);
+        t.setSingleLine(true);
+        t.setEllipsize(TextUtils.TruncateAt.END);
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(Ui.dp(a, 10), Ui.dp(a, 8), Ui.dp(a, 10), Ui.dp(a, 8));
+        inner.addView(t, Ui.lp(w, -2));
+        box.setDuplicateParentStateEnabled(true);
+        box.setForeground(Ui.focusRing(a, r));
+        card.addView(box, Ui.lp(w, -2));
+        card.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View view) { DetailActivity.start(a, v); }
+        });
+        final View.OnFocusChangeListener scale = card.getOnFocusChangeListener();
+        card.setOnFocusChangeListener(new View.OnFocusChangeListener() {
+            public void onFocusChange(View view, boolean has) {
+                scale.onFocusChange(view, has);
+                if (has && focusListener != null) focusListener.focused(v);
+            }
+        });
+        return card;
+    }
+
     /**
      * A poster with a progress bar for a "continue watching" entry; plays right away.
      * Long press removes it and runs onRemoved.

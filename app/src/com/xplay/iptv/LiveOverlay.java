@@ -168,7 +168,7 @@ public class LiveOverlay extends FrameLayout {
         channel = c;
         time.setText(clock.format(new Date()));
         number.setText(Ui.pad3(Adult.number(c)));
-        name.setText(c.name);
+        name.setText(Variants.displayName(c));
         group.setText(c.group == null ? "" : c.group.toUpperCase(Locale.getDefault()));
         ImageLoader.load(c.logo, logo, Ui.dp(a, 96), R.drawable.ic_launcher);
         nowLabel.setVisibility(GONE);

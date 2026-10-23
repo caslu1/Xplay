@@ -33,9 +33,10 @@ import java.util.concurrent.Callable;
 /** Settings: account, parental control, connection test, updates and about, one section at a time. */
 public class SettingsActivity extends Activity implements TopBar.Listener {
 
-    private static final String[] SECTIONS = {"Conta", "Controle parental", "Teste de conexão", "Atualizações", "Sobre"};
-    private static final int[] ICONS = {R.drawable.ic_person, R.drawable.ic_heart, R.drawable.ic_refresh,
-            R.drawable.ic_arrow_right, R.drawable.ic_settings};
+    private static final String[] SECTIONS = {"Conta", "Controle parental", "Filmes e séries (TMDB)",
+            "Teste de conexão", "Atualizações", "Sobre"};
+    private static final int[] ICONS = {R.drawable.ic_person, R.drawable.ic_heart, R.drawable.ic_movie,
+            R.drawable.ic_refresh, R.drawable.ic_arrow_right, R.drawable.ic_settings};
 
     private final List<TextView> menuItems = new ArrayList<TextView>();
     private LinearLayout content;
@@ -132,8 +133,9 @@ public class SettingsActivity extends Activity implements TopBar.Listener {
         switch (which) {
             case 0: account(); break;
             case 1: parental(); break;
-            case 2: connection(); break;
-            case 3: updates(); break;
+            case 2: tmdb(); break;
+            case 3: connection(); break;
+            case 4: updates(); break;
             default: about(); break;
         }
     }
@@ -290,6 +292,71 @@ public class SettingsActivity extends Activity implements TopBar.Listener {
         });
         pin.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { changePin(); }
+        });
+    }
+
+    private void tmdb() {
+        heading("Filmes e séries (TMDB)", "Com uma chave gratuita do TMDB, o destaque mostra o logo do streaming "
+                + "(Netflix, Globoplay…), duração, país, nota e sinopse em português.");
+        LinearLayout c = card();
+        final TextView state = row(c, "Situação", Tmdb.enabled() ? "Ativado" : "Desativado");
+        state.setTextColor(Tmdb.enabled() ? 0xFF4CD787 : Palette.TEXT_DIM);
+
+        TextView how = Ui.text(this, "Como conseguir a chave: crie uma conta grátis em themoviedb.org, abra "
+                + "Configurações → API e copie a \"Chave da API\" (ou o \"Token de leitura\").", 14, Palette.TEXT_DIM, false);
+        how.setLineSpacing(0, 1.15f);
+        LinearLayout.LayoutParams hl = Ui.lp(-1, -2);
+        hl.bottomMargin = Ui.dp(this, 12);
+        content.addView(how, hl);
+
+        final EditText input = new EditText(this);
+        input.setHint("Cole aqui a chave do TMDB");
+        input.setHintTextColor(0xFF777777);
+        input.setTextColor(Palette.TEXT);
+        input.setSingleLine(true);
+        input.setText(Tmdb.key());
+        input.setPadding(Ui.dp(this, 16), Ui.dp(this, 12), Ui.dp(this, 16), Ui.dp(this, 12));
+        input.setBackground(Ui.selectable(this, Palette.SURFACE_HI, Palette.SURFACE_HI, Ui.dp(this, 12), Palette.GOLD));
+        LinearLayout.LayoutParams il = Ui.lp(-1, -2);
+        il.bottomMargin = Ui.dp(this, 14);
+        content.addView(input, il);
+
+        final TextView save = button("Salvar e testar", true);
+        TextView clear = button("Remover", false);
+        buttons(save, clear);
+        save.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                final String k = input.getText().toString().trim();
+                if (k.isEmpty()) return;
+                save.setText("Testando…");
+                Task.run(SettingsActivity.this, new Callable<String>() {
+                    public String call() { return Tmdb.test(k); }
+                }, new Task.Done<String>() {
+                    public void ok(String error) {
+                        save.setText("Salvar e testar");
+                        if (error == null) {
+                            Tmdb.setKey(k);
+                            state.setText("Ativado");
+                            state.setTextColor(0xFF4CD787);
+                            Toast.makeText(SettingsActivity.this, "TMDB ativado", Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(SettingsActivity.this, "TMDB: " + error, Toast.LENGTH_LONG).show();
+                        }
+                    }
+
+                    public void fail(Exception e) {
+                        save.setText("Salvar e testar");
+                    }
+                });
+            }
+        });
+        clear.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                Tmdb.setKey("");
+                input.setText("");
+                state.setText("Desativado");
+                state.setTextColor(Palette.TEXT_DIM);
+            }
         });
     }
 

@@ -43,6 +43,7 @@ public class DetailActivity extends Activity {
     private int season;
 
     private ImageView backdrop;
+    private FrameLayout providerMark;
     private TextView subtitle, meta, plot, more, playLabel;
     private LinearLayout genres, actions, seasonChips, episodeStrip;
     private TextView episodesState;
@@ -174,6 +175,10 @@ public class DetailActivity extends Activity {
         side.setPadding(Ui.dp(this, 12), Ui.dp(this, 24), 0, 0);
         row.addView(side, Ui.lp(Math.min(Ui.dp(this, 720), (int) (getResources().getDisplayMetrics().widthPixels * 0.62f)), -2));
 
+        providerMark = new FrameLayout(this);
+        LinearLayout.LayoutParams pml = Ui.lp(-2, -2);
+        pml.bottomMargin = Ui.dp(this, 8);
+        side.addView(providerMark, pml);
         TextView title = Ui.text(this, item.name, 38, Palette.TEXT, true);
         title.setShadowLayer(10, 0, 2, Palette.BLACK);
         title.setMaxLines(2);
@@ -490,6 +495,20 @@ public class DetailActivity extends Activity {
 
         updatePlayLabel();
         if (item.series) renderSeasons();
+        final boolean hasBackdrop = back != null;
+        final boolean hasPlot = !text.isEmpty();
+        Tmdb.get(item, InfoCache.peek(item), new Tmdb.Callback() {
+            public void done(Tmdb.Details d) {
+                if (d == null || isFinishing()) return;
+                View mark = MetaChips.providerMark(DetailActivity.this, d.provider, d.providerLogo);
+                if (mark != null) providerMark.addView(mark);
+                if (!hasPlot && d.overview != null && !d.overview.isEmpty()) plot.setText(d.overview);
+                if (!hasBackdrop && d.backdrop != null) {
+                    backdrop.setAlpha(0.9f);
+                    ImageLoader.load(d.backdrop, backdrop, getResources().getDisplayMetrics().widthPixels / 2, 0);
+                }
+            }
+        });
     }
 
     private String durationText() {

@@ -597,7 +597,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
         epgChannel = c;
         ImageLoader.load(c.logo, epgLogo, Ui.dp(this, 56), R.drawable.ic_launcher);
         nowTime.setText("");
-        nowTitle.setText(c.name);
+        nowTitle.setText(Variants.displayName(c));
         nextLabel.setVisibility(View.INVISIBLE);
         nextTime.setText("");
         nextTitle.setText("");
@@ -739,6 +739,8 @@ public class LiveActivity extends Activity implements TopBar.Listener {
             else exitFullscreen();
         } else if (showingChannels) {
             showGroups();
+        } else if (!topBar.hasFocusInside() && topBar.focusSelected()) {
+            // Back from the categories lifts the focus to the top bar; Back again leaves.
         } else {
             super.onBackPressed();
         }
@@ -821,7 +823,7 @@ public class LiveActivity extends Activity implements TopBar.Listener {
                 boolean on = c == playing;
                 h.number.setVisibility(View.VISIBLE);
                 h.number.setText(Ui.pad3(Adult.number(c)));
-                h.name.setText(c.name);
+                h.name.setText(Variants.displayName(c));
                 h.name.setTextColor(on ? Palette.GOLD : Palette.TEXT);
                 h.extra.setText(Repo.isFav(Repo.liveKey(c)) ? "★" : "");
                 h.extra.setTextColor(Palette.GOLD);

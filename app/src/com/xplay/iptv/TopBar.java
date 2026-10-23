@@ -21,7 +21,8 @@ import java.util.Locale;
  */
 public class TopBar extends LinearLayout {
 
-    public static final int LIVE = 0, MOVIES = 1, SERIES = 2, FAVORITES = 3, SEARCH = 4, ACCOUNT = 5, SPORTS = 6;
+    public static final int LIVE = 0, MOVIES = 1, SERIES = 2, FAVORITES = 3, SEARCH = 4, ACCOUNT = 5, SPORTS = 6,
+            KIDS = 7, NOVELAS = 8;
     static final String EXTRA_ITEM = "top_bar_item";
 
     public interface Listener {
@@ -63,6 +64,8 @@ public class TopBar extends LinearLayout {
         if (withVod) {
             tab(a, row, MOVIES, "Filmes", listener);
             tab(a, row, SERIES, "Séries", listener);
+            tab(a, row, NOVELAS, "Novelas", listener);
+            tab(a, row, KIDS, "Infantis", listener);
         }
         tab(a, row, FAVORITES, "Favoritos", listener);
 
@@ -127,12 +130,26 @@ public class TopBar extends LinearLayout {
         settings.setColorFilter(id == ACCOUNT ? Palette.GOLD : Palette.TEXT);
     }
 
+    /** Moves the remote's focus to the current tab (Back from the content does this first). */
+    public boolean focusSelected() {
+        for (TextView t : tabs) {
+            if (t.getCurrentTextColor() == Palette.TEXT) return t.requestFocus();
+        }
+        return !tabs.isEmpty() && tabs.get(0).requestFocus();
+    }
+
+    /** True while the focus is somewhere in this bar. */
+    public boolean hasFocusInside() {
+        return findFocus() != null;
+    }
+
     /**
      * Goes to another section from any screen. Live TV is always the bottom of the stack; the other
      * sections replace each other on top of it, so Back always returns to Live TV.
      */
     public static void open(Activity from, int item) {
-        boolean vodItem = item == MOVIES || item == SERIES || (Repo.hasVod() && (item == FAVORITES || item == SEARCH));
+        boolean vodItem = item == MOVIES || item == SERIES || item == KIDS || item == NOVELAS
+                || (Repo.hasVod() && (item == FAVORITES || item == SEARCH));
         Intent i;
         if (item == SPORTS) i = new Intent(from, SportsActivity.class);
         else if (item == ACCOUNT) i = new Intent(from, SettingsActivity.class);

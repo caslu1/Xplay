@@ -389,6 +389,7 @@ public class SportsActivity extends Activity implements TopBar.Listener {
 
     @Override
     public void onBackPressed() {
+        if (!topBar.hasFocusInside() && topBar.focusSelected()) return;
         super.onBackPressed();
         overridePendingTransition(0, 0);
     }

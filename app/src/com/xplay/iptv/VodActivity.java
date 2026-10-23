@@ -52,7 +52,13 @@ public class VodActivity extends Activity implements TopBar.Listener {
     private TopBar topBar;
     private ImageView backdrop;
     private View hero;
-    private TextView heroTitle, heroMeta, heroRating, heroPlot;
+    private TextView heroTitle, heroPlot;
+    private LinearLayout heroChips;
+    private FrameLayout heroMark;
+    private LinearLayout kidsPage;
+    private GridView kidsGrid;
+    private final List<VodItem> kidsItems = new ArrayList<VodItem>();
+    private BaseAdapter kidsAdapter;
     private View heroButton;
     private VodItem heroItem;
     private LinearLayout homePage, searchPage;
@@ -110,7 +116,8 @@ public class VodActivity extends Activity implements TopBar.Listener {
     }
 
     public void onTopBar(int item) {
-        if (item == TopBar.MOVIES || item == TopBar.SERIES || item == TopBar.FAVORITES || item == TopBar.SEARCH) {
+        if (item == TopBar.MOVIES || item == TopBar.SERIES || item == TopBar.FAVORITES || item == TopBar.SEARCH
+                || item == TopBar.KIDS || item == TopBar.NOVELAS) {
             showPage(item);
         } else {
             TopBar.open(this, item);
@@ -152,8 +159,10 @@ public class VodActivity extends Activity implements TopBar.Listener {
         column.addView(host, new LinearLayout.LayoutParams(-1, 0, 1f));
         homePage = buildHome();
         searchPage = buildSearch();
+        kidsPage = buildKidsPage();
         host.addView(homePage, new FrameLayout.LayoutParams(-1, -1));
         host.addView(searchPage, new FrameLayout.LayoutParams(-1, -1));
+        host.addView(kidsPage, new FrameLayout.LayoutParams(-1, -1));
 
         loading = new ProgressBar(this);
         loading.setIndeterminateTintList(ColorStateList.valueOf(Palette.GOLD));
@@ -190,32 +199,29 @@ public class VodActivity extends Activity implements TopBar.Listener {
         LinearLayout text = Ui.column(this);
         text.setGravity(Gravity.BOTTOM);
         text.setPadding(Ui.dp(this, 36), 0, Ui.dp(this, 36), Ui.dp(this, 10));
-        heroTitle = Ui.text(this, "", 34, Palette.TEXT, true);
-        heroTitle.setMaxLines(2);
+        heroMark = new FrameLayout(this);
+        LinearLayout.LayoutParams ml = Ui.lp(-2, -2);
+        ml.bottomMargin = Ui.dp(this, 10);
+        text.addView(heroMark, ml);
+        android.widget.HorizontalScrollView cs = new android.widget.HorizontalScrollView(this);
+        cs.setHorizontalScrollBarEnabled(false);
+        heroChips = Ui.row(this);
+        cs.addView(heroChips);
+        text.addView(cs, Ui.lp(-1, -2));
+        heroTitle = Ui.text(this, "", 28, Palette.TEXT, true);
+        heroTitle.setMaxLines(1);
         heroTitle.setEllipsize(TextUtils.TruncateAt.END);
         heroTitle.setShadowLayer(10, 0, 2, Palette.BLACK);
-        text.addView(heroTitle, Ui.lp(Ui.dp(this, 620), -2));
-        LinearLayout metaLine = Ui.row(this);
-        heroRating = Ui.text(this, "", 13, Palette.BLACK, true);
-        heroRating.setBackground(Ui.round(Palette.GOLD, Ui.dp(this, 4)));
-        heroRating.setPadding(Ui.dp(this, 7), Ui.dp(this, 1), Ui.dp(this, 7), Ui.dp(this, 1));
-        LinearLayout.LayoutParams rl = Ui.lp(-2, -2);
-        rl.rightMargin = Ui.dp(this, 12);
-        metaLine.addView(heroRating, rl);
-        heroMeta = Ui.text(this, "", 16, 0xFFE6E6E6, false);
-        heroMeta.setSingleLine(true);
-        heroMeta.setEllipsize(TextUtils.TruncateAt.END);
-        metaLine.addView(heroMeta);
-        LinearLayout.LayoutParams ml = Ui.lp(-2, -2);
-        ml.topMargin = Ui.dp(this, 6);
-        text.addView(metaLine, ml);
-        heroPlot = Ui.text(this, "", 15, 0xFFD0D0D0, false);
+        LinearLayout.LayoutParams tl = Ui.lp(Ui.dp(this, 680), -2);
+        tl.topMargin = Ui.dp(this, 10);
+        text.addView(heroTitle, tl);
+        heroPlot = Ui.text(this, "", 16, 0xFFD0D0D0, false);
         heroPlot.setMaxLines(3);
         heroPlot.setEllipsize(TextUtils.TruncateAt.END);
-        heroPlot.setLineSpacing(0, 1.15f);
+        heroPlot.setLineSpacing(0, 1.12f);
         heroPlot.setShadowLayer(6, 0, 1, Palette.BLACK);
-        LinearLayout.LayoutParams pl = Ui.lp(Ui.dp(this, 620), -2);
-        pl.topMargin = Ui.dp(this, 8);
+        LinearLayout.LayoutParams pl = Ui.lp(Ui.dp(this, 680), -2);
+        pl.topMargin = Ui.dp(this, 4);
         text.addView(heroPlot, pl);
         if (!Ui.isTv(this)) {
             // On touch screens the hero gets its own button; on TV, OK on the poster opens it.
@@ -240,9 +246,8 @@ public class VodActivity extends Activity implements TopBar.Listener {
         if (v == null || v == heroItem) return;
         heroItem = v;
         heroTitle.setText(v.name);
-        heroRating.setText(v.ratingText() == null ? "" : "★ " + v.ratingText());
-        heroRating.setVisibility(v.ratingText() == null ? View.GONE : View.VISIBLE);
-        heroMeta.setText(categoryOf(v));
+        heroMark.removeAllViews();
+        MetaChips.fill(this, heroChips, null, null, null, v.rating, categoryList(v));
         heroPlot.setText("");
         JSONObject cached = InfoCache.peek(v);
         if (cached != null) applyHeroInfo(v, cached);
@@ -261,30 +266,154 @@ public class VodActivity extends Activity implements TopBar.Listener {
         });
     }
 
-    private void applyHeroInfo(VodItem v, JSONObject answer) {
-        List<String> parts = new ArrayList<String>();
+    private void applyHeroInfo(final VodItem v, final JSONObject answer) {
         String date = InfoCache.field(answer, "releasedate", "release_date", "releaseDate");
-        if (date.length() >= 4) parts.add(date.substring(0, 4));
-        int secs = answer.optJSONObject("info") == null ? 0 : answer.optJSONObject("info").optInt("duration_secs", 0);
-        if (secs > 0) parts.add(secs / 60 + " min");
+        JSONObject info = answer.optJSONObject("info");
+        int secs = info == null ? 0 : info.optInt("duration_secs", 0);
         String genre = InfoCache.field(answer, "genre");
-        parts.add(genre.isEmpty() ? categoryOf(v) : genre);
-        heroMeta.setText(TextUtils.join("   |   ", parts));
+        List<String> genres = new ArrayList<String>();
+        for (String g : genre.split("[,/]")) if (!g.trim().isEmpty()) genres.add(g.trim());
+        if (genres.isEmpty()) genres = categoryList(v);
+        MetaChips.fill(this, heroChips, v.series ? null : MetaChips.runtime(secs / 60),
+                date.length() >= 4 ? date.substring(0, 4) : null, null, v.rating, genres);
         heroPlot.setText(InfoCache.field(answer, "plot", "description"));
         String art = Xtream.httpOrNull(InfoCache.field(answer, "backdrop_path"));
-        if (art != null) {
-            backdrop.setAlpha(0f);
-            ImageLoader.load(art, backdrop, getResources().getDisplayMetrics().widthPixels / 2, 0);
-            backdrop.animate().alpha(1f).setDuration(350).start();
-        } else {
-            ImageLoader.loadBlurred(v.poster, backdrop);
+        if (art != null) showBackdrop(art);
+        else ImageLoader.loadBlurred(v.poster, backdrop);
+        // TMDB (when the user set a key) adds the streaming service, country and a better backdrop.
+        Tmdb.get(v, answer, new Tmdb.Callback() {
+            public void done(Tmdb.Details d) {
+                if (d == null || v != heroItem || isFinishing()) return;
+                heroMark.removeAllViews();
+                View mark = MetaChips.providerMark(VodActivity.this, d.provider, d.providerLogo);
+                if (mark != null) heroMark.addView(mark);
+                String dur = v.series ? (d.seasons > 0 ? d.seasons + (d.seasons == 1 ? " temporada" : " temporadas") : null)
+                        : MetaChips.runtime(d.runtime);
+                MetaChips.fill(VodActivity.this, heroChips, dur, d.year, Tmdb.flag(d.country),
+                        d.rating > 0 ? d.rating : v.rating, d.genres.isEmpty() ? categoryList(v) : d.genres);
+                if (d.overview != null && !d.overview.isEmpty()) heroPlot.setText(d.overview);
+                if (d.backdrop != null) showBackdrop(d.backdrop);
+            }
+        });
+    }
+
+    private void showBackdrop(String url) {
+        backdrop.setAlpha(0f);
+        ImageLoader.load(url, backdrop, getResources().getDisplayMetrics().widthPixels / 2, 0);
+        backdrop.animate().alpha(1f).setDuration(350).start();
+    }
+
+    private static List<String> categoryList(VodItem v) {
+        List<String> out = new ArrayList<String>();
+        Map<String, String> cats = v.series ? Repo.seriesCategories : Repo.movieCategories;
+        String c = cats == null ? null : cats.get(v.categoryId);
+        out.add(v.series ? "Série" : "Filme");
+        if (c != null) out.add(Variants.cleanGroup(c));
+        return out;
+    }
+
+    /** Infantis: a grid of wide cards with the title underneath. */
+    private LinearLayout buildKidsPage() {
+        LinearLayout k = Ui.column(this);
+        kidsGrid = new GridView(this);
+        kidsGrid.setNumColumns(GridView.AUTO_FIT);
+        kidsGrid.setColumnWidth(Ui.dp(this, 230));
+        kidsGrid.setStretchMode(GridView.STRETCH_COLUMN_WIDTH);
+        kidsGrid.setHorizontalSpacing(Ui.dp(this, 14));
+        kidsGrid.setVerticalSpacing(Ui.dp(this, 14));
+        kidsGrid.setSelector(new android.graphics.drawable.ColorDrawable(0));
+        kidsGrid.setDrawSelectorOnTop(false);
+        kidsGrid.setPadding(Ui.dp(this, 30), Ui.dp(this, 12), Ui.dp(this, 30), Ui.dp(this, 24));
+        kidsGrid.setClipToPadding(false);
+        kidsAdapter = new BaseAdapter() {
+            public int getCount() { return kidsItems.size(); }
+            public Object getItem(int i) { return kidsItems.get(i); }
+            public long getItemId(int i) { return i; }
+            public View getView(int i, View convert, ViewGroup parent) {
+                int w = kidsGrid.getColumnWidth();
+                return Posters.wideCard(VodActivity.this, kidsItems.get(i), w > 0 ? w : Ui.dp(VodActivity.this, 230));
+            }
+        };
+        kidsGrid.setAdapter(kidsAdapter);
+        k.addView(kidsGrid, new LinearLayout.LayoutParams(-1, 0, 1f));
+        return k;
+    }
+
+    private static final java.util.regex.Pattern KIDS = java.util.regex.Pattern.compile(
+            "(?i)infantil|kids|crian[cç]|desenho|cartoon|anima[cç][aã]o|disney|nick|junior|baby|discovery kids");
+    private static final java.util.regex.Pattern NOVELAS = java.util.regex.Pattern.compile(
+            "(?i)novela|soap|telenovela|folhetim");
+
+    /** Movies and series whose category matches the pattern (adult ones never appear here). */
+    private static List<VodItem> themed(java.util.regex.Pattern p) {
+        List<VodItem> out = new ArrayList<VodItem>();
+        addThemed(out, Repo.series, Repo.seriesCategories, p);
+        addThemed(out, Repo.movies, Repo.movieCategories, p);
+        return out;
+    }
+
+    private static void addThemed(List<VodItem> out, List<VodItem> items, Map<String, String> cats,
+                                  java.util.regex.Pattern p) {
+        if (items == null || cats == null) return;
+        for (VodItem v : items) {
+            String c = cats.get(v.categoryId);
+            if (c != null && p.matcher(c).find() && !Adult.isAdult(v)) out.add(v);
         }
     }
 
-    private static String categoryOf(VodItem v) {
-        Map<String, String> cats = v.series ? Repo.seriesCategories : Repo.movieCategories;
-        String c = cats == null ? null : cats.get(v.categoryId);
-        return (v.series ? "Série" : "Filme") + (c == null ? "" : "  •  " + c);
+    private void buildKids() {
+        kidsItems.clear();
+        kidsItems.addAll(themed(KIDS));
+        kidsAdapter.notifyDataSetChanged();
+        emptyText.setText("");
+        if (kidsItems.isEmpty()) {
+            homePage.setVisibility(View.VISIBLE);
+            hero.setVisibility(View.GONE);
+            emptyText.setText("Nenhuma categoria infantil encontrada na sua lista");
+        } else if (Ui.isTv(this)) {
+            kidsGrid.post(new Runnable() {
+                public void run() { if (kidsGrid.getChildCount() > 0) kidsGrid.getChildAt(0).requestFocus(); }
+            });
+        }
+    }
+
+    /** Novelas: hero + one row per novela category. */
+    private void buildNovelas() {
+        List<VodItem> all = themed(NOVELAS);
+        LinkedHashMap<String, List<VodItem>> byCat = new LinkedHashMap<String, List<VodItem>>();
+        for (VodItem v : all) {
+            Map<String, String> cats = v.series ? Repo.seriesCategories : Repo.movieCategories;
+            String name = Variants.cleanGroup(cats.get(v.categoryId));
+            List<VodItem> l = byCat.get(name);
+            if (l == null) {
+                l = new ArrayList<VodItem>();
+                byCat.put(name, l);
+            }
+            l.add(v);
+        }
+        List<Section> out = new ArrayList<Section>();
+        List<VodItem> recent = new ArrayList<VodItem>(all);
+        Collections.sort(recent, new Comparator<VodItem>() {
+            public int compare(VodItem a, VodItem b) { return Long.compare(b.added, a.added); }
+        });
+        if (!recent.isEmpty()) out.add(new Section("Adicionadas recentemente", recent.subList(0, Math.min(60, recent.size()))));
+        for (Map.Entry<String, List<VodItem>> e : byCat.entrySet()) out.add(new Section(e.getKey(), e.getValue()));
+        sections.items = out;
+        sections.notifyDataSetChanged();
+        hero.setVisibility(all.isEmpty() ? View.GONE : View.VISIBLE);
+        if (!recent.isEmpty()) setHero(recent.get(0));
+        emptyText.setText(all.isEmpty() ? "Nenhuma categoria de novelas encontrada na sua lista" : "");
+        focusFirstPoster();
+    }
+
+    /** On TV the remote starts on the first poster instead of somewhere in the top bar. */
+    private void focusFirstPoster() {
+        if (!Ui.isTv(this)) return;
+        sectionsList.postDelayed(new Runnable() {
+            public void run() {
+                if (sectionsList.getChildCount() > 0) focusRow(sectionsList.getFirstVisiblePosition(), 0);
+            }
+        }, 120);
     }
 
     private LinearLayout buildSearch() {
@@ -341,11 +470,18 @@ public class VodActivity extends Activity implements TopBar.Listener {
     private void showPage(final int which) {
         page = which;
         topBar.select(which);
-        boolean home = which != TopBar.SEARCH;
+        boolean home = which != TopBar.SEARCH && which != TopBar.KIDS;
         homePage.setVisibility(home ? View.VISIBLE : View.GONE);
-        searchPage.setVisibility(home ? View.GONE : View.VISIBLE);
+        searchPage.setVisibility(which == TopBar.SEARCH ? View.VISIBLE : View.GONE);
+        kidsPage.setVisibility(which == TopBar.KIDS ? View.VISIBLE : View.GONE);
         backdrop.setVisibility(home ? View.VISIBLE : View.INVISIBLE);
         loading.setVisibility(View.GONE);
+        if (which == TopBar.KIDS) {
+            ensure(false, new Runnable() {
+                public void run() { ensure(true, new Runnable() { public void run() { if (page == which) buildKids(); } }); }
+            });
+            return;
+        }
         if (!home) {
             searchInput.requestFocus();
             ensure(false, new Runnable() {
@@ -360,6 +496,10 @@ public class VodActivity extends Activity implements TopBar.Listener {
         if (which == TopBar.FAVORITES) {
             ensure(false, new Runnable() {
                 public void run() { ensure(true, new Runnable() { public void run() { buildFavorites(); } }); }
+            });
+        } else if (which == TopBar.NOVELAS) {
+            ensure(false, new Runnable() {
+                public void run() { ensure(true, new Runnable() { public void run() { if (page == which) buildNovelas(); } }); }
             });
         } else {
             final boolean isSeries = which == TopBar.SERIES;
@@ -459,6 +599,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
         sectionsList.setSelection(0);
         if (heroItem == null && !top.isEmpty()) setHero(top.get(0));
         hero.setVisibility(View.VISIBLE);
+        focusFirstPoster();
         if (all.isEmpty()) emptyText.setText(isSeries ? "Nenhuma série neste servidor" : "Nenhum filme neste servidor");
     }
 
@@ -520,8 +661,10 @@ public class VodActivity extends Activity implements TopBar.Listener {
         searchAdapter.notifyDataSetChanged();
     }
 
+    /** Back from the content first lifts the focus to the top bar; Back again leaves. */
     @Override
     public void onBackPressed() {
+        if (!topBar.hasFocusInside() && topBar.focusSelected()) return;
         super.onBackPressed();
         overridePendingTransition(0, 0);
     }
@@ -609,8 +752,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
         card.setFocusable(true);
         card.setClickable(true);
         float r = Ui.dp(this, 12);
-        card.setBackground(Ui.round(0xCC1C1C1C, r));
-        card.setForeground(Ui.focusRing(this, r));
+        card.setBackground(Ui.selectable(this, 0xCC1C1C1C, 0xE62A2A2A, r, Palette.GOLD));
         int p = Ui.dp(this, 10);
         card.setPadding(p, p, p, p);
         ImageView logo = new ImageView(this);
