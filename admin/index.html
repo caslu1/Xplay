@@ -145,8 +145,12 @@ function modal(html, onReady) { $('modal').innerHTML = html; $('modalBg').style.
 function closeModal() { $('modalBg').style.display = 'none'; }
 $('modalBg').addEventListener('click', e => { if (e.target === $('modalBg')) closeModal(); });
 
+// Projeto do Xplay (a chave anon é pública: só abre as funções de login do app).
+const DEFAULT_URL = 'https://xgubfucijtaazvuzcluw.supabase.co';
+const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhndWJmdWNpanRhYXp2dXpjbHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3MzcxMDIsImV4cCI6MjEwODMxMzEwMn0.Bjd6ZmbeGBc6_nxjVD8F0rtamnOKKHLQ-uMpCTjnCNI';
+
 async function boot() {
-  const url = store.get('sb_url'), key = store.get('sb_key');
+  const url = store.get('sb_url') || DEFAULT_URL, key = store.get('sb_key') || DEFAULT_KEY;
   if (!url || !key) { show('setup'); return; }
   sb = supabase.createClient(url, key);
   const { data } = await sb.auth.getSession();
@@ -156,7 +160,7 @@ async function boot() {
 }
 
 $('saveSetup').onclick = () => {
-  const u = $('sbUrl').value.trim().replace(/\/$/, ''), k = $('sbKey').value.trim();
+  const u = $('sbUrl').value.trim().replace(/\/$/, ''), k = $('sbKey').value.replace(/\s+/g, '');
   if (!/^https:\/\/.+\.supabase\.co$/.test(u) || k.length < 20) { toast('Confira a URL e a chave'); return; }
   store.set('sb_url', u); store.set('sb_key', k); boot();
 };
