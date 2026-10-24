@@ -84,7 +84,7 @@ public class DetailActivity extends Activity {
     // ---------------------------------------------------------------- layout
 
     private void buildUi() {
-        ScrollView scroll = new ScrollView(this);
+        ScrollView scroll = new TvScroll(this);
         scroll.setBackgroundColor(Palette.BLACK);
         scroll.setFillViewport(true);
         LinearLayout page = Ui.column(this);
@@ -107,28 +107,24 @@ public class DetailActivity extends Activity {
             episodesState = Ui.text(this, "Carregando episódios…", 15, Palette.TEXT_DIM, false);
             episodesState.setPadding(0, Ui.dp(this, 12), 0, 0);
             body.addView(episodesState);
-            HorizontalScrollView epScroll = new HorizontalScrollView(this);
-            epScroll.setHorizontalScrollBarEnabled(false);
-            episodeStrip = Ui.row(this);
+            TvRow epScroll = new TvRow(this);
+            episodeStrip = epScroll.strip();
             episodeStrip.setGravity(Gravity.TOP);
-            episodeStrip.setPadding(0, Ui.dp(this, 12), Ui.dp(this, 16), 0);
-            epScroll.addView(episodeStrip);
+            episodeStrip.setPadding(0, Ui.dp(this, 12), Ui.dp(this, 16), Ui.dp(this, 6));
             body.addView(epScroll, Ui.lp(-1, -2));
         }
 
         List<VodItem> related = related();
         if (!related.isEmpty()) {
             body.addView(sectionTitle("Relacionados"));
-            HorizontalScrollView hs = new HorizontalScrollView(this);
-            hs.setHorizontalScrollBarEnabled(false);
-            LinearLayout strip = Ui.row(this);
+            TvRow hs = new TvRow(this);
+            LinearLayout strip = hs.strip();
             strip.setGravity(Gravity.TOP);
-            strip.setPadding(Ui.dp(this, 8), Ui.dp(this, 10), Ui.dp(this, 12), Ui.dp(this, 10));
-            hs.addView(strip);
+            strip.setPadding(0, Ui.dp(this, 8), Ui.dp(this, 12), Ui.dp(this, 8));
             int w = Ui.posterDp(this);
             for (VodItem v : related) {
                 LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
-                lp.rightMargin = Ui.dp(this, 8);
+                lp.rightMargin = TvRow.gap(this);
                 strip.addView(Posters.card(this, v, w), lp);
             }
             body.addView(hs, Ui.lp(-1, -2));
@@ -593,7 +589,7 @@ public class DetailActivity extends Activity {
 
     private void renderEpisodes() {
         episodeStrip.removeAllViews();
-        ((HorizontalScrollView) episodeStrip.getParent()).scrollTo(0, 0);
+        ((TvRow) episodeStrip.getParent()).scrollTo(0, 0);
         JSONObject resume = resumeEntry();
         String resumeUrl = resume == null ? null : resume.optString("url");
         List<JSONObject> eps = seasons.get(season);

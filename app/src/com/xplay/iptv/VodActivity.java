@@ -202,7 +202,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
         sectionsList.setVerticalScrollBarEnabled(false);
         sectionsList.setFillViewport(true);
         rowsBox = Ui.column(this);
-        rowsBox.setPadding(Ui.dp(this, 28), 0, 0, Ui.dp(this, 40));
+        rowsBox.setPadding(Ui.dp(this, 28) - Ui.ringGap(this), 0, 0, Ui.dp(this, 40));
         sectionsList.addView(rowsBox, new FrameLayout.LayoutParams(-1, -2));
         body.addView(sectionsList, new FrameLayout.LayoutParams(-1, -1));
         emptyText = Ui.text(this, "", 16, Palette.TEXT_DIM, false);
@@ -728,6 +728,8 @@ public class VodActivity extends Activity implements TopBar.Listener {
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
         int code = e.getKeyCode();
+        if (e.getAction() == KeyEvent.ACTION_DOWN && code >= KeyEvent.KEYCODE_DPAD_UP
+                && code <= KeyEvent.KEYCODE_DPAD_RIGHT && TvRow.throttle(e)) return true;
         if (e.getAction() == KeyEvent.ACTION_DOWN && homePage.getVisibility() == View.VISIBLE
                 && (code == KeyEvent.KEYCODE_DPAD_DOWN || code == KeyEvent.KEYCODE_DPAD_UP)) {
             View focused = getCurrentFocus();
@@ -748,7 +750,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
                 populate(target);
                 focusRow(target, loc[0]);
                 // One smooth move that puts the row at the top of the list area.
-                sectionsList.smoothScrollTo(0, Math.max(0, slots.get(target).getTop() - Ui.dp(this, 2)));
+                sectionsList.smoothScrollTo(0, Math.max(0, slots.get(target).getTop()));
                 return true;
             }
         }
@@ -763,22 +765,8 @@ public class VodActivity extends Activity implements TopBar.Listener {
         View row = slot.getChildCount() > 0 ? slot.getChildAt(0) : null;
         if (!(row instanceof ViewGroup) || ((ViewGroup) row).getChildCount() < 2) return false;
         View hs = ((ViewGroup) row).getChildAt(1);
-        if (!(hs instanceof HorizontalScrollView)) return false;
-        ViewGroup strip = (ViewGroup) ((HorizontalScrollView) hs).getChildAt(0);
-        View best = null;
-        int bestDist = Integer.MAX_VALUE;
-        int[] loc = new int[2];
-        for (int i = 0; i < strip.getChildCount(); i++) {
-            View c = strip.getChildAt(i);
-            if (!c.isFocusable()) continue;
-            c.getLocationOnScreen(loc);
-            int d = Math.abs(loc[0] - x);
-            if (d < bestDist) {
-                bestDist = d;
-                best = c;
-            }
-        }
-        return best != null && best.requestFocus();
+        // Like Leanback: each row comes back to the item it had focused (the first one the first time).
+        return hs instanceof TvRow && ((TvRow) hs).focusSelected();
     }
 
     // ---------------------------------------------------------------- rows
@@ -909,27 +897,22 @@ public class VodActivity extends Activity implements TopBar.Listener {
     }
 
     /** An empty section row: title over a horizontal strip. */
+    /** An empty section row: title over a TV row (focused item lines up at the left keyline). */
     private LinearLayout newRow() {
-        // The ListView "selects" whole rows on the remote; only the focused poster should light up.
-        LinearLayout row = new LinearLayout(VodActivity.this) {
-            @Override
-            public void dispatchSetSelected(boolean selected) {}
-        };
-        row.setOrientation(LinearLayout.VERTICAL);
-        row.setPadding(0, Ui.dp(this, 8), 0, Ui.dp(this, 2));
+        LinearLayout row = Ui.column(this);
+        row.setPadding(0, Ui.dp(this, 6), 0, Ui.dp(this, 6));
+        row.setClipChildren(false);
         LinearLayout header = Ui.row(this);
-        header.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 24), 0);
-        TextView title = Ui.text(this, "", 18, Palette.TEXT, false);
+        // Title starts exactly where the first poster image starts.
+        header.setPadding(Ui.ringGap(this), 0, Ui.dp(this, 24), Ui.dp(this, 4));
+        TextView title = Ui.text(this, "", 17, Palette.TEXT, false);
         title.setTypeface(android.graphics.Typeface.create("sans-serif-medium", android.graphics.Typeface.NORMAL));
         header.addView(title, Ui.weight(1));
         row.addView(header, Ui.lp(-1, -2));
-        HorizontalScrollView hs = new HorizontalScrollView(this);
-        hs.setHorizontalScrollBarEnabled(false);
-        LinearLayout strip = Ui.row(this);
-        strip.setGravity(Gravity.TOP);
-        // Room around the posters so the focused one (slightly enlarged, gold ring) is never clipped.
-        strip.setPadding(Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 40), Ui.dp(this, 10));
-        hs.addView(strip);
+        TvRow hs = new TvRow(this);
+        hs.setKeyline(0);
+        hs.strip().setGravity(Gravity.TOP);
+        hs.strip().setPadding(0, 0, Ui.dp(this, 28), 0);
         row.addView(hs, Ui.lp(-1, -2));
         return row;
     }
@@ -961,7 +944,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
             rowCache.put(s, row);
             LinearLayout header = (LinearLayout) row.getChildAt(0);
             ((TextView) header.getChildAt(0)).setText(s.title);
-            LinearLayout strip = (LinearLayout) ((HorizontalScrollView) row.getChildAt(1)).getChildAt(0);
+            LinearLayout strip = ((TvRow) row.getChildAt(1)).strip();
             int poster = Ui.posterDp(VodActivity.this);
 
             if (s.genres != null) {
@@ -980,7 +963,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
                         }
                     });
                     LinearLayout.LayoutParams lp = Ui.lp(Ui.dp(VodActivity.this, 200), Ui.dp(VodActivity.this, 90));
-                    lp.rightMargin = Ui.dp(VodActivity.this, 12);
+                    lp.rightMargin = TvRow.gap(VodActivity.this);
                     strip.addView(tile, lp);
                 }
             } else if (s.resume != null) {
@@ -989,7 +972,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
                     boolean series = key.startsWith("series:");
                     VodItem v = Repo.findVod(series, key.substring(key.indexOf(':') + 1));
                     LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
-                    lp.rightMargin = Ui.dp(VodActivity.this, 8);
+                    lp.rightMargin = TvRow.gap(VodActivity.this);
                     strip.addView(Posters.continueCard(VodActivity.this, v, e, poster, new Runnable() {
                         public void run() { showPage(page); }
                     }), lp);
@@ -997,14 +980,14 @@ public class VodActivity extends Activity implements TopBar.Listener {
             } else if (s.channels != null) {
                 for (int i = 0; i < s.channels.size(); i++) {
                     LinearLayout.LayoutParams lp = Ui.lp(Ui.dp(VodActivity.this, 160), Ui.dp(VodActivity.this, 120));
-                    lp.rightMargin = Ui.dp(VodActivity.this, 12);
+                    lp.rightMargin = TvRow.gap(VodActivity.this);
                     strip.addView(channelCard(s.channels, i), lp);
                 }
             } else {
                 int n = Math.min(ROW_LIMIT, s.items.size());
                 for (int i = 0; i < n; i++) {
                     LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
-                    lp.rightMargin = Ui.dp(VodActivity.this, 8);
+                    lp.rightMargin = TvRow.gap(VodActivity.this);
                     strip.addView(Posters.card(VodActivity.this, s.items.get(i), poster), lp);
                 }
                 if (s.items.size() > ROW_LIMIT) strip.addView(seeAllTile(s), Ui.lp(-2, -2));

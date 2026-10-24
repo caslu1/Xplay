@@ -90,7 +90,7 @@ public class SettingsActivity extends Activity implements TopBar.Listener {
         }
         body.addView(menu, Ui.lp(Ui.dp(this, 250), -1));
 
-        contentScroll = new ScrollView(this);
+        contentScroll = new TvScroll(this);
         contentScroll.setBackground(Ui.round(Palette.SURFACE, Ui.dp(this, 18)));
         content = Ui.column(this);
         int p = Ui.dp(this, 28);

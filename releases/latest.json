@@ -1,6 +1,6 @@
 {
-  "versionCode": 25,
-  "versionName": "4.1",
-  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-4.1.apk",
-  "notes": "Player de filmes e séries responde ao controle (barra, botões e próximo episódio). Filmes e séries não sobem mais sozinhos ao descer. Seletor sem corte."
+  "versionCode": 26,
+  "versionName": "4.2",
+  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-4.2.apk",
+  "notes": "Navegação refeita no estilo das TVs Android (Leanback): o item em foco fica sempre alinhado à esquerda e a fileira desliza; cada fileira lembra onde você parou; espaçamento igual entre todos os conteúdos; segurar a seta rola suave."
 }
