@@ -688,6 +688,24 @@ public class PlayerActivity extends Activity {
         updateVodProgress();
     }
 
+    /** Keys this screen handled on ACTION_DOWN; their ACTION_UP is swallowed too. */
+    private int consumedKey = -1;
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent e) {
+        if (live || overlay == null) return super.dispatchKeyEvent(e);
+        int code = e.getKeyCode();
+        if (e.getAction() == KeyEvent.ACTION_UP && code == consumedKey) {
+            consumedKey = -1;
+            return true;
+        }
+        if (e.getAction() == KeyEvent.ACTION_DOWN && code != KeyEvent.KEYCODE_BACK && vodKey(code)) {
+            consumedKey = code;
+            return true;
+        }
+        return super.dispatchKeyEvent(e);
+    }
+
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         boolean visible = overlay.getVisibility() == View.VISIBLE;
@@ -717,13 +735,19 @@ public class PlayerActivity extends Activity {
                 default:
                     break;
             }
-        } else {
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    /** Remote keys for movies and episodes; true when handled. */
+    private boolean vodKey(int keyCode) {
+        boolean visible = overlay.getVisibility() == View.VISIBLE;
             if (episodesShown()) {
                 if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
                     hideEpisodes();
                     return true;
                 }
-                return super.onKeyDown(keyCode, event);
+                return false;
             }
             if (upNext != null && upNext.getVisibility() == View.VISIBLE
                     && (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER)
@@ -810,8 +834,7 @@ public class PlayerActivity extends Activity {
                 default:
                     break;
             }
-        }
-        return super.onKeyDown(keyCode, event);
+                return false;
     }
 
     @Override

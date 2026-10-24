@@ -205,11 +205,9 @@ public final class Posters {
         LinearLayout card = Ui.column(a);
         card.setFocusable(true);
         card.setClickable(true);
+        // No zoom on focus: the gold ring alone marks it, so nothing gets cut at the row edges.
         card.setOnFocusChangeListener(new View.OnFocusChangeListener() {
-            public void onFocusChange(View view, boolean has) {
-                view.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f).setDuration(110)
-                        .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-            }
+            public void onFocusChange(View view, boolean has) {}
         });
         return card;
     }

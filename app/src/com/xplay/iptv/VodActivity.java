@@ -62,7 +62,10 @@ public class VodActivity extends Activity implements TopBar.Listener {
     private View heroButton;
     private VodItem heroItem;
     private LinearLayout homePage, searchPage;
-    private ListView sectionsList;
+    /** Rows of the page, in a scroll view that only moves when we move it (no jumps, no snapping back). */
+    private RowScroll sectionsList;
+    private LinearLayout rowsBox;
+    private final List<FrameLayout> slots = new ArrayList<FrameLayout>();
     private final SectionAdapter sections = new SectionAdapter();
     private ProgressBar loading;
     private TextView emptyText;
@@ -110,9 +113,14 @@ public class VodActivity extends Activity implements TopBar.Listener {
         if (page == TopBar.FAVORITES) buildFavorites();
         else if (((page == TopBar.MOVIES && Repo.movies != null) || (page == TopBar.SERIES && Repo.series != null))
                 && !state(page == TopBar.SERIES).equals(builtState)) {
-            int first = sectionsList.getFirstVisiblePosition();
+            final int y = sectionsList.getScrollY();
             buildCatalog(page == TopBar.SERIES);
-            sectionsList.setSelection(first);
+            sectionsList.post(new Runnable() {
+                public void run() {
+                    sectionsList.scrollTo(0, y);
+                    populateVisible();
+                }
+            });
         }
     }
 
@@ -190,21 +198,12 @@ public class VodActivity extends Activity implements TopBar.Listener {
         home.addView(heroBox, Ui.lp(-1, (int) (h * (Ui.isTv(this) ? 0.40f : 0.38f))));
 
         FrameLayout body = new FrameLayout(this);
-        // The list only scrolls when we tell it to (one smooth move per row); letting it also scroll by
-        // itself to show the focused poster made the screen jump twice on every ▲ ▼.
-        sectionsList = new ListView(this) {
-            @Override
-            public boolean requestChildRectangleOnScreen(View child, android.graphics.Rect r, boolean immediate) {
-                return false;
-            }
-        };
-        sectionsList.setDivider(null);
-        sectionsList.setSelector(new android.graphics.drawable.ColorDrawable(0));
-        sectionsList.setItemsCanFocus(true);
+        sectionsList = new RowScroll(this);
         sectionsList.setVerticalScrollBarEnabled(false);
-        sectionsList.setPadding(Ui.dp(this, 28), 0, 0, Ui.dp(this, 24));
-        sectionsList.setClipToPadding(false);
-        sectionsList.setAdapter(sections);
+        sectionsList.setFillViewport(true);
+        rowsBox = Ui.column(this);
+        rowsBox.setPadding(Ui.dp(this, 28), 0, 0, Ui.dp(this, 40));
+        sectionsList.addView(rowsBox, new FrameLayout.LayoutParams(-1, -2));
         body.addView(sectionsList, new FrameLayout.LayoutParams(-1, -1));
         emptyText = Ui.text(this, "", 16, Palette.TEXT_DIM, false);
         emptyText.setGravity(Gravity.CENTER);
@@ -447,7 +446,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
         if (!Ui.isTv(this)) return;
         sectionsList.postDelayed(new Runnable() {
             public void run() {
-                if (sectionsList.getChildCount() > 0) focusRow(sectionsList.getFirstVisiblePosition(), 0);
+                if (!slots.isEmpty()) focusRow(firstVisibleRow(), 0);
             }
         }, 120);
     }
@@ -644,7 +643,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
         }
         sections.items = out;
         sections.notifyDataSetChanged();
-        sectionsList.setSelection(0);
+        sectionsList.scrollTo(0, 0);
         if (heroItem == null && !top.isEmpty()) setHero(top.get(0));
         hero.setVisibility(View.VISIBLE);
         focusFirstPoster();
@@ -732,28 +731,24 @@ public class VodActivity extends Activity implements TopBar.Listener {
         if (e.getAction() == KeyEvent.ACTION_DOWN && homePage.getVisibility() == View.VISIBLE
                 && (code == KeyEvent.KEYCODE_DPAD_DOWN || code == KeyEvent.KEYCODE_DPAD_UP)) {
             View focused = getCurrentFocus();
-            View row = focused;
-            while (row != null && row.getParent() != sectionsList) {
-                row = row.getParent() instanceof View ? (View) row.getParent() : null;
+            View slot = focused;
+            while (slot != null && slot.getParent() != rowsBox) {
+                slot = slot.getParent() instanceof View ? (View) slot.getParent() : null;
             }
-            if (row != null) {
-                int pos = sectionsList.getPositionForView(row);
+            if (slot != null) {
+                int pos = slots.indexOf(slot);
                 final int target = pos + (code == KeyEvent.KEYCODE_DPAD_DOWN ? 1 : -1);
-                if (target < 0) return super.dispatchKeyEvent(e);
-                if (target >= sections.getCount()) return true;
+                if (target < 0) {
+                    sectionsList.smoothScrollTo(0, 0);
+                    return super.dispatchKeyEvent(e);
+                }
+                if (target >= slots.size()) return true;
                 int[] loc = new int[2];
                 focused.getLocationOnScreen(loc);
-                final int x = loc[0];
-                final int top = Ui.dp(this, 2);
-                if (focusRow(target, x)) {
-                    // The row is already on screen: focus moves at once and the list glides to it.
-                    sectionsList.smoothScrollToPositionFromTop(target, top, 180);
-                } else {
-                    sectionsList.setSelectionFromTop(target, top);
-                    sectionsList.post(new Runnable() {
-                        public void run() { focusRow(target, x); }
-                    });
-                }
+                populate(target);
+                focusRow(target, loc[0]);
+                // One smooth move that puts the row at the top of the list area.
+                sectionsList.smoothScrollTo(0, Math.max(0, slots.get(target).getTop() - Ui.dp(this, 2)));
                 return true;
             }
         }
@@ -762,7 +757,10 @@ public class VodActivity extends Activity implements TopBar.Listener {
 
     /** Focuses the item of that row nearest to x; false when the row is not laid out. */
     private boolean focusRow(int position, int x) {
-        View row = sectionsList.getChildAt(position - sectionsList.getFirstVisiblePosition());
+        if (position < 0 || position >= slots.size()) return false;
+        populate(position);
+        FrameLayout slot = slots.get(position);
+        View row = slot.getChildCount() > 0 ? slot.getChildAt(0) : null;
         if (!(row instanceof ViewGroup) || ((ViewGroup) row).getChildCount() < 2) return false;
         View hs = ((ViewGroup) row).getChildAt(1);
         if (!(hs instanceof HorizontalScrollView)) return false;
@@ -781,6 +779,64 @@ public class VodActivity extends Activity implements TopBar.Listener {
             }
         }
         return best != null && best.requestFocus();
+    }
+
+    // ---------------------------------------------------------------- rows
+
+    /** A ScrollView that never scrolls by itself to show the focused poster; we scroll it per row. */
+    private final class RowScroll extends android.widget.ScrollView {
+        RowScroll(android.content.Context c) { super(c); }
+
+        @Override
+        protected int computeScrollDeltaToGetChildRectOnScreen(android.graphics.Rect rect) { return 0; }
+
+        @Override
+        protected void onScrollChanged(int l, int t, int oldl, int oldt) {
+            super.onScrollChanged(l, t, oldl, oldt);
+            populateVisible();
+        }
+    }
+
+    /** One empty slot per section; posters are built when a slot comes near the screen. */
+    private void renderRows() {
+        rowsBox.removeAllViews();
+        slots.clear();
+        int estimate = Ui.dp(this, Ui.posterDp(this) * 1.5f + 64);
+        for (int i = 0; i < sections.getCount(); i++) {
+            FrameLayout slot = new FrameLayout(this);
+            slot.setMinimumHeight(estimate);
+            rowsBox.addView(slot, Ui.lp(-1, -2));
+            slots.add(slot);
+        }
+        rowsBox.post(new Runnable() {
+            public void run() { populateVisible(); }
+        });
+        for (int i = 0; i < Math.min(3, slots.size()); i++) populate(i);
+    }
+
+    private void populate(int i) {
+        if (i < 0 || i >= slots.size()) return;
+        FrameLayout slot = slots.get(i);
+        if (slot.getChildCount() > 0) return;
+        View row = sections.getView(i, null, slot);
+        if (row.getParent() instanceof ViewGroup) ((ViewGroup) row.getParent()).removeView(row);
+        slot.addView(row, new FrameLayout.LayoutParams(-1, -2));
+        slot.setMinimumHeight(0);
+    }
+
+    private void populateVisible() {
+        int h = sectionsList.getHeight();
+        int top = sectionsList.getScrollY() - h, bottom = sectionsList.getScrollY() + 2 * h;
+        for (int i = 0; i < slots.size(); i++) {
+            FrameLayout s = slots.get(i);
+            if (s.getBottom() >= top && s.getTop() <= bottom) populate(i);
+        }
+    }
+
+    private int firstVisibleRow() {
+        int y = sectionsList.getScrollY();
+        for (int i = 0; i < slots.size(); i++) if (slots.get(i).getBottom() > y) return i;
+        return 0;
     }
 
     // ---------------------------------------------------------------- sections
@@ -872,7 +928,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
         LinearLayout strip = Ui.row(this);
         strip.setGravity(Gravity.TOP);
         // Room around the posters so the focused one (slightly enlarged, gold ring) is never clipped.
-        strip.setPadding(Ui.dp(this, 8), Ui.dp(this, 8), Ui.dp(this, 40), Ui.dp(this, 6));
+        strip.setPadding(Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 40), Ui.dp(this, 10));
         hs.addView(strip);
         row.addView(hs, Ui.lp(-1, -2));
         return row;
@@ -890,6 +946,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
         public void notifyDataSetChanged() {
             rowCache.clear();
             super.notifyDataSetChanged();
+            renderRows();
         }
 
         public int getCount() { return items.size(); }

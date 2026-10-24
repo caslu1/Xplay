@@ -1,6 +1,6 @@
 {
-  "versionCode": 24,
-  "versionName": "4.0",
-  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-4.0.apk",
-  "notes": "Player de filmes e séries: controles numa linha só, fácil de navegar com o controle até Próximo episódio. Fim dos pulinhos ao subir e descer nas telas. Novo painel dos canais e tela de Esportes mais compacta."
+  "versionCode": 25,
+  "versionName": "4.1",
+  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-4.1.apk",
+  "notes": "Player de filmes e séries responde ao controle (barra, botões e próximo episódio). Filmes e séries não sobem mais sozinhos ao descer. Seletor sem corte."
 }
