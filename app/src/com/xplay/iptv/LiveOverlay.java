@@ -44,6 +44,9 @@ public class LiveOverlay extends FrameLayout {
     private final View chipsBlock;
     private List<Channel> variants = new ArrayList<Channel>();
     private Channel channel;
+    /** The list ▲ ▼ zap through, to show which channels come before and after. */
+    private List<Channel> zapList;
+    private final TextView upNextChannel, downNextChannel, remaining;
 
     public LiveOverlay(Activity activity, Listener l) {
         super(activity);
@@ -68,6 +71,24 @@ public class LiveOverlay extends FrameLayout {
         trl.setMargins(0, Ui.dp(a, 20), Ui.dp(a, 28), 0);
         addView(topRight, trl);
 
+        // Channels above and below, top left: what ▲ and ▼ will open.
+        LinearLayout zap = Ui.column(a);
+        zap.setBackground(Ui.round(0x99000000, Ui.dp(a, 12)));
+        zap.setPadding(Ui.dp(a, 14), Ui.dp(a, 8), Ui.dp(a, 16), Ui.dp(a, 8));
+        upNextChannel = Ui.text(a, "", 13, 0xFFDDDDDD, false);
+        upNextChannel.setSingleLine(true);
+        upNextChannel.setEllipsize(TextUtils.TruncateAt.END);
+        zap.addView(upNextChannel);
+        downNextChannel = Ui.text(a, "", 13, 0xFFDDDDDD, false);
+        downNextChannel.setSingleLine(true);
+        downNextChannel.setEllipsize(TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams dnl = Ui.lp(-2, -2);
+        dnl.topMargin = Ui.dp(a, 4);
+        zap.addView(downNextChannel, dnl);
+        FrameLayout.LayoutParams zl = new FrameLayout.LayoutParams(Ui.dp(a, 300), -2, Gravity.TOP | Gravity.START);
+        zl.setMargins(Ui.dp(a, 28), Ui.dp(a, 20), 0, 0);
+        addView(zap, zl);
+
         LinearLayout bottom = Ui.column(a);
         bottom.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
                 new int[] {0xF2000000, 0xCC000000, 0x00000000}));
@@ -85,7 +106,7 @@ public class LiveOverlay extends FrameLayout {
         chips = Ui.row(a);
         hs.addView(chips);
         chipsLine.addView(hs, Ui.weight(1));
-        TextView swipe = Ui.text(a, "◀ ▶ trocar qualidade    ▲ ▼ trocar canal", 12, Palette.TEXT_DIM, false);
+        TextView swipe = Ui.text(a, "◀ ▶ qualidade", 12, Palette.TEXT_DIM, false);
         chipsLine.addView(swipe);
         LinearLayout.LayoutParams cl = Ui.lp(-1, -2);
         cl.bottomMargin = Ui.dp(a, 14);
@@ -96,11 +117,11 @@ public class LiveOverlay extends FrameLayout {
         panel.setGravity(Gravity.CENTER_VERTICAL);
         bottom.addView(panel, Ui.lp(-1, -2));
 
-        number = Ui.text(a, "", 34, Palette.BLACK, true);
+        number = Ui.text(a, "", 28, Palette.BLACK, true);
         number.setGravity(Gravity.CENTER);
         number.setIncludeFontPadding(false);
         number.setBackground(Ui.round(Palette.GOLD, Ui.dp(a, 14)));
-        panel.addView(number, Ui.lp(Ui.dp(a, 104), Ui.dp(a, 76)));
+        panel.addView(number, Ui.lp(Ui.dp(a, 88), Ui.dp(a, 64)));
 
         FrameLayout logoBox = new FrameLayout(a);
         logoBox.setBackground(Ui.round(0x26FFFFFF, Ui.dp(a, 14)));
@@ -109,16 +130,22 @@ public class LiveOverlay extends FrameLayout {
         int lp = Ui.dp(a, 10);
         logo.setPadding(lp, lp, lp, lp);
         logoBox.addView(logo, new FrameLayout.LayoutParams(-1, -1));
-        LinearLayout.LayoutParams ll = Ui.lp(Ui.dp(a, 104), Ui.dp(a, 76));
-        ll.leftMargin = Ui.dp(a, 14);
+        LinearLayout.LayoutParams ll = Ui.lp(Ui.dp(a, 88), Ui.dp(a, 64));
+        ll.leftMargin = Ui.dp(a, 12);
         panel.addView(logoBox, ll);
 
         LinearLayout info = Ui.column(a);
         info.setPadding(Ui.dp(a, 20), 0, 0, 0);
         LinearLayout nameLine = Ui.row(a);
-        name = Ui.text(a, "", 22, Palette.TEXT, true);
+        nameLine.setGravity(Gravity.CENTER_VERTICAL);
+        TextView liveBadge = Ui.text(a, "● AO VIVO", 11, Palette.TEXT, true);
+        liveBadge.setBackground(Ui.round(Palette.HOT, Ui.dp(a, 5)));
+        liveBadge.setPadding(Ui.dp(a, 7), Ui.dp(a, 2), Ui.dp(a, 7), Ui.dp(a, 2));
+        nameLine.addView(liveBadge);
+        name = Ui.text(a, "", 20, Palette.TEXT, true);
         name.setSingleLine(true);
         name.setEllipsize(TextUtils.TruncateAt.END);
+        name.setPadding(Ui.dp(a, 10), 0, 0, 0);
         nameLine.addView(name, new LinearLayout.LayoutParams(0, -2, 1f));
         group = Ui.text(a, "", 13, Palette.TEXT_DIM, true);
         group.setSingleLine(true);
@@ -150,13 +177,36 @@ public class LiveOverlay extends FrameLayout {
         pl.topMargin = Ui.dp(a, 8);
         info.addView(progress, pl);
 
+        LinearLayout nextLine = Ui.row(a);
         nextTitle = Ui.text(a, "", 14, Palette.TEXT_DIM, false);
         nextTitle.setSingleLine(true);
         nextTitle.setEllipsize(TextUtils.TruncateAt.END);
+        nextLine.addView(nextTitle, new LinearLayout.LayoutParams(0, -2, 1f));
+        remaining = Ui.text(a, "", 12, Palette.TEXT_DIM, false);
+        nextLine.addView(remaining);
         LinearLayout.LayoutParams xl = Ui.lp(-1, -2);
         xl.topMargin = Ui.dp(a, 6);
-        info.addView(nextTitle, xl);
+        info.addView(nextLine, xl);
         panel.addView(info, new LinearLayout.LayoutParams(0, -2, 1f));
+    }
+
+    public void setZapList(List<Channel> list) {
+        zapList = list;
+    }
+
+    private void bindNeighbours(Channel c) {
+        List<Channel> l = zapList;
+        int i = l == null ? -1 : l.indexOf(c);
+        View box = (View) upNextChannel.getParent();
+        if (i < 0 || l.size() < 2) {
+            box.setVisibility(GONE);
+            return;
+        }
+        box.setVisibility(VISIBLE);
+        int n = l.size();
+        Channel up = l.get((i + 1) % n), down = l.get((i - 1 + n) % n);
+        upNextChannel.setText("▲  " + Ui.pad3(Adult.number(up)) + "  " + Variants.displayName(up));
+        downNextChannel.setText("▼  " + Ui.pad3(Adult.number(down)) + "  " + Variants.displayName(down));
     }
 
     public List<Channel> variants() {
@@ -169,14 +219,16 @@ public class LiveOverlay extends FrameLayout {
         time.setText(clock.format(new Date()));
         number.setText(Ui.pad3(Adult.number(c)));
         name.setText(Variants.displayName(c));
-        group.setText(c.group == null ? "" : c.group.toUpperCase(Locale.getDefault()));
-        ImageLoader.load(c.logo, logo, Ui.dp(a, 96), R.drawable.ic_launcher);
+        group.setText(c.group == null ? "" : Variants.cleanGroup(c.group).toUpperCase(Locale.getDefault()));
+        ImageLoader.load(c.logo, logo, Ui.dp(a, 88), R.drawable.logo_mark);
         nowLabel.setVisibility(GONE);
         nowTitle.setText("Sem programação disponível");
         nowTitle.setTextColor(Palette.TEXT_DIM);
         nowTime.setText("");
         nextTitle.setText("");
+        remaining.setText("");
         progress.setVisibility(INVISIBLE);
+        bindNeighbours(c);
         Epg.get(c, new Epg.Callback() {
             public void done(List<Xtream.Program> programs) {
                 if (channel != c || programs.isEmpty()) return;
@@ -187,6 +239,8 @@ public class LiveOverlay extends FrameLayout {
                 nowTime.setText(clock.format(new Date(now.start)) + " – " + clock.format(new Date(now.end)));
                 progress.setProgress(Epg.progress(now));
                 progress.setVisibility(VISIBLE);
+                long left = (now.end - System.currentTimeMillis()) / 60000;
+                remaining.setText(left > 0 ? "termina em " + left + " min" : "");
                 if (programs.size() > 1) {
                     Xtream.Program next = programs.get(1);
                     nextTitle.setText("A SEGUIR  " + clock.format(new Date(next.start)) + "   " + next.title);

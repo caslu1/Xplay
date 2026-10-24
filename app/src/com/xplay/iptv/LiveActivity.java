@@ -428,7 +428,10 @@ public class LiveActivity extends Activity implements TopBar.Listener {
     }
 
     private void fillOverlay() {
-        if (playing != null) overlay.bind(playing, Adult.channels());
+        if (playing != null) {
+            overlay.setZapList(playingList.isEmpty() ? Adult.channels() : playingList);
+            overlay.bind(playing, Adult.channels());
+        }
     }
 
     private void switchQuality(int delta) {

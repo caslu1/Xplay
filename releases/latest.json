@@ -1,6 +1,6 @@
 {
-  "versionCode": 22,
-  "versionName": "3.8",
-  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-3.8.apk",
-  "notes": "Infantis mostra só conteúdo infantil. Esportes: um card por jogo, programação atual nos canais e troca de qualidade quando a transmissão cai."
+  "versionCode": 23,
+  "versionName": "3.9",
+  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-3.9.apk",
+  "notes": "Player novo: em séries, aperte ▼ para ver os próximos episódios; aviso de próximo episódio no final; tempo restante e horário de término. Canais: mostra o canal anterior e o próximo, selo AO VIVO e quanto falta para o programa acabar."
 }

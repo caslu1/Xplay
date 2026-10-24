@@ -100,7 +100,14 @@ public class PlayerActivity extends Activity {
     private TextView vodTitleView, vodSubView, position, duration;
     private SeekBar seek;
     private ImageView playPause;
-    private View nextButton;
+    private View nextButton, episodesButton;
+    private TextView clockView, endsAt;
+    /** ▼ on a series: the following episodes as cards. */
+    private LinearLayout episodesPanel, episodesStrip;
+    /** "A seguir" card shown in the last seconds of an episode. */
+    private LinearLayout upNext;
+    private TextView upNextTitle;
+    private boolean upNextDismissed;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -271,40 +278,49 @@ public class PlayerActivity extends Activity {
 
     private void buildVodOverlay() {
         LinearLayout top = Ui.row(this);
+        top.setGravity(Gravity.CENTER_VERTICAL);
         top.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[] {0xD9000000, 0x00000000}));
-        int p = Ui.dp(this, 24);
-        top.setPadding(Ui.dp(this, 16), Ui.dp(this, 16), p, Ui.dp(this, 48));
+                new int[] {0xE6000000, 0x00000000}));
+        int p = Ui.dp(this, 28);
+        top.setPadding(Ui.dp(this, 16), Ui.dp(this, 14), p, Ui.dp(this, 56));
         ImageView back = Ui.iconButton(this, R.drawable.ic_back, Palette.TEXT, Palette.GOLD);
         back.setContentDescription("Voltar");
-        top.addView(back, Ui.lp(Ui.dp(this, 48), Ui.dp(this, 48)));
+        top.addView(back, Ui.lp(Ui.dp(this, 44), Ui.dp(this, 44)));
         back.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { finish(); }
         });
         LinearLayout titles = Ui.column(this);
-        titles.setPadding(Ui.dp(this, 12), 0, 0, 0);
-        vodTitleView = Ui.text(this, vodTitle, 22, Palette.TEXT, true);
+        titles.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 12), 0);
+        vodTitleView = Ui.text(this, vodTitle, 20, Palette.TEXT, true);
         vodTitleView.setSingleLine(true);
         vodTitleView.setEllipsize(TextUtils.TruncateAt.END);
         titles.addView(vodTitleView);
-        vodSubView = Ui.text(this, "", 15, Palette.GOLD, false);
+        vodSubView = Ui.text(this, "", 14, Palette.GOLD, true);
         vodSubView.setSingleLine(true);
         vodSubView.setEllipsize(TextUtils.TruncateAt.END);
         titles.addView(vodSubView);
         top.addView(titles, Ui.weight(1));
+        LinearLayout clocks = Ui.column(this);
+        clocks.setGravity(Gravity.END);
+        clockView = Ui.text(this, "", 20, Palette.TEXT, true);
+        clocks.addView(clockView);
+        endsAt = Ui.text(this, "", 12, Palette.TEXT_DIM, false);
+        clocks.addView(endsAt);
+        top.addView(clocks);
         overlay.addView(top, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
 
         LinearLayout center = Ui.row(this);
-        ImageView rew = roundButton(R.drawable.ic_rewind, 60, "Voltar 10 segundos");
-        playPause = roundButton(R.drawable.ic_pause, 84, "Reproduzir ou pausar");
-        playPause.setBackground(Ui.selectable(this, 0x99000000, 0xCCE8B84A, Ui.dp(this, 42), Palette.GOLD));
-        ImageView fwd = roundButton(R.drawable.ic_forward, 60, "Avançar 10 segundos");
-        center.addView(rew, Ui.lp(Ui.dp(this, 60), Ui.dp(this, 60)));
-        LinearLayout.LayoutParams pl = Ui.lp(Ui.dp(this, 84), Ui.dp(this, 84));
-        pl.leftMargin = Ui.dp(this, 44);
-        pl.rightMargin = Ui.dp(this, 44);
+        center.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView rew = roundButton(R.drawable.ic_rewind, 54, "Voltar 10 segundos");
+        playPause = roundButton(R.drawable.ic_pause, 76, "Reproduzir ou pausar");
+        playPause.setBackground(Ui.selectable(this, 0x99000000, 0xE6E8B84A, Ui.dp(this, 38), Palette.GOLD));
+        ImageView fwd = roundButton(R.drawable.ic_forward, 54, "Avançar 10 segundos");
+        center.addView(rew, Ui.lp(Ui.dp(this, 54), Ui.dp(this, 54)));
+        LinearLayout.LayoutParams pl = Ui.lp(Ui.dp(this, 76), Ui.dp(this, 76));
+        pl.leftMargin = Ui.dp(this, 40);
+        pl.rightMargin = Ui.dp(this, 40);
         center.addView(playPause, pl);
-        center.addView(fwd, Ui.lp(Ui.dp(this, 60), Ui.dp(this, 60)));
+        center.addView(fwd, Ui.lp(Ui.dp(this, 54), Ui.dp(this, 54)));
         overlay.addView(center, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
         rew.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { seekBy(-10000); }
@@ -318,23 +334,31 @@ public class PlayerActivity extends Activity {
 
         LinearLayout bottom = Ui.column(this);
         bottom.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
-                new int[] {0xD9000000, 0x00000000}));
-        bottom.setPadding(p, Ui.dp(this, 48), p, Ui.dp(this, 18));
+                new int[] {0xF2000000, 0xB3000000, 0x00000000}));
+        bottom.setPadding(p, Ui.dp(this, 56), p, Ui.dp(this, 18));
         LinearLayout bar = Ui.row(this);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
         position = Ui.text(this, "00:00", 14, Palette.TEXT, true);
         duration = Ui.text(this, "00:00", 14, Palette.TEXT_DIM, true);
         seek = new SeekBar(this);
         seek.setMax(1000);
+        seek.setFocusable(false);
         seek.setProgressTintList(ColorStateList.valueOf(Palette.GOLD));
         seek.setThumbTintList(ColorStateList.valueOf(Palette.GOLD));
-        seek.setProgressBackgroundTintList(ColorStateList.valueOf(0x66FFFFFF));
+        seek.setProgressBackgroundTintList(ColorStateList.valueOf(0x55FFFFFF));
+        seek.setSecondaryProgressTintList(ColorStateList.valueOf(0x88FFFFFF));
         bar.addView(position);
         bar.addView(seek, Ui.weight(1));
         bar.addView(duration);
         bottom.addView(bar, Ui.lp(-1, -2));
 
         LinearLayout buttons = Ui.row(this);
+        buttons.setGravity(Gravity.CENTER_VERTICAL);
+        TextView keys = Ui.text(this, "◀ ▶ 10 s", 12, Palette.TEXT_DIM, false);
+        buttons.addView(keys);
         buttons.addView(new View(this), Ui.spacer());
+        episodesButton = textButton("▼  Episódios");
+        buttons.addView(episodesButton);
         nextButton = textButton("Próximo episódio ›");
         buttons.addView(nextButton);
         LinearLayout.LayoutParams bl = Ui.lp(-1, -2);
@@ -344,6 +368,9 @@ public class PlayerActivity extends Activity {
 
         nextButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { playNext(); }
+        });
+        episodesButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { showEpisodes(); }
         });
         seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             public void onProgressChanged(SeekBar s, int v, boolean fromUser) {
@@ -355,6 +382,146 @@ public class PlayerActivity extends Activity {
                 showOverlay();
             }
         });
+
+        buildEpisodesPanel();
+        buildUpNext();
+    }
+
+    // ---------------------------------------------------------------- episodes (series)
+
+    private void buildEpisodesPanel() {
+        FrameLayout root = (FrameLayout) overlay.getParent();
+        episodesPanel = Ui.column(this);
+        episodesPanel.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
+                new int[] {0xF7000000, 0xE6000000, 0x00000000}));
+        int p = Ui.dp(this, 28);
+        episodesPanel.setPadding(p, Ui.dp(this, 70), 0, Ui.dp(this, 22));
+        episodesPanel.setVisibility(View.GONE);
+        episodesPanel.setClickable(true);
+        LinearLayout head = Ui.row(this);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title = Ui.text(this, "PRÓXIMOS EPISÓDIOS", 15, Palette.TEXT, true);
+        title.setLetterSpacing(0.06f);
+        head.addView(title);
+        TextView hint = Ui.text(this, "   ▲ ou Voltar para fechar", 12, Palette.TEXT_DIM, false);
+        head.addView(hint);
+        episodesPanel.addView(head, Ui.lp(-1, -2));
+        HorizontalScrollView hs = new HorizontalScrollView(this);
+        hs.setHorizontalScrollBarEnabled(false);
+        hs.setClipToPadding(false);
+        episodesStrip = Ui.row(this);
+        episodesStrip.setPadding(0, Ui.dp(this, 12), p, Ui.dp(this, 4));
+        hs.addView(episodesStrip);
+        episodesPanel.addView(hs, Ui.lp(-1, -2));
+        root.addView(episodesPanel, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+    }
+
+    private void showEpisodes() {
+        if (nextUrls.isEmpty()) {
+            Toast.makeText(this, "Este é o último episódio", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        overlay.setVisibility(View.GONE);
+        episodesStrip.removeAllViews();
+        for (int i = 0; i < nextUrls.size() && i < 40; i++) {
+            final int which = i;
+            String label = nextSubs.get(i);
+            int cut = label.indexOf("  ");
+            String num = cut > 0 ? label.substring(0, cut) : "";
+            String name = cut > 0 ? label.substring(cut).trim() : label;
+            LinearLayout card = Ui.column(this);
+            card.setFocusable(true);
+            card.setClickable(true);
+            float r = Ui.dp(this, 12);
+            card.setBackground(Ui.selectable(this, 0xE61C1C1C, 0xFF2A2516, r, Palette.GOLD));
+            int cp = Ui.dp(this, 14);
+            card.setPadding(cp, Ui.dp(this, 12), cp, Ui.dp(this, 12));
+            TextView n = Ui.text(this, i == 0 ? "A SEGUIR  •  " + num : num, 12, Palette.GOLD, true);
+            n.setSingleLine(true);
+            card.addView(n);
+            TextView t = Ui.text(this, name, 15, Palette.TEXT, true);
+            t.setMaxLines(2);
+            t.setEllipsize(TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams tl = Ui.lp(-1, -2);
+            tl.topMargin = Ui.dp(this, 6);
+            card.addView(t, tl);
+            View sp = new View(this);
+            card.addView(sp, new LinearLayout.LayoutParams(1, 0, 1f));
+            ImageView play = Ui.icon(this, R.drawable.ic_play, Palette.TEXT_DIM);
+            card.addView(play, Ui.lp(Ui.dp(this, 18), Ui.dp(this, 18)));
+            LinearLayout.LayoutParams lp = Ui.lp(Ui.dp(this, 230), Ui.dp(this, 118));
+            lp.rightMargin = Ui.dp(this, 12);
+            episodesStrip.addView(card, lp);
+            card.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { playEpisode(which); }
+            });
+        }
+        episodesPanel.setVisibility(View.VISIBLE);
+        episodesPanel.setAlpha(0f);
+        episodesPanel.setTranslationY(Ui.dp(this, 40));
+        episodesPanel.animate().alpha(1f).translationY(0).setDuration(180).start();
+        episodesStrip.getChildAt(0).requestFocus();
+    }
+
+    private void hideEpisodes() {
+        episodesPanel.setVisibility(View.GONE);
+    }
+
+    private boolean episodesShown() {
+        return episodesPanel != null && episodesPanel.getVisibility() == View.VISIBLE;
+    }
+
+    /** Plays the queued episode at position i, skipping the ones before it. */
+    private void playEpisode(int i) {
+        hideEpisodes();
+        for (int k = 0; k < i && !nextUrls.isEmpty(); k++) {
+            nextUrls.remove(0);
+            nextSubs.remove(0);
+        }
+        playNext();
+    }
+
+    private void buildUpNext() {
+        FrameLayout root = (FrameLayout) overlay.getParent();
+        upNext = Ui.column(this);
+        upNext.setBackground(Ui.stroke(0xF0141414, Ui.dp(this, 14), Ui.dp(this, 1), 0x44FFFFFF));
+        int p = Ui.dp(this, 16);
+        upNext.setPadding(p, p, p, p);
+        upNext.setVisibility(View.GONE);
+        upNext.addView(Ui.text(this, "A SEGUIR", 11, Palette.GOLD, true));
+        upNextTitle = Ui.text(this, "", 15, Palette.TEXT, true);
+        upNextTitle.setMaxLines(2);
+        upNextTitle.setEllipsize(TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams tl = Ui.lp(-1, -2);
+        tl.topMargin = Ui.dp(this, 4);
+        tl.bottomMargin = Ui.dp(this, 10);
+        upNext.addView(upNextTitle, tl);
+        TextView go = textButton("▶  Assistir agora");
+        go.setLayoutParams(Ui.lp(-2, -2));
+        upNext.addView(go);
+        go.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                upNext.setVisibility(View.GONE);
+                playNext();
+            }
+        });
+        FrameLayout.LayoutParams ul = new FrameLayout.LayoutParams(Ui.dp(this, 280), -2, Gravity.BOTTOM | Gravity.END);
+        ul.setMargins(0, 0, Ui.dp(this, 28), Ui.dp(this, 110));
+        root.addView(upNext, ul);
+    }
+
+    /** In the last 40 s of an episode, offers the next one. */
+    private void updateUpNext(int pos, int dur) {
+        if (upNext == null) return;
+        boolean show = !nextUrls.isEmpty() && !upNextDismissed && dur > 120000 && dur - pos < 40000 && !episodesShown();
+        if (show && upNext.getVisibility() != View.VISIBLE) {
+            String label = nextSubs.get(0);
+            upNextTitle.setText(label.replaceFirst("\\s{2,}", "  •  "));
+            upNext.setVisibility(View.VISIBLE);
+            upNext.getChildAt(2).requestFocus();
+        } else if (!show && upNext.getVisibility() == View.VISIBLE) {
+            upNext.setVisibility(View.GONE);
+        }
     }
 
     private ImageView roundButton(int icon, int sizeDp, String desc) {
@@ -387,12 +554,17 @@ public class PlayerActivity extends Activity {
     }
 
     private void updateVodProgress() {
-        if (live || seeking || overlay.getVisibility() != View.VISIBLE) return;
+        if (live) return;
         int dur = video.getDuration();
         int pos = video.getCurrentPosition();
+        if (dur > 0 && video.isPlaying()) updateUpNext(pos, dur);
+        if (seeking || overlay.getVisibility() != View.VISIBLE) return;
+        clockView.setText(clock.format(new Date()));
         if (dur > 0) {
             seek.setProgress((int) ((long) pos * 1000 / dur));
-            duration.setText(time(dur));
+            seek.setSecondaryProgress(video.getBufferPercentage() * 10);
+            duration.setText("-" + time(Math.max(0, dur - pos)));
+            endsAt.setText("Termina às " + clock.format(new Date(System.currentTimeMillis() + dur - pos)));
         }
         position.setText(time(pos));
     }
@@ -471,6 +643,7 @@ public class PlayerActivity extends Activity {
         if (live) {
             Repo.current = channel;
             Repo.prefs().edit().putString("last_channel", channel.url).apply();
+            liveInfo.setZapList(channels);
             liveInfo.bind(channel, Adult.channels());
             handler.removeCallbacks(startLive);
             handler.postDelayed(startLive, 350);
@@ -478,6 +651,9 @@ public class PlayerActivity extends Activity {
             vodSubView.setText(vodSubtitle == null ? "" : vodSubtitle);
             vodSubView.setVisibility(vodSubtitle == null ? View.GONE : View.VISIBLE);
             nextButton.setVisibility(nextUrls.isEmpty() ? View.GONE : View.VISIBLE);
+            episodesButton.setVisibility(nextUrls.isEmpty() ? View.GONE : View.VISIBLE);
+            upNextDismissed = false;
+            if (upNext != null) upNext.setVisibility(View.GONE);
             retries = 0;
             seekTarget = -1;
             video.setVideoURI(Uri.parse(vodUrl));
@@ -531,6 +707,20 @@ public class PlayerActivity extends Activity {
                     break;
             }
         } else {
+            if (episodesShown()) {
+                if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                    hideEpisodes();
+                    return true;
+                }
+                return super.onKeyDown(keyCode, event);
+            }
+            if (upNext != null && upNext.getVisibility() == View.VISIBLE
+                    && (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER)
+                    && !visible) {
+                upNext.setVisibility(View.GONE);
+                playNext();
+                return true;
+            }
             switch (keyCode) {
                 case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
                 case KeyEvent.KEYCODE_MEDIA_PLAY:
@@ -551,8 +741,20 @@ public class PlayerActivity extends Activity {
                     // ◀ ▶ always rewind / fast-forward 10 s, like on most TV players.
                     seekBy(keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? -10000 : 10000);
                     return true;
-                case KeyEvent.KEYCODE_DPAD_UP:
                 case KeyEvent.KEYCODE_DPAD_DOWN:
+                    // Series: ▼ shows the following episodes.
+                    if (!nextUrls.isEmpty()) {
+                        showEpisodes();
+                        return true;
+                    }
+                    if (!visible) {
+                        showOverlay();
+                        playPause.requestFocus();
+                        return true;
+                    }
+                    showOverlay();
+                    break;
+                case KeyEvent.KEYCODE_DPAD_UP:
                 case KeyEvent.KEYCODE_DPAD_CENTER:
                 case KeyEvent.KEYCODE_ENTER:
                     if (!visible) {
@@ -571,6 +773,15 @@ public class PlayerActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        if (episodesShown()) {
+            hideEpisodes();
+            return;
+        }
+        if (upNext != null && upNext.getVisibility() == View.VISIBLE) {
+            upNextDismissed = true;
+            upNext.setVisibility(View.GONE);
+            return;
+        }
         if (overlay.getVisibility() == View.VISIBLE && live) overlay.setVisibility(View.GONE);
         else super.onBackPressed();
     }
@@ -578,6 +789,9 @@ public class PlayerActivity extends Activity {
     /** Tap shows the controls; a vertical swipe changes channel in live mode. */
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (episodesShown() || (upNext != null && upNext.getVisibility() == View.VISIBLE)) {
+            return super.dispatchTouchEvent(ev);
+        }
         if (ev.getAction() == MotionEvent.ACTION_DOWN) {
             touchY = ev.getY();
             touchX = ev.getX();
