@@ -190,17 +190,15 @@ public final class Ui {
 
     /** "Xplay" wordmark: gold X, white rest. */
     public static View logo(Context c, float sp) {
-        LinearLayout l = row(c);
-        ImageView mark = new ImageView(c);
-        mark.setImageResource(R.drawable.logo_mark);
-        int s = (int) (dp(c, sp) * 1.25f);
-        l.addView(mark, lp(s, s));
-        SpannableString word = new SpannableString("Xplay");
-        word.setSpan(new ForegroundColorSpan(Palette.GOLD), 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        TextView t = text(c, word, sp, Palette.TEXT, true);
-        t.setPadding(dp(c, 8), 0, 0, 0);
-        l.addView(t);
-        return l;
+        // Symbol and name drawn together, so they are always rounded and on the same line.
+        ImageView v = new ImageView(c);
+        v.setImageResource(R.drawable.logo_full);
+        v.setAdjustViewBounds(true);
+        v.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        int h = (int) (dp(c, sp) * 1.45f);
+        v.setLayoutParams(new LinearLayout.LayoutParams(-2, h));
+        v.setMaxHeight(h);
+        return v;
     }
 
     public static String pad3(int n) {
