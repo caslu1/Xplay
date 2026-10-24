@@ -1,6 +1,6 @@
 {
-  "versionCode": 21,
-  "versionName": "3.7",
-  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-3.7.apk",
-  "notes": "Tela de filmes e séries menor e sem cortes no celular. Nova tela de Esportes com times, minuto do jogo e filtros. Menu em letras maiúsculas."
+  "versionCode": 22,
+  "versionName": "3.8",
+  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-3.8.apk",
+  "notes": "Infantis mostra só conteúdo infantil. Esportes: um card por jogo, programação atual nos canais e troca de qualidade quando a transmissão cai."
 }

@@ -87,6 +87,10 @@ public class SportsActivity extends Activity implements TopBar.Listener {
                 if (SPORTS.matcher(plain(c.group)).find() || SPORTS.matcher(plain(c.name)).find()) pool.add(c);
             }
         }
+        // One card per game: the HD version stands for its SD / FHD copies.
+        List<Channel> one = Variants.collapse(pool);
+        pool.clear();
+        pool.addAll(one);
         buildUi();
         rebuild();
         Channel first = null;
@@ -340,6 +344,19 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         });
         preview.setOnErrorListener(new MediaPlayer.OnErrorListener() {
             public boolean onError(MediaPlayer mp, int what, int extra) {
+                // Off the air: same game in another quality before giving up.
+                if (playing != null) {
+                    tried.add(playingUrl);
+                    Channel other = Variants.untried(playing, Adult.channels(), triedChannels(playing));
+                    if (other != null) {
+                        tried.add(other.url);
+                        playingUrl = other.url;
+                        previewLoading.setVisibility(View.VISIBLE);
+                        preview.stopPlayback();
+                        preview.setVideoURI(Uri.parse(other.url));
+                        return true;
+                    }
+                }
                 previewLoading.setVisibility(View.GONE);
                 previewMessage.setText("Transmissão indisponível no momento");
                 return true;
@@ -465,8 +482,20 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         return col;
     }
 
+    /** Stream URLs already tried for the selected game. */
+    private final java.util.Set<String> tried = new java.util.HashSet<String>();
+    private String playingUrl;
+
+    private java.util.Set<Channel> triedChannels(Channel c) {
+        java.util.Set<Channel> out = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Channel, Boolean>());
+        for (Channel v : Variants.of(c, Adult.channels())) if (tried.contains(v.url)) out.add(v);
+        return out;
+    }
+
     private void startPreview() {
         if (playing == null) return;
+        tried.clear();
+        playingUrl = playing.url;
         previewLoading.setVisibility(View.VISIBLE);
         previewMessage.setText("");
         preview.stopPlayback();
@@ -569,7 +598,22 @@ public class SportsActivity extends Activity implements TopBar.Listener {
             }
             h.name.setTextColor(on ? Palette.GOLD : Palette.TEXT);
             String comp = t[2] != null ? t[2] : Variants.cleanGroup(c.group);
-            h.sub.setText((Repo.isFav(Repo.liveKey(c)) ? "★  " : "") + comp);
+            final String fav = Repo.isFav(Repo.liveKey(c)) ? "★  " : "";
+            h.sub.setText(fav + comp);
+            h.sub.setTextColor(Palette.TEXT_DIM);
+            h.bound = c;
+            if (t[0] == null) {
+                // Plain sports channels: show what is on now instead of the folder name.
+                final Card card = h;
+                final Channel ch = c;
+                Epg.get(c, new Epg.Callback() {
+                    public void done(List<Xtream.Program> programs) {
+                        if (card.bound != ch || programs.isEmpty()) return;
+                        card.sub.setText(fav + "Agora: " + programs.get(0).title);
+                        card.sub.setTextColor(0xFFCFAE5E);
+                    }
+                });
+            }
             ImageLoader.load(c.logo, h.logo, Ui.dp(SportsActivity.this, 44), R.drawable.logo_mark);
             return h.root;
         }
@@ -579,6 +623,7 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         final LinearLayout root, badges;
         final TextView time, live, name, sub;
         final ImageView logo;
+        Channel bound;
 
         Card() {
             Activity a = SportsActivity.this;

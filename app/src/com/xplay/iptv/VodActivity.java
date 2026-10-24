@@ -361,7 +361,13 @@ public class VodActivity extends Activity implements TopBar.Listener {
     }
 
     private static final java.util.regex.Pattern KIDS = java.util.regex.Pattern.compile(
-            "(?i)infantil|kids|crian[cç]|desenho|cartoon|anima[cç][aã]o|disney|nick|junior|baby|discovery kids");
+            "(?i)infant|\\bkids?\\b|crian[cç]|desenhos?|cartoon|\\bbaby\\b|beb[eê]s?|nickelodeon|nick ?jr|"
+                    + "disney ?(junior|jr|kids)|pixar|dreamworks|turma da m[oô]nica|galinha pintadinha|"
+                    + "patrulha canina|peppa|baby ?shark|discovery kids|cartoonito|gloob|boomerang");
+    /** Categories that are never for children, even if they also say "animação" or "família". */
+    private static final java.util.regex.Pattern NOT_KIDS = java.util.regex.Pattern.compile(
+            "(?i)adult|\\+ ?18|xxx|terror|horror|anime\\b|hentai|suspense|thriller|guerra|crime|policia|"
+                    + "a[cç][aã]o e aventura|faroeste|erot|legendad");
     private static final java.util.regex.Pattern NOVELAS = java.util.regex.Pattern.compile(
             "(?i)novela|soap|telenovela|folhetim");
 
@@ -378,7 +384,9 @@ public class VodActivity extends Activity implements TopBar.Listener {
         if (items == null || cats == null) return;
         for (VodItem v : items) {
             String c = cats.get(v.categoryId);
-            if (c != null && p.matcher(c).find() && !Adult.isAdult(v)) out.add(v);
+            if (c == null || !p.matcher(c).find() || Adult.isAdult(v)) continue;
+            if (p == KIDS && (NOT_KIDS.matcher(c).find() || NOT_KIDS.matcher(v.name).find())) continue;
+            out.add(v);
         }
     }
 
