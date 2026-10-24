@@ -1,6 +1,6 @@
 {
-  "versionCode": 23,
-  "versionName": "3.9",
-  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-3.9.apk",
-  "notes": "Player novo: em séries, aperte ▼ para ver os próximos episódios; aviso de próximo episódio no final; tempo restante e horário de término. Canais: mostra o canal anterior e o próximo, selo AO VIVO e quanto falta para o programa acabar."
+  "versionCode": 24,
+  "versionName": "4.0",
+  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-4.0.apk",
+  "notes": "Player de filmes e séries: controles numa linha só, fácil de navegar com o controle até Próximo episódio. Fim dos pulinhos ao subir e descer nas telas. Novo painel dos canais e tela de Esportes mais compacta."
 }

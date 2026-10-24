@@ -101,6 +101,8 @@ public class PlayerActivity extends Activity {
     private SeekBar seek;
     private ImageView playPause;
     private View nextButton, episodesButton;
+    private LinearLayout controlRow;
+    private ImageView pauseSign;
     private TextView clockView, endsAt;
     /** ▼ on a series: the following episodes as cards. */
     private LinearLayout episodesPanel, episodesStrip;
@@ -309,28 +311,13 @@ public class PlayerActivity extends Activity {
         top.addView(clocks);
         overlay.addView(top, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
 
-        LinearLayout center = Ui.row(this);
-        center.setGravity(Gravity.CENTER_VERTICAL);
-        ImageView rew = roundButton(R.drawable.ic_rewind, 54, "Voltar 10 segundos");
-        playPause = roundButton(R.drawable.ic_pause, 76, "Reproduzir ou pausar");
-        playPause.setBackground(Ui.selectable(this, 0x99000000, 0xE6E8B84A, Ui.dp(this, 38), Palette.GOLD));
-        ImageView fwd = roundButton(R.drawable.ic_forward, 54, "Avançar 10 segundos");
-        center.addView(rew, Ui.lp(Ui.dp(this, 54), Ui.dp(this, 54)));
-        LinearLayout.LayoutParams pl = Ui.lp(Ui.dp(this, 76), Ui.dp(this, 76));
-        pl.leftMargin = Ui.dp(this, 40);
-        pl.rightMargin = Ui.dp(this, 40);
-        center.addView(playPause, pl);
-        center.addView(fwd, Ui.lp(Ui.dp(this, 54), Ui.dp(this, 54)));
-        overlay.addView(center, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
-        rew.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { seekBy(-10000); }
-        });
-        fwd.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { seekBy(10000); }
-        });
-        playPause.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) { togglePlay(); }
-        });
+        // Big pause sign in the middle while paused (not a control: the controls are in the bottom row).
+        pauseSign = Ui.icon(this, R.drawable.ic_pause, Palette.TEXT);
+        pauseSign.setBackground(Ui.round(0x99000000, Ui.dp(this, 40)));
+        int ps = Ui.dp(this, 20);
+        pauseSign.setPadding(ps, ps, ps, ps);
+        pauseSign.setVisibility(View.GONE);
+        overlay.addView(pauseSign, new FrameLayout.LayoutParams(Ui.dp(this, 80), Ui.dp(this, 80), Gravity.CENTER));
 
         LinearLayout bottom = Ui.column(this);
         bottom.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
@@ -342,7 +329,9 @@ public class PlayerActivity extends Activity {
         duration = Ui.text(this, "00:00", 14, Palette.TEXT_DIM, true);
         seek = new SeekBar(this);
         seek.setMax(1000);
-        seek.setFocusable(false);
+        seek.setFocusable(true);
+        seek.setPadding(Ui.dp(this, 14), Ui.dp(this, 10), Ui.dp(this, 14), Ui.dp(this, 10));
+        seek.setBackground(Ui.focusRing(this, Ui.dp(this, 16)));
         seek.setProgressTintList(ColorStateList.valueOf(Palette.GOLD));
         seek.setThumbTintList(ColorStateList.valueOf(Palette.GOLD));
         seek.setProgressBackgroundTintList(ColorStateList.valueOf(0x55FFFFFF));
@@ -354,17 +343,38 @@ public class PlayerActivity extends Activity {
 
         LinearLayout buttons = Ui.row(this);
         buttons.setGravity(Gravity.CENTER_VERTICAL);
-        TextView keys = Ui.text(this, "◀ ▶ 10 s", 12, Palette.TEXT_DIM, false);
+        ImageView rew = roundButton(R.drawable.ic_rewind, 46, "Voltar 10 segundos");
+        playPause = roundButton(R.drawable.ic_pause, 52, "Reproduzir ou pausar");
+        playPause.setBackground(Ui.selectable(this, Palette.GOLD, Palette.GOLD_LIGHT, Ui.dp(this, 26), Palette.TEXT));
+        playPause.setColorFilter(Palette.BLACK);
+        ImageView fwd = roundButton(R.drawable.ic_forward, 46, "Avançar 10 segundos");
+        buttons.addView(rew, Ui.lp(Ui.dp(this, 46), Ui.dp(this, 46)));
+        LinearLayout.LayoutParams ppl = Ui.lp(Ui.dp(this, 52), Ui.dp(this, 52));
+        ppl.leftMargin = Ui.dp(this, 12);
+        ppl.rightMargin = Ui.dp(this, 12);
+        buttons.addView(playPause, ppl);
+        buttons.addView(fwd, Ui.lp(Ui.dp(this, 46), Ui.dp(this, 46)));
+        TextView keys = Ui.text(this, "   ◀ ▶ na barra: 10 s", 12, Palette.TEXT_DIM, false);
         buttons.addView(keys);
         buttons.addView(new View(this), Ui.spacer());
-        episodesButton = textButton("▼  Episódios");
+        episodesButton = textButton("Episódios");
         buttons.addView(episodesButton);
-        nextButton = textButton("Próximo episódio ›");
+        nextButton = textButton("Próximo episódio  ›");
         buttons.addView(nextButton);
         LinearLayout.LayoutParams bl = Ui.lp(-1, -2);
-        bl.topMargin = Ui.dp(this, 8);
+        bl.topMargin = Ui.dp(this, 10);
         bottom.addView(buttons, bl);
         overlay.addView(bottom, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+        controlRow = buttons;
+        rew.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { seekBy(-10000); }
+        });
+        fwd.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { seekBy(10000); }
+        });
+        playPause.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { togglePlay(); }
+        });
 
         nextButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { playNext(); }
@@ -607,6 +617,7 @@ public class PlayerActivity extends Activity {
 
     private void updatePlayPause() {
         if (playPause != null) playPause.setImageResource(video.isPlaying() ? R.drawable.ic_pause : R.drawable.ic_play);
+        if (pauseSign != null) pauseSign.setVisibility(!live && !video.isPlaying() && player != null ? View.VISIBLE : View.GONE);
     }
 
     private void resumePosition() {
@@ -737,13 +748,23 @@ public class PlayerActivity extends Activity {
                     playNext();
                     return true;
                 case KeyEvent.KEYCODE_DPAD_LEFT:
-                case KeyEvent.KEYCODE_DPAD_RIGHT:
-                    // ◀ ▶ always rewind / fast-forward 10 s, like on most TV players.
-                    seekBy(keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? -10000 : 10000);
-                    return true;
-                case KeyEvent.KEYCODE_DPAD_DOWN:
-                    // Series: ▼ shows the following episodes.
-                    if (!nextUrls.isEmpty()) {
+                case KeyEvent.KEYCODE_DPAD_RIGHT: {
+                    // Hidden controls or focus on the bar: ◀ ▶ rewind / fast-forward 10 s.
+                    // On the buttons row they move between buttons (play, episodes, next episode…).
+                    View f = getCurrentFocus();
+                    if (!visible || f == seek || f == null) {
+                        seekBy(keyCode == KeyEvent.KEYCODE_DPAD_LEFT ? -10000 : 10000);
+                        seek.requestFocus();
+                        return true;
+                    }
+                    showOverlay();
+                    break;
+                }
+                case KeyEvent.KEYCODE_DPAD_DOWN: {
+                    View f = getCurrentFocus();
+                    boolean inRow = f != null && f.getParent() == controlRow;
+                    // Series: ▼ (with the controls hidden, or from the buttons row) shows the next episodes.
+                    if (!nextUrls.isEmpty() && (!visible || inRow)) {
                         showEpisodes();
                         return true;
                     }
@@ -753,8 +774,26 @@ public class PlayerActivity extends Activity {
                         return true;
                     }
                     showOverlay();
+                    if (f == seek) {
+                        playPause.requestFocus();
+                        return true;
+                    }
                     break;
-                case KeyEvent.KEYCODE_DPAD_UP:
+                }
+                case KeyEvent.KEYCODE_DPAD_UP: {
+                    if (!visible) {
+                        showOverlay();
+                        seek.requestFocus();
+                        return true;
+                    }
+                    showOverlay();
+                    View f = getCurrentFocus();
+                    if (f != null && f.getParent() == controlRow) {
+                        seek.requestFocus();
+                        return true;
+                    }
+                    break;
+                }
                 case KeyEvent.KEYCODE_DPAD_CENTER:
                 case KeyEvent.KEYCODE_ENTER:
                     if (!visible) {
@@ -763,6 +802,10 @@ public class PlayerActivity extends Activity {
                         return true;
                     }
                     showOverlay();
+                    if (getCurrentFocus() == seek) {
+                        togglePlay();
+                        return true;
+                    }
                     break;
                 default:
                     break;

@@ -116,7 +116,7 @@ public class SportsActivity extends Activity implements TopBar.Listener {
 
     /** The name without its time, for a cleaner title. */
     private static String title(Channel c) {
-        String t = TIME.matcher(c.name).replaceAll(" ").replaceAll("\\s*[-|•]\\s*$", "").replaceAll("^\\s*[-|•]\\s*", "");
+        String t = TIME.matcher(Variants.displayName(c)).replaceAll(" ").replaceAll("\\s*[-|•]\\s*$", "").replaceAll("^\\s*[-|•]\\s*", "");
         return t.replaceAll("\\s+", " ").trim();
     }
 
@@ -136,6 +136,7 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         if (parts.length < 2) return new String[] {null, null, comp};
         String away = parts[1].replaceAll("\\s*(?:[\\[(|]|\\s[-–]\\s).*$", "").trim();
         String extra = parts[1].length() > away.length() ? parts[1].substring(away.length()).replaceAll("[\\[\\]()|–-]", " ").trim() : "";
+        extra = extra.replaceAll("(?i)\\b(sd|hd|fhd|full ?hd|uhd|4k|h\\.?265|hevc|alt|backup)\\b", "").trim();
         if (comp == null && !extra.isEmpty()) comp = extra;
         return new String[] {parts[0].trim(), away, comp};
     }
@@ -332,6 +333,7 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         previewMessage.setPadding(Ui.dp(this, 16), 0, Ui.dp(this, 16), 0);
         frame.addView(previewMessage, new FrameLayout.LayoutParams(-2, -2, Gravity.CENTER));
         int w = (int) ((getResources().getDisplayMetrics().widthPixels - Ui.dp(this, 68)) * 0.44f);
+        if (!Ui.isTv(this)) w = Math.min(w, (int) ((getResources().getDisplayMetrics().heightPixels - Ui.dp(this, 240)) * 16 / 9f));
         right.addView(frame, Ui.lp(-1, w * 9 / 16));
         frame.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { if (playing != null) openFullscreen(); }
@@ -363,55 +365,53 @@ public class SportsActivity extends Activity implements TopBar.Listener {
             }
         });
 
+        // Compact info card: status line, the match on one row, and what is on now.
         LinearLayout info = Ui.column(this);
         info.setBackground(Ui.round(Palette.SURFACE_HI, Ui.dp(this, 14)));
-        int ip = Ui.dp(this, 16);
-        info.setPadding(ip, ip, ip, ip);
+        int ip = Ui.dp(this, 14);
+        info.setPadding(ip, Ui.dp(this, 10), Ui.dp(this, 8), ip);
         LinearLayout top = Ui.row(this);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        infoStatus = Ui.text(this, "", 11, Palette.TEXT, true);
+        infoStatus.setPadding(Ui.dp(this, 8), Ui.dp(this, 3), Ui.dp(this, 8), Ui.dp(this, 3));
+        top.addView(infoStatus);
+        infoSub = Ui.text(this, "", 12, Palette.TEXT_DIM, false);
+        infoSub.setSingleLine(true);
+        infoSub.setEllipsize(TextUtils.TruncateAt.END);
+        infoSub.setPadding(Ui.dp(this, 10), 0, Ui.dp(this, 6), 0);
+        top.addView(infoSub, Ui.weight(1));
         infoLogo = new ImageView(this);
         infoLogo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        top.addView(infoLogo, Ui.lp(Ui.dp(this, 52), Ui.dp(this, 40)));
-        infoStatus = Ui.text(this, "", 12, Palette.TEXT, true);
-        infoStatus.setPadding(Ui.dp(this, 8), Ui.dp(this, 3), Ui.dp(this, 8), Ui.dp(this, 3));
-        LinearLayout.LayoutParams sl = Ui.lp(-2, -2);
-        sl.leftMargin = Ui.dp(this, 12);
-        top.addView(infoStatus, sl);
-        top.addView(new View(this), Ui.spacer());
-        favButton = Ui.text(this, "☆", 24, Palette.GOLD, false);
+        top.addView(infoLogo, Ui.lp(Ui.dp(this, 40), Ui.dp(this, 28)));
+        favButton = Ui.text(this, "☆", 20, Palette.GOLD, false);
         favButton.setGravity(Gravity.CENTER);
         favButton.setFocusable(true);
         favButton.setClickable(true);
-        favButton.setBackground(Ui.selectable(this, 0, 0x22FFFFFF, Ui.dp(this, 20), Palette.GOLD));
-        top.addView(favButton, Ui.lp(Ui.dp(this, 44), Ui.dp(this, 44)));
+        favButton.setBackground(Ui.selectable(this, 0, 0x22FFFFFF, Ui.dp(this, 18), Palette.GOLD));
+        top.addView(favButton, Ui.lp(Ui.dp(this, 38), Ui.dp(this, 38)));
         favButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { if (playing != null) toggleFav(playing); }
         });
         info.addView(top, Ui.lp(-1, -2));
         faceOff = Ui.row(this);
-        faceOff.setGravity(Gravity.CENTER);
+        faceOff.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams fl = Ui.lp(-1, -2);
-        fl.topMargin = Ui.dp(this, 10);
+        fl.topMargin = Ui.dp(this, 8);
         info.addView(faceOff, fl);
-        infoTitle = Ui.text(this, "", 18, Palette.TEXT, true);
+        infoTitle = Ui.text(this, "", 16, Palette.TEXT, true);
         infoTitle.setMaxLines(2);
         infoTitle.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams tl = Ui.lp(-1, -2);
-        tl.topMargin = Ui.dp(this, 10);
+        tl.topMargin = Ui.dp(this, 8);
         info.addView(infoTitle, tl);
-        infoSub = Ui.text(this, "", 14, Palette.TEXT_DIM, false);
-        info.addView(infoSub);
-        infoNow = Ui.text(this, "", 14, Palette.GOLD, false);
+        infoNow = Ui.text(this, "", 12, Palette.GOLD, false);
         infoNow.setSingleLine(true);
         infoNow.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams nl = Ui.lp(-1, -2);
-        nl.topMargin = Ui.dp(this, 6);
+        nl.topMargin = Ui.dp(this, 8);
         info.addView(infoNow, nl);
-        TextView hint = Ui.text(this, "Pressione OK de novo para ver em tela cheia", 12, Palette.TEXT_DIM, false);
-        LinearLayout.LayoutParams hl = Ui.lp(-1, -2);
-        hl.topMargin = Ui.dp(this, 10);
-        info.addView(hint, hl);
         LinearLayout.LayoutParams il = Ui.lp(-1, -2);
-        il.topMargin = Ui.dp(this, 12);
+        il.topMargin = Ui.dp(this, 10);
         right.addView(info, il);
 
         setContentView(root);
@@ -441,20 +441,19 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         faceOff.removeAllViews();
         if (t[0] != null) {
             faceOff.setVisibility(View.VISIBLE);
-            faceOff.addView(teamColumn(t[0]), Ui.weight(1));
+            faceOff.addView(teamSide(t[0], true), Ui.weight(1));
             String mid = live ? elapsed(c) : k >= 0 ? hhmm(k) : "x";
-            TextView vs = Ui.text(this, mid, 20, live ? Palette.ERROR : Palette.GOLD, true);
+            TextView vs = Ui.text(this, mid, 16, live ? Palette.ERROR : Palette.GOLD, true);
             vs.setGravity(Gravity.CENTER);
-            faceOff.addView(vs, Ui.lp(Ui.dp(this, 90), -2));
-            faceOff.addView(teamColumn(t[1]), Ui.weight(1));
-            infoTitle.setText(t[2] != null ? t[2] : "");
-            infoTitle.setVisibility(t[2] != null ? View.VISIBLE : View.GONE);
+            faceOff.addView(vs, Ui.lp(Ui.dp(this, 78), -2));
+            faceOff.addView(teamSide(t[1], false), Ui.weight(1));
+            infoTitle.setVisibility(View.GONE);
         } else {
             faceOff.setVisibility(View.GONE);
             infoTitle.setVisibility(View.VISIBLE);
             infoTitle.setText(title(c));
         }
-        infoSub.setText((k >= 0 ? "Início " + hhmm(k) + "  •  " : "") + Variants.cleanGroup(c.group));
+        infoSub.setText((k >= 0 ? "Início " + hhmm(k) + "  •  " : "") + (t[2] != null ? t[2] : Variants.cleanGroup(c.group)));
         infoStatus.setText(live ? "● AO VIVO" : k >= 0 ? "EM BREVE" : "CANAL");
         infoStatus.setBackground(Ui.round(live ? Palette.HOT : 0xFF3A3A3A, Ui.dp(this, 6)));
         infoNow.setText("");
@@ -466,6 +465,29 @@ public class SportsActivity extends Activity implements TopBar.Listener {
             }
         });
         if (startNow) startPreview();
+    }
+
+    /** Badge and name on one line; the away side is mirrored (name, then badge). */
+    private View teamSide(String team, boolean home) {
+        LinearLayout row = Ui.row(this);
+        row.setGravity(Gravity.CENTER_VERTICAL | (home ? Gravity.START : Gravity.END));
+        TextView n = Ui.text(this, team, 14, Palette.TEXT, true);
+        n.setMaxLines(2);
+        n.setEllipsize(TextUtils.TruncateAt.END);
+        n.setGravity(home ? Gravity.START : Gravity.END);
+        View b = badge(team, 36);
+        LinearLayout.LayoutParams bl = Ui.lp(Ui.dp(this, 36), Ui.dp(this, 36));
+        LinearLayout.LayoutParams nl = new LinearLayout.LayoutParams(0, -2, 1f);
+        if (home) {
+            row.addView(b, bl);
+            nl.leftMargin = Ui.dp(this, 8);
+            row.addView(n, nl);
+        } else {
+            nl.rightMargin = Ui.dp(this, 8);
+            row.addView(n, nl);
+            row.addView(b, bl);
+        }
+        return row;
     }
 
     private View teamColumn(String team) {

@@ -54,27 +54,13 @@ public class LiveOverlay extends FrameLayout {
         listener = l;
         setClickable(true);
 
-        // Clock and typed channel number, top right.
-        LinearLayout topRight = Ui.column(a);
-        topRight.setGravity(Gravity.END);
-        time = Ui.text(a, "", 22, Palette.TEXT, true);
-        time.setShadowLayer(8, 0, 1, Palette.BLACK);
-        topRight.addView(time);
-        typed = Ui.text(a, "", 40, Palette.BLACK, true);
-        typed.setBackground(Ui.round(Palette.GOLD, Ui.dp(a, 12)));
-        typed.setPadding(Ui.dp(a, 18), Ui.dp(a, 2), Ui.dp(a, 18), Ui.dp(a, 2));
-        typed.setVisibility(GONE);
-        LinearLayout.LayoutParams tl = Ui.lp(-2, -2);
-        tl.topMargin = Ui.dp(a, 8);
-        topRight.addView(typed, tl);
-        FrameLayout.LayoutParams trl = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
-        trl.setMargins(0, Ui.dp(a, 20), Ui.dp(a, 28), 0);
-        addView(topRight, trl);
-
-        // Channels above and below, top left: what ▲ and ▼ will open.
+        // Top: channels above/below (what ▲ ▼ open) on the left, clock and typed number on the right.
+        LinearLayout topLine = Ui.row(a);
+        topLine.setGravity(Gravity.TOP);
+        topLine.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[] {0xB3000000, 0x00000000}));
+        topLine.setPadding(Ui.dp(a, 28), Ui.dp(a, 18), Ui.dp(a, 28), Ui.dp(a, 40));
         LinearLayout zap = Ui.column(a);
-        zap.setBackground(Ui.round(0x99000000, Ui.dp(a, 12)));
-        zap.setPadding(Ui.dp(a, 14), Ui.dp(a, 8), Ui.dp(a, 16), Ui.dp(a, 8));
         upNextChannel = Ui.text(a, "", 13, 0xFFDDDDDD, false);
         upNextChannel.setSingleLine(true);
         upNextChannel.setEllipsize(TextUtils.TruncateAt.END);
@@ -85,85 +71,81 @@ public class LiveOverlay extends FrameLayout {
         LinearLayout.LayoutParams dnl = Ui.lp(-2, -2);
         dnl.topMargin = Ui.dp(a, 4);
         zap.addView(downNextChannel, dnl);
-        FrameLayout.LayoutParams zl = new FrameLayout.LayoutParams(Ui.dp(a, 300), -2, Gravity.TOP | Gravity.START);
-        zl.setMargins(Ui.dp(a, 28), Ui.dp(a, 20), 0, 0);
-        addView(zap, zl);
+        topLine.addView(zap, Ui.weight(1));
+        LinearLayout topRight = Ui.column(a);
+        topRight.setGravity(Gravity.END);
+        time = Ui.text(a, "", 22, Palette.TEXT, true);
+        time.setShadowLayer(8, 0, 1, Palette.BLACK);
+        topRight.addView(time);
+        typed = Ui.text(a, "", 36, Palette.BLACK, true);
+        typed.setBackground(Ui.round(Palette.GOLD, Ui.dp(a, 12)));
+        typed.setPadding(Ui.dp(a, 16), Ui.dp(a, 2), Ui.dp(a, 16), Ui.dp(a, 2));
+        typed.setVisibility(GONE);
+        LinearLayout.LayoutParams tl = Ui.lp(-2, -2);
+        tl.topMargin = Ui.dp(a, 8);
+        topRight.addView(typed, tl);
+        topLine.addView(topRight);
+        addView(topLine, new FrameLayout.LayoutParams(-1, -2, Gravity.TOP));
 
-        LinearLayout bottom = Ui.column(a);
-        bottom.setBackground(new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
-                new int[] {0xF2000000, 0xCC000000, 0x00000000}));
-        bottom.setPadding(Ui.dp(a, 28), Ui.dp(a, 56), Ui.dp(a, 28), Ui.dp(a, 22));
-        addView(bottom, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+        // Bottom: a floating card.
+        LinearLayout card = Ui.row(a);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setBackground(Ui.stroke(0xEB0E0E0E, Ui.dp(a, 20), 1, 0x22FFFFFF));
+        int cp = Ui.dp(a, 18);
+        card.setPadding(cp, cp, Ui.dp(a, 22), cp);
+        FrameLayout.LayoutParams cl = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
+        cl.setMargins(Ui.dp(a, 24), 0, Ui.dp(a, 24), Ui.dp(a, 20));
+        addView(card, cl);
 
-        // Quality chips.
-        LinearLayout chipsLine = Ui.row(a);
-        chipsBlock = chipsLine;
-        hint = Ui.text(a, "QUALIDADE", 12, Palette.TEXT_DIM, true);
-        hint.setPadding(0, 0, Ui.dp(a, 12), 0);
-        chipsLine.addView(hint);
-        HorizontalScrollView hs = new HorizontalScrollView(a);
-        hs.setHorizontalScrollBarEnabled(false);
-        chips = Ui.row(a);
-        hs.addView(chips);
-        chipsLine.addView(hs, Ui.weight(1));
-        TextView swipe = Ui.text(a, "◀ ▶ qualidade", 12, Palette.TEXT_DIM, false);
-        chipsLine.addView(swipe);
-        LinearLayout.LayoutParams cl = Ui.lp(-1, -2);
-        cl.bottomMargin = Ui.dp(a, 14);
-        bottom.addView(chipsLine, cl);
-
-        // Info panel: number | logo | name + programs.
-        LinearLayout panel = Ui.row(a);
-        panel.setGravity(Gravity.CENTER_VERTICAL);
-        bottom.addView(panel, Ui.lp(-1, -2));
-
-        number = Ui.text(a, "", 28, Palette.BLACK, true);
-        number.setGravity(Gravity.CENTER);
-        number.setIncludeFontPadding(false);
-        number.setBackground(Ui.round(Palette.GOLD, Ui.dp(a, 14)));
-        panel.addView(number, Ui.lp(Ui.dp(a, 88), Ui.dp(a, 64)));
-
+        LinearLayout left = Ui.column(a);
+        left.setGravity(Gravity.CENTER_HORIZONTAL);
         FrameLayout logoBox = new FrameLayout(a);
-        logoBox.setBackground(Ui.round(0x26FFFFFF, Ui.dp(a, 14)));
+        logoBox.setBackground(Ui.round(0x1FFFFFFF, Ui.dp(a, 12)));
         logo = new ImageView(a);
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        int lp = Ui.dp(a, 10);
+        int lp = Ui.dp(a, 8);
         logo.setPadding(lp, lp, lp, lp);
         logoBox.addView(logo, new FrameLayout.LayoutParams(-1, -1));
-        LinearLayout.LayoutParams ll = Ui.lp(Ui.dp(a, 88), Ui.dp(a, 64));
-        ll.leftMargin = Ui.dp(a, 12);
-        panel.addView(logoBox, ll);
+        left.addView(logoBox, Ui.lp(Ui.dp(a, 96), Ui.dp(a, 60)));
+        number = Ui.text(a, "", 15, Palette.GOLD, true);
+        number.setGravity(Gravity.CENTER);
+        number.setLetterSpacing(0.08f);
+        LinearLayout.LayoutParams numl = Ui.lp(-2, -2);
+        numl.topMargin = Ui.dp(a, 6);
+        left.addView(number, numl);
+        card.addView(left);
 
         LinearLayout info = Ui.column(a);
-        info.setPadding(Ui.dp(a, 20), 0, 0, 0);
+        info.setPadding(Ui.dp(a, 18), 0, 0, 0);
         LinearLayout nameLine = Ui.row(a);
         nameLine.setGravity(Gravity.CENTER_VERTICAL);
-        TextView liveBadge = Ui.text(a, "● AO VIVO", 11, Palette.TEXT, true);
+        TextView liveBadge = Ui.text(a, "● AO VIVO", 10, Palette.TEXT, true);
         liveBadge.setBackground(Ui.round(Palette.HOT, Ui.dp(a, 5)));
         liveBadge.setPadding(Ui.dp(a, 7), Ui.dp(a, 2), Ui.dp(a, 7), Ui.dp(a, 2));
         nameLine.addView(liveBadge);
-        name = Ui.text(a, "", 20, Palette.TEXT, true);
+        name = Ui.text(a, "", 19, Palette.TEXT, true);
         name.setSingleLine(true);
         name.setEllipsize(TextUtils.TruncateAt.END);
-        name.setPadding(Ui.dp(a, 10), 0, 0, 0);
+        name.setPadding(Ui.dp(a, 10), 0, Ui.dp(a, 10), 0);
         nameLine.addView(name, new LinearLayout.LayoutParams(0, -2, 1f));
-        group = Ui.text(a, "", 13, Palette.TEXT_DIM, true);
+        group = Ui.text(a, "", 11, Palette.TEXT_DIM, true);
         group.setSingleLine(true);
-        group.setPadding(Ui.dp(a, 12), 0, 0, 0);
+        group.setLetterSpacing(0.06f);
         nameLine.addView(group);
         info.addView(nameLine, Ui.lp(-1, -2));
 
         LinearLayout nowLine = Ui.row(a);
-        nowLabel = Ui.text(a, "AGORA", 12, Palette.BLACK, true);
+        nowLine.setGravity(Gravity.CENTER_VERTICAL);
+        nowLabel = Ui.text(a, "AGORA", 10, Palette.BLACK, true);
         nowLabel.setBackground(Ui.round(Palette.GOLD, Ui.dp(a, 4)));
         nowLabel.setPadding(Ui.dp(a, 6), Ui.dp(a, 1), Ui.dp(a, 6), Ui.dp(a, 1));
         nowLine.addView(nowLabel);
-        nowTitle = Ui.text(a, "", 16, Palette.TEXT, false);
+        nowTitle = Ui.text(a, "", 14, Palette.TEXT, false);
         nowTitle.setSingleLine(true);
         nowTitle.setEllipsize(TextUtils.TruncateAt.END);
         nowTitle.setPadding(Ui.dp(a, 10), 0, Ui.dp(a, 10), 0);
         nowLine.addView(nowTitle, new LinearLayout.LayoutParams(0, -2, 1f));
-        nowTime = Ui.text(a, "", 14, Palette.GOLD, true);
+        nowTime = Ui.text(a, "", 12, Palette.GOLD, true);
         nowLine.addView(nowTime);
         LinearLayout.LayoutParams nl = Ui.lp(-1, -2);
         nl.topMargin = Ui.dp(a, 8);
@@ -172,22 +154,47 @@ public class LiveOverlay extends FrameLayout {
         progress = new ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal);
         progress.setMax(1000);
         progress.setProgressTintList(ColorStateList.valueOf(Palette.GOLD));
-        progress.setProgressBackgroundTintList(ColorStateList.valueOf(0x55FFFFFF));
-        LinearLayout.LayoutParams pl = Ui.lp(-1, Ui.dp(a, 4));
+        progress.setProgressBackgroundTintList(ColorStateList.valueOf(0x40FFFFFF));
+        LinearLayout.LayoutParams pl = Ui.lp(-1, Ui.dp(a, 3));
         pl.topMargin = Ui.dp(a, 8);
         info.addView(progress, pl);
 
         LinearLayout nextLine = Ui.row(a);
-        nextTitle = Ui.text(a, "", 14, Palette.TEXT_DIM, false);
+        nextLine.setGravity(Gravity.CENTER_VERTICAL);
+        nextTitle = Ui.text(a, "", 12, Palette.TEXT_DIM, false);
         nextTitle.setSingleLine(true);
         nextTitle.setEllipsize(TextUtils.TruncateAt.END);
         nextLine.addView(nextTitle, new LinearLayout.LayoutParams(0, -2, 1f));
-        remaining = Ui.text(a, "", 12, Palette.TEXT_DIM, false);
+        remaining = Ui.text(a, "", 11, Palette.TEXT_DIM, false);
         nextLine.addView(remaining);
         LinearLayout.LayoutParams xl = Ui.lp(-1, -2);
         xl.topMargin = Ui.dp(a, 6);
         info.addView(nextLine, xl);
-        panel.addView(info, new LinearLayout.LayoutParams(0, -2, 1f));
+
+        // Qualities, under the programs.
+        LinearLayout chipsLine = Ui.row(a);
+        chipsLine.setGravity(Gravity.CENTER_VERTICAL);
+        chipsBlock = chipsLine;
+        hint = Ui.text(a, "QUALIDADE  ◀ ▶", 10, Palette.TEXT_DIM, true);
+        hint.setPadding(0, 0, Ui.dp(a, 10), 0);
+        chipsLine.addView(hint);
+        HorizontalScrollView hs = new HorizontalScrollView(a);
+        hs.setHorizontalScrollBarEnabled(false);
+        chips = Ui.row(a);
+        hs.addView(chips);
+        chipsLine.addView(hs, Ui.weight(1));
+        LinearLayout.LayoutParams chl = Ui.lp(-1, -2);
+        chl.topMargin = Ui.dp(a, 10);
+        info.addView(chipsLine, chl);
+        card.addView(info, new LinearLayout.LayoutParams(0, -2, 1f));
+    }
+
+    private static final Pattern TIME_TAG = Pattern.compile("\\s*[-|•]?\\s*\\b([01]?\\d|2[0-3])\\s*[:hH]\\s*[0-5]\\d\\b\\s*");
+
+    /** Name without quality tags or a trailing kick-off time ("… x … - 18:30"). */
+    private static String cleanName(Channel c) {
+        String n = TIME_TAG.matcher(Variants.displayName(c)).replaceAll(" ").trim();
+        return n.isEmpty() ? c.name : n;
     }
 
     public void setZapList(List<Channel> list) {
@@ -205,8 +212,8 @@ public class LiveOverlay extends FrameLayout {
         box.setVisibility(VISIBLE);
         int n = l.size();
         Channel up = l.get((i + 1) % n), down = l.get((i - 1 + n) % n);
-        upNextChannel.setText("▲  " + Ui.pad3(Adult.number(up)) + "  " + Variants.displayName(up));
-        downNextChannel.setText("▼  " + Ui.pad3(Adult.number(down)) + "  " + Variants.displayName(down));
+        upNextChannel.setText("▲  " + Ui.pad3(Adult.number(up)) + "   " + cleanName(up));
+        downNextChannel.setText("▼  " + Ui.pad3(Adult.number(down)) + "   " + cleanName(down));
     }
 
     public List<Channel> variants() {
@@ -217,8 +224,8 @@ public class LiveOverlay extends FrameLayout {
     public void bind(final Channel c, List<Channel> pool) {
         channel = c;
         time.setText(clock.format(new Date()));
-        number.setText(Ui.pad3(Adult.number(c)));
-        name.setText(Variants.displayName(c));
+        number.setText("CANAL " + Ui.pad3(Adult.number(c)));
+        name.setText(cleanName(c));
         group.setText(c.group == null ? "" : Variants.cleanGroup(c.group).toUpperCase(Locale.getDefault()));
         ImageLoader.load(c.logo, logo, Ui.dp(a, 88), R.drawable.logo_mark);
         nowLabel.setVisibility(GONE);
@@ -240,7 +247,9 @@ public class LiveOverlay extends FrameLayout {
                 progress.setProgress(Epg.progress(now));
                 progress.setVisibility(VISIBLE);
                 long left = (now.end - System.currentTimeMillis()) / 60000;
-                remaining.setText(left > 0 ? "termina em " + left + " min" : "");
+                // Guides with a wrong time zone give silly values; only show what makes sense.
+                remaining.setText(left > 0 && left <= 180 && now.start <= System.currentTimeMillis()
+                        ? "termina em " + left + " min" : "");
                 if (programs.size() > 1) {
                     Xtream.Program next = programs.get(1);
                     nextTitle.setText("A SEGUIR  " + clock.format(new Date(next.start)) + "   " + next.title);
@@ -257,13 +266,13 @@ public class LiveOverlay extends FrameLayout {
         if (variants.size() <= 1) return;
         for (final Channel v : variants) {
             boolean on = v == channel;
-            TextView chip = Ui.text(a, quality(v), 14, on ? Palette.BLACK : Palette.TEXT, true);
+            TextView chip = Ui.text(a, quality(v), 12, on ? Palette.BLACK : Palette.TEXT, true);
             chip.setSingleLine(true);
             chip.setFocusable(true);
             chip.setClickable(true);
             chip.setBackground(Ui.selectable(a, on ? Palette.GOLD : 0x33FFFFFF, on ? Palette.GOLD_LIGHT : 0x66FFFFFF,
                     Ui.dp(a, 16), Palette.GOLD));
-            chip.setPadding(Ui.dp(a, 16), Ui.dp(a, 6), Ui.dp(a, 16), Ui.dp(a, 6));
+            chip.setPadding(Ui.dp(a, 12), Ui.dp(a, 4), Ui.dp(a, 12), Ui.dp(a, 4));
             LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
             lp.rightMargin = Ui.dp(a, 8);
             chips.addView(chip, lp);

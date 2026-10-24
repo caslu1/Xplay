@@ -190,7 +190,14 @@ public class VodActivity extends Activity implements TopBar.Listener {
         home.addView(heroBox, Ui.lp(-1, (int) (h * (Ui.isTv(this) ? 0.40f : 0.38f))));
 
         FrameLayout body = new FrameLayout(this);
-        sectionsList = new ListView(this);
+        // The list only scrolls when we tell it to (one smooth move per row); letting it also scroll by
+        // itself to show the focused poster made the screen jump twice on every ▲ ▼.
+        sectionsList = new ListView(this) {
+            @Override
+            public boolean requestChildRectangleOnScreen(View child, android.graphics.Rect r, boolean immediate) {
+                return false;
+            }
+        };
         sectionsList.setDivider(null);
         sectionsList.setSelector(new android.graphics.drawable.ColorDrawable(0));
         sectionsList.setItemsCanFocus(true);
@@ -740,7 +747,7 @@ public class VodActivity extends Activity implements TopBar.Listener {
                 final int top = Ui.dp(this, 2);
                 if (focusRow(target, x)) {
                     // The row is already on screen: focus moves at once and the list glides to it.
-                    sectionsList.smoothScrollToPositionFromTop(target, top, 200);
+                    sectionsList.smoothScrollToPositionFromTop(target, top, 180);
                 } else {
                     sectionsList.setSelectionFromTop(target, top);
                     sectionsList.post(new Runnable() {
