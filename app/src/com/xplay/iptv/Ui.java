@@ -192,7 +192,7 @@ public final class Ui {
     public static View logo(Context c, float sp) {
         LinearLayout l = row(c);
         ImageView mark = new ImageView(c);
-        mark.setImageResource(R.drawable.ic_launcher);
+        mark.setImageResource(R.drawable.logo_mark);
         int s = (int) (dp(c, sp) * 1.25f);
         l.addView(mark, lp(s, s));
         SpannableString word = new SpannableString("Xplay");
