@@ -82,6 +82,15 @@
     <h2>Clientes</h2>
     <p class="sub">Cada cliente recebe um código de 9 dígitos para entrar no app. Recargas somam dias à validade.</p>
     <div class="card">
+      <h3 style="margin-top:0">Código teste</h3>
+      <p class="muted" style="margin-top:-6px">Cole um link M3U e gere na hora um código para testar no app.</p>
+      <div class="row">
+        <input id="tM3u" placeholder="Link M3U" style="flex:1;min-width:240px">
+        <select id="tDays" style="width:auto"><option value="1">1 dia</option><option value="3">3 dias</option><option value="7">7 dias</option></select>
+        <button class="btn" id="addTest">Gerar código teste</button>
+      </div>
+    </div>
+    <div class="card">
       <h3 style="margin-top:0">Novo cliente</h3>
       <div class="grid">
         <div><label>Nome</label><input id="cName" placeholder="Ex.: João Silva"></div>
@@ -272,21 +281,34 @@ function editModal(c) {
     });
 }
 
+async function createClient(name, m3u, days, dev, note) {
+  const { data, error } = await sb.from('clients').insert({ name, m3u, device_user: dev }).select().single();
+  if (error) { toast(error.message); return null; }
+  if (days > 0) await sb.from('recharges').insert({ client_id: data.id, days, note });
+  if (dev) await sb.from('devices').upsert({ user_code: dev, client_id: data.id });
+  loadClients();
+  modal(`<h3>${esc(name)}</h3><p class="muted">Código para entrar no app (válido por ${days} dia(s)):</p>
+    <div class="code" style="font-size:34px;margin:10px 0 18px">${data.code.slice(0,3)} ${data.code.slice(3,6)} ${data.code.slice(6)}</div>
+    <div class="row"><button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText('${data.code}');toast('Código copiado')">Copiar código</button>
+    <button class="btn ghost" onclick="closeModal()">Fechar</button></div>`);
+  return data;
+}
+
 $('addClient').onclick = async () => {
   const name = $('cName').value.trim(), m3u = $('cM3u').value.trim(), days = parseInt($('cDays').value, 10);
   const dev = $('cDevice').value.trim().toUpperCase() || null;
   if (!name || !/^https?:\/\//.test(m3u)) { toast('Preencha o nome e um link M3U válido'); return; }
   if (dev && !/^[A-Z]{3}[0-9]{3}$/.test(dev)) { toast('Usuário do aparelho: 3 letras e 3 números'); return; }
-  const { data, error } = await sb.from('clients').insert({ name, m3u, device_user: dev }).select().single();
-  if (error) { toast(error.message); return; }
-  if (days > 0) await sb.from('recharges').insert({ client_id: data.id, days, note: 'Primeira recarga' });
-  if (dev) await sb.from('devices').upsert({ user_code: dev, client_id: data.id });
-  $('cName').value = ''; $('cM3u').value = ''; $('cDevice').value = '';
-  loadClients();
-  modal(`<h3>Cliente criado</h3><p class="muted">Passe este código para ${esc(name)} entrar no app:</p>
-    <div class="code" style="font-size:34px;margin:10px 0 18px">${data.code.slice(0,3)} ${data.code.slice(3,6)} ${data.code.slice(6)}</div>
-    <div class="row"><button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText('${data.code}');toast('Código copiado')">Copiar código</button>
-    <button class="btn ghost" onclick="closeModal()">Fechar</button></div>`);
+  if (await createClient(name, m3u, days, dev, 'Primeira recarga')) {
+    $('cName').value = ''; $('cM3u').value = ''; $('cDevice').value = '';
+  }
+};
+
+$('addTest').onclick = async () => {
+  const m3u = $('tM3u').value.trim(), days = parseInt($('tDays').value, 10);
+  if (!/^https?:\/\//.test(m3u)) { toast('Cole um link M3U válido (http...)'); return; }
+  const name = 'Teste ' + new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  if (await createClient(name, m3u, days, null, 'Teste')) $('tM3u').value = '';
 };
 
 // ----- aparelhos
