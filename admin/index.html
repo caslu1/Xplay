@@ -56,6 +56,11 @@
 </header>
 
 <main>
+  <section id="booting" class="center card">
+    <h2>Carregando o painel…</h2>
+    <p class="sub" id="bootMsg">Se esta mensagem não sumir, abra este arquivo no Google Chrome (não no visualizador de arquivos ou no WhatsApp).</p>
+  </section>
+  <noscript><section class="center card"><h2>Ative o JavaScript</h2><p class="sub">Abra o painel no Google Chrome.</p></section></noscript>
   <!-- Conexão com o Supabase (uma vez por navegador) -->
   <section id="setup" class="center card" style="display:none">
     <h2>Conectar ao Supabase</h2>
@@ -145,7 +150,7 @@ const store = { get(k) { try { return localStorage.getItem(k); } catch (e) { ret
 let sb = null, clients = [], devices = [];
 
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2600); }
-function show(id) { ['setup', 'login', 'clients', 'devices', 'settings'].forEach(s => $(s).style.display = s === id ? '' : 'none'); }
+function show(id) { $('booting').style.display = 'none'; ['setup', 'login', 'clients', 'devices', 'settings'].forEach(s => $(s).style.display = s === id ? '' : 'none'); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmt(d) { return new Date(d).toLocaleDateString('pt-BR'); }
 function daysLeft(d) { return Math.ceil((new Date(d) - Date.now()) / 86400000); }
@@ -159,6 +164,10 @@ const DEFAULT_URL = 'https://xgubfucijtaazvuzcluw.supabase.co';
 const DEFAULT_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhndWJmdWNpanRhYXp2dXpjbHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3MzcxMDIsImV4cCI6MjEwODMxMzEwMn0.Bjd6ZmbeGBc6_nxjVD8F0rtamnOKKHLQ-uMpCTjnCNI';
 
 async function boot() {
+  if (typeof supabase === 'undefined') {
+    $('bootMsg').textContent = 'Não foi possível carregar o Supabase. Confira a internet e recarregue a página.';
+    return;
+  }
   const url = store.get('sb_url') || DEFAULT_URL, key = store.get('sb_key') || DEFAULT_KEY;
   if (!url || !key) { show('setup'); return; }
   sb = supabase.createClient(url, key);
@@ -343,7 +352,7 @@ $('saveTmdb').onclick = async () => {
   toast(error ? error.message : 'Chave do TMDB salva');
 };
 
-boot();
+boot().catch(e => { $('booting').style.display = ''; $('bootMsg').textContent = 'Erro: ' + e.message; });
 </script>
 </body>
 </html>
