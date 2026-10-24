@@ -1,6 +1,6 @@
 {
-  "versionCode": 20,
-  "versionName": "3.6",
-  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-3.6.apk",
-  "notes": "Logo e nome mais arredondados e alinhados."
+  "versionCode": 21,
+  "versionName": "3.7",
+  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-3.7.apk",
+  "notes": "Tela de filmes e séries menor e sem cortes no celular. Nova tela de Esportes com times, minuto do jogo e filtros. Menu em letras maiúsculas."
 }

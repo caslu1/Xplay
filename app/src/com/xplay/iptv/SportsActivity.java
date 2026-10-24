@@ -69,6 +69,7 @@ public class SportsActivity extends Activity implements TopBar.Listener {
     private TextView previewMessage, infoTitle, infoSub, infoStatus, infoNow;
     private ImageView infoLogo;
     private TextView favButton;
+    private LinearLayout faceOff;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -115,6 +116,53 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         return t.replaceAll("\\s+", " ").trim();
     }
 
+    private static final Pattern VERSUS = Pattern.compile("\\s+(?:x|X|vs\\.?|VS|×)\\s+");
+    private static final Pattern COMPETITION = Pattern.compile("^(.*?)\\s*[:|•]\\s+(.+)$");
+
+    /** "Brasileirão: Flamengo x Palmeiras" → {"Flamengo", "Palmeiras", "Brasileirão"}; null teams when not a match. */
+    private static String[] teams(Channel c) {
+        String t = title(c);
+        String comp = null;
+        Matcher cm = COMPETITION.matcher(t);
+        if (cm.find() && VERSUS.matcher(cm.group(2)).find() && !VERSUS.matcher(cm.group(1)).find()) {
+            comp = cm.group(1).trim();
+            t = cm.group(2).trim();
+        }
+        String[] parts = VERSUS.split(t, 2);
+        if (parts.length < 2) return new String[] {null, null, comp};
+        String away = parts[1].replaceAll("\\s*(?:[\\[(|]|\\s[-–]\\s).*$", "").trim();
+        String extra = parts[1].length() > away.length() ? parts[1].substring(away.length()).replaceAll("[\\[\\]()|–-]", " ").trim() : "";
+        if (comp == null && !extra.isEmpty()) comp = extra;
+        return new String[] {parts[0].trim(), away, comp};
+    }
+
+    /** Minutes since kick-off for live games ("37'"), else null. */
+    private String elapsed(Channel c) {
+        int k = kickoff(c);
+        if (!isLive(c)) return null;
+        int m = nowMinutes() - k;
+        if (m <= 45) return Math.max(1, m) + "'";
+        if (m <= 60) return "Intervalo";
+        return Math.min(90, m - 15) + "'";
+    }
+
+    /** Round badge with a team's initials, colored from its name. */
+    private View badge(String team, int sizeDp) {
+        String init = team == null ? "?" : team.replaceAll("[^\\p{L}\\p{N} ]", "").trim();
+        String[] w = init.split("\\s+");
+        init = w.length > 1 && w[1].length() > 0 ? ("" + w[0].charAt(0) + w[1].charAt(0)) : init.length() >= 3 ? init.substring(0, 3) : init;
+        int[] colors = {0xFF1E5A3C, 0xFF5A1E2A, 0xFF1E3A5A, 0xFF5A4A1E, 0xFF3E1E5A, 0xFF1E525A, 0xFF5A2E1E};
+        int col = colors[Math.abs((team == null ? 0 : team.hashCode()) % colors.length)];
+        TextView b = Ui.text(this, init.toUpperCase(Locale.ROOT), sizeDp * 0.30f, Palette.TEXT, true);
+        b.setGravity(Gravity.CENTER);
+        b.setBackground(Ui.stroke(col, Ui.dp(this, sizeDp / 2f), Ui.dp(this, 1.5f), 0x55FFFFFF));
+        return b;
+    }
+
+    private static final int FILTER_ALL = 0, FILTER_LIVE = 1, FILTER_NEXT = 2;
+    private int filter = FILTER_ALL;
+    private final List<TextView> filterChips = new ArrayList<TextView>();
+
     private static int nowMinutes() {
         Calendar cal = Calendar.getInstance();
         return cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE);
@@ -144,6 +192,9 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         Collections.sort(live, byTime);
         Collections.sort(next, byTime);
         rows.clear();
+        if (filter == FILTER_NEXT) live.clear();
+        if (filter == FILTER_LIVE) next.clear();
+        if (filter != FILTER_ALL) untimed.clear();
         if (!live.isEmpty()) {
             rows.add("● AO VIVO AGORA");
             rows.addAll(live);
@@ -160,7 +211,9 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         }
         adapter.notifyDataSetChanged();
         emptyText.setVisibility(rows.isEmpty() ? View.VISIBLE : View.GONE);
-        emptyText.setText(fromTodayFolder ? "Nenhum jogo ao vivo ou programado para hoje"
+        emptyText.setText(filter == FILTER_LIVE ? "Nenhum jogo ao vivo agora"
+                : filter == FILTER_NEXT ? "Nenhum jogo programado para mais tarde"
+                : fromTodayFolder ? "Nenhum jogo ao vivo ou programado para hoje"
                 : "Sua lista não tem a pasta \"Jogos de hoje\"");
     }
 
@@ -186,13 +239,35 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         // Left: the games.
         LinearLayout left = Ui.column(this);
         LinearLayout head = Ui.row(this);
-        TextView heading = Ui.text(this, "JOGOS DE HOJE", 20, Palette.TEXT, true);
-        head.addView(heading);
-        View line = new View(this);
-        line.setBackground(Ui.round(Palette.GOLD, Ui.dp(this, 2)));
-        LinearLayout.LayoutParams ll = Ui.lp(Ui.dp(this, 40), Ui.dp(this, 3));
-        ll.leftMargin = Ui.dp(this, 12);
-        head.addView(line, ll);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout titles = Ui.column(this);
+        TextView heading = Ui.text(this, "JOGOS DE HOJE", 18, Palette.TEXT, true);
+        heading.setLetterSpacing(0.05f);
+        titles.addView(heading);
+        String today = new java.text.SimpleDateFormat("EEEE, d 'de' MMMM", new Locale("pt", "BR")).format(new java.util.Date());
+        titles.addView(Ui.text(this, today.substring(0, 1).toUpperCase(Locale.ROOT) + today.substring(1), 12,
+                Palette.TEXT_DIM, false));
+        head.addView(titles, Ui.weight(1));
+        String[] labels = {"Todos", "Ao vivo", "Próximos"};
+        for (int i = 0; i < labels.length; i++) {
+            final int which = i;
+            TextView chip = Ui.text(this, labels[i], 13, Palette.TEXT_DIM, true);
+            chip.setFocusable(true);
+            chip.setClickable(true);
+            chip.setPadding(Ui.dp(this, 14), Ui.dp(this, 6), Ui.dp(this, 14), Ui.dp(this, 6));
+            LinearLayout.LayoutParams cl = Ui.lp(-2, -2);
+            cl.leftMargin = Ui.dp(this, 6);
+            head.addView(chip, cl);
+            filterChips.add(chip);
+            chip.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    filter = which;
+                    styleFilters();
+                    rebuild();
+                }
+            });
+        }
+        styleFilters();
         left.addView(head, Ui.lp(-1, -2));
         FrameLayout listBox = new FrameLayout(this);
         list = new ListView(this);
@@ -295,7 +370,12 @@ public class SportsActivity extends Activity implements TopBar.Listener {
             public void onClick(View v) { if (playing != null) toggleFav(playing); }
         });
         info.addView(top, Ui.lp(-1, -2));
-        infoTitle = Ui.text(this, "", 20, Palette.TEXT, true);
+        faceOff = Ui.row(this);
+        faceOff.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams fl = Ui.lp(-1, -2);
+        fl.topMargin = Ui.dp(this, 10);
+        info.addView(faceOff, fl);
+        infoTitle = Ui.text(this, "", 18, Palette.TEXT, true);
         infoTitle.setMaxLines(2);
         infoTitle.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams tl = Ui.lp(-1, -2);
@@ -320,17 +400,44 @@ public class SportsActivity extends Activity implements TopBar.Listener {
         setContentView(root);
     }
 
+    private void styleFilters() {
+        float r = Ui.dp(this, 16);
+        for (int i = 0; i < filterChips.size(); i++) {
+            boolean on = i == filter;
+            TextView t = filterChips.get(i);
+            t.setTextColor(on ? Palette.BLACK : Palette.TEXT_DIM);
+            t.setBackground(Ui.selectable(this, on ? Palette.GOLD : 0x1AFFFFFF, on ? Palette.GOLD_LIGHT : 0x33FFFFFF, r,
+                    on ? Palette.TEXT : Palette.GOLD));
+        }
+    }
+
     // ---------------------------------------------------------------- state
 
     private void select(final Channel c, boolean startNow) {
         playing = c;
         Repo.current = c;
         adapter.notifyDataSetChanged();
-        ImageLoader.load(c.logo, infoLogo, Ui.dp(this, 52), R.drawable.ic_launcher);
-        infoTitle.setText(title(c));
+        ImageLoader.load(c.logo, infoLogo, Ui.dp(this, 52), R.drawable.logo_mark);
         int k = kickoff(c);
-        infoSub.setText((k >= 0 ? "Início " + hhmm(k) + "  •  " : "") + c.group);
         boolean live = isLive(c);
+        String[] t = teams(c);
+        faceOff.removeAllViews();
+        if (t[0] != null) {
+            faceOff.setVisibility(View.VISIBLE);
+            faceOff.addView(teamColumn(t[0]), Ui.weight(1));
+            String mid = live ? elapsed(c) : k >= 0 ? hhmm(k) : "x";
+            TextView vs = Ui.text(this, mid, 20, live ? Palette.ERROR : Palette.GOLD, true);
+            vs.setGravity(Gravity.CENTER);
+            faceOff.addView(vs, Ui.lp(Ui.dp(this, 90), -2));
+            faceOff.addView(teamColumn(t[1]), Ui.weight(1));
+            infoTitle.setText(t[2] != null ? t[2] : "");
+            infoTitle.setVisibility(t[2] != null ? View.VISIBLE : View.GONE);
+        } else {
+            faceOff.setVisibility(View.GONE);
+            infoTitle.setVisibility(View.VISIBLE);
+            infoTitle.setText(title(c));
+        }
+        infoSub.setText((k >= 0 ? "Início " + hhmm(k) + "  •  " : "") + Variants.cleanGroup(c.group));
         infoStatus.setText(live ? "● AO VIVO" : k >= 0 ? "EM BREVE" : "CANAL");
         infoStatus.setBackground(Ui.round(live ? Palette.HOT : 0xFF3A3A3A, Ui.dp(this, 6)));
         infoNow.setText("");
@@ -342,6 +449,20 @@ public class SportsActivity extends Activity implements TopBar.Listener {
             }
         });
         if (startNow) startPreview();
+    }
+
+    private View teamColumn(String team) {
+        LinearLayout col = Ui.column(this);
+        col.setGravity(Gravity.CENTER_HORIZONTAL);
+        col.addView(badge(team, 52), Ui.lp(Ui.dp(this, 52), Ui.dp(this, 52)));
+        TextView n = Ui.text(this, team, 14, Palette.TEXT, true);
+        n.setGravity(Gravity.CENTER);
+        n.setMaxLines(2);
+        n.setEllipsize(TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams nl = Ui.lp(-1, -2);
+        nl.topMargin = Ui.dp(this, 6);
+        col.addView(n, nl);
+        return col;
     }
 
     private void startPreview() {
@@ -420,52 +541,71 @@ public class SportsActivity extends Activity implements TopBar.Listener {
             Card h = convert == null || !(convert.getTag() instanceof Card) ? new Card() : (Card) convert.getTag();
             Channel c = (Channel) o;
             boolean on = c == playing;
-            float r = Ui.dp(SportsActivity.this, 12);
+            float r = Ui.dp(SportsActivity.this, 14);
             h.root.setBackground(on
-                    ? Ui.stroke(Palette.SURFACE_HI, r, Ui.dp(SportsActivity.this, 2), Palette.GOLD)
+                    ? Ui.stroke(0xFF1A1610, r, Ui.dp(SportsActivity.this, 2), Palette.GOLD)
                     : Ui.selectable(SportsActivity.this, Palette.SURFACE, Palette.SURFACE_HI, r, Palette.GOLD));
             int k = kickoff(c);
             boolean live = isLive(c);
-            h.time.setText(k >= 0 ? hhmm(k) : "--:--");
-            h.time.setTextColor(live ? Palette.TEXT : Palette.BLACK);
-            h.time.setBackground(Ui.round(live ? Palette.HOT : Palette.GOLD, Ui.dp(SportsActivity.this, 8)));
-            h.live.setVisibility(live ? View.VISIBLE : View.GONE);
-            h.name.setText(title(c));
+            String el = elapsed(c);
+            h.time.setText(live ? (el == null ? "AO VIVO" : el) : k >= 0 ? hhmm(k) : "--:--");
+            h.time.setTextColor(live ? Palette.TEXT : Palette.GOLD);
+            h.time.setBackground(live ? Ui.round(Palette.HOT, Ui.dp(SportsActivity.this, 8))
+                    : Ui.stroke(0, Ui.dp(SportsActivity.this, 8), Ui.dp(SportsActivity.this, 1), 0x66E8B84A));
+            h.live.setText(live ? "● AO VIVO" : k >= 0 ? "HOJE" : "");
+            h.live.setTextColor(live ? Palette.ERROR : Palette.TEXT_DIM);
+            String[] t = teams(c);
+            h.badges.removeAllViews();
+            if (t[0] != null) {
+                h.badges.setVisibility(View.VISIBLE);
+                h.badges.addView(badge(t[0], 30), Ui.lp(Ui.dp(SportsActivity.this, 30), Ui.dp(SportsActivity.this, 30)));
+                LinearLayout.LayoutParams bl = Ui.lp(Ui.dp(SportsActivity.this, 30), Ui.dp(SportsActivity.this, 30));
+                bl.leftMargin = -Ui.dp(SportsActivity.this, 8);
+                h.badges.addView(badge(t[1], 30), bl);
+                h.name.setText(t[0] + "  x  " + t[1]);
+            } else {
+                h.badges.setVisibility(View.GONE);
+                h.name.setText(title(c));
+            }
             h.name.setTextColor(on ? Palette.GOLD : Palette.TEXT);
-            h.sub.setText((Repo.isFav(Repo.liveKey(c)) ? "★  " : "") + c.group);
-            ImageLoader.load(c.logo, h.logo, Ui.dp(SportsActivity.this, 48), R.drawable.ic_launcher);
+            String comp = t[2] != null ? t[2] : Variants.cleanGroup(c.group);
+            h.sub.setText((Repo.isFav(Repo.liveKey(c)) ? "★  " : "") + comp);
+            ImageLoader.load(c.logo, h.logo, Ui.dp(SportsActivity.this, 44), R.drawable.logo_mark);
             return h.root;
         }
     }
 
     private final class Card {
-        final LinearLayout root;
+        final LinearLayout root, badges;
         final TextView time, live, name, sub;
         final ImageView logo;
 
         Card() {
             Activity a = SportsActivity.this;
             root = Ui.row(a);
+            root.setGravity(Gravity.CENTER_VERTICAL);
             int p = Ui.dp(a, 10);
             root.setPadding(p, p, Ui.dp(a, 14), p);
-            root.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1, Ui.dp(a, 76)));
+            root.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1, Ui.dp(a, 72)));
             LinearLayout timeCol = Ui.column(a);
             timeCol.setGravity(Gravity.CENTER);
-            time = Ui.text(a, "", 16, Palette.BLACK, true);
+            time = Ui.text(a, "", 14, Palette.GOLD, true);
             time.setGravity(Gravity.CENTER);
-            timeCol.addView(time, Ui.lp(Ui.dp(a, 66), Ui.dp(a, 34)));
-            live = Ui.text(a, "AO VIVO", 10, Palette.ERROR, true);
+            timeCol.addView(time, Ui.lp(Ui.dp(a, 70), Ui.dp(a, 30)));
+            live = Ui.text(a, "", 9, Palette.ERROR, true);
             live.setGravity(Gravity.CENTER);
-            timeCol.addView(live, Ui.lp(Ui.dp(a, 66), -2));
+            live.setLetterSpacing(0.06f);
+            LinearLayout.LayoutParams lvl = Ui.lp(Ui.dp(a, 70), -2);
+            lvl.topMargin = Ui.dp(a, 3);
+            timeCol.addView(live, lvl);
             root.addView(timeCol);
-            logo = new ImageView(a);
-            logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            LinearLayout.LayoutParams ll = Ui.lp(Ui.dp(a, 48), Ui.dp(a, 38));
-            ll.leftMargin = Ui.dp(a, 12);
-            root.addView(logo, ll);
+            badges = Ui.row(a);
+            LinearLayout.LayoutParams bl = Ui.lp(-2, -2);
+            bl.leftMargin = Ui.dp(a, 14);
+            root.addView(badges, bl);
             LinearLayout col = Ui.column(a);
-            col.setPadding(Ui.dp(a, 12), 0, 0, 0);
-            name = Ui.text(a, "", 16, Palette.TEXT, true);
+            col.setPadding(Ui.dp(a, 12), 0, Ui.dp(a, 8), 0);
+            name = Ui.text(a, "", 15, Palette.TEXT, true);
             name.setSingleLine(true);
             name.setEllipsize(TextUtils.TruncateAt.END);
             col.addView(name);
@@ -474,6 +614,10 @@ public class SportsActivity extends Activity implements TopBar.Listener {
             sub.setEllipsize(TextUtils.TruncateAt.END);
             col.addView(sub);
             root.addView(col, Ui.weight(1));
+            logo = new ImageView(a);
+            logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            logo.setAlpha(0.85f);
+            root.addView(logo, Ui.lp(Ui.dp(a, 44), Ui.dp(a, 32)));
             root.setTag(this);
         }
     }

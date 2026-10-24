@@ -33,7 +33,7 @@ public final class MetaChips {
         else if (n.contains("star+") || n.equals("star plus")) { text = "star+"; face = Typeface.DEFAULT_BOLD; }
         else if (n.contains("crunchyroll")) { text = "crunchyroll"; color = 0xFFF47521; face = Typeface.DEFAULT_BOLD; }
         if (text != null) {
-            TextView t = Ui.text(c, text, 40, color, true);
+            TextView t = Ui.text(c, text, 26, color, true);
             t.setTypeface(face);
             t.setIncludeFontPadding(false);
             t.setShadowLayer(8, 0, 2, 0x99000000);
@@ -45,10 +45,10 @@ public final class MetaChips {
             logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
             Ui.clipRound(logo, Ui.dp(c, 8));
             ImageLoader.load(logoUrl, logo, Ui.dp(c, 48), 0);
-            row.addView(logo, Ui.lp(Ui.dp(c, 44), Ui.dp(c, 44)));
+            row.addView(logo, Ui.lp(Ui.dp(c, 30), Ui.dp(c, 30)));
         }
-        TextView t = Ui.text(c, name, 22, Palette.TEXT, true);
-        t.setPadding(Ui.dp(c, 12), 0, 0, 0);
+        TextView t = Ui.text(c, name, 16, Palette.TEXT, true);
+        t.setPadding(Ui.dp(c, 10), 0, 0, 0);
         row.addView(t);
         return row;
     }
@@ -62,6 +62,7 @@ public final class MetaChips {
     public static void fill(Context c, LinearLayout row, String duration, String year, String flag, double rating,
                             List<String> genres) {
         row.removeAllViews();
+        row.setGravity(Gravity.CENTER_VERTICAL);
         if (duration != null) chip(c, row, duration);
         if (year != null && !year.isEmpty()) chip(c, row, year).setTypeface(Typeface.DEFAULT_BOLD);
         if (flag != null && !flag.isEmpty()) chip(c, row, flag);
@@ -72,7 +73,7 @@ public final class MetaChips {
                 if (i > 0) sb.append("  ·  ");
                 sb.append(genres.get(i).toUpperCase(Locale.getDefault()));
             }
-            TextView g = Ui.text(c, sb, 16, Palette.TEXT, true);
+            TextView g = Ui.text(c, sb, 12, Palette.TEXT, true);
             g.setLetterSpacing(0.08f);
             g.setSingleLine(true);
             g.setPadding(Ui.dp(c, 4), 0, 0, 0);
@@ -81,13 +82,13 @@ public final class MetaChips {
     }
 
     private static TextView chip(Context c, LinearLayout row, String text) {
-        TextView t = Ui.text(c, text, 16, 0xFFE6E6E6, false);
+        TextView t = Ui.text(c, text, 12, 0xFFE6E6E6, false);
         t.setGravity(Gravity.CENTER);
         t.setSingleLine(true);
         t.setBackground(Ui.round(0x33FFFFFF, Ui.dp(c, 8)));
-        t.setPadding(Ui.dp(c, 12), Ui.dp(c, 5), Ui.dp(c, 12), Ui.dp(c, 5));
+        t.setPadding(Ui.dp(c, 9), Ui.dp(c, 3), Ui.dp(c, 9), Ui.dp(c, 3));
         LinearLayout.LayoutParams lp = Ui.lp(-2, -2);
-        lp.rightMargin = Ui.dp(c, 8);
+        lp.rightMargin = Ui.dp(c, 6);
         row.addView(t, lp);
         return t;
     }

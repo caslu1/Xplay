@@ -180,9 +180,14 @@ public class VodActivity extends Activity implements TopBar.Listener {
 
     private LinearLayout buildHome() {
         LinearLayout home = Ui.column(this);
-        hero = buildHero();
+        View heroText = buildHero();
         int h = getResources().getDisplayMetrics().heightPixels;
-        home.addView(hero, Ui.lp(-1, (int) (h * (Ui.isTv(this) ? 0.40f : 0.34f))));
+        // Tall enough for logo, chips, title and two lines of plot; anything extra is clipped, never drawn over the bar.
+        FrameLayout heroBox = new FrameLayout(this);
+        heroBox.setClipChildren(true);
+        heroBox.addView(heroText, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
+        hero = heroBox;
+        home.addView(heroBox, Ui.lp(-1, (int) (h * (Ui.isTv(this) ? 0.40f : 0.38f))));
 
         FrameLayout body = new FrameLayout(this);
         sectionsList = new ListView(this);
@@ -208,21 +213,21 @@ public class VodActivity extends Activity implements TopBar.Listener {
         text.setPadding(Ui.dp(this, 40), 0, Ui.dp(this, 40), Ui.dp(this, 12));
         heroMark = new FrameLayout(this);
         LinearLayout.LayoutParams ml = Ui.lp(-2, -2);
-        ml.bottomMargin = Ui.dp(this, 10);
+        ml.bottomMargin = Ui.dp(this, 6);
         text.addView(heroMark, ml);
         android.widget.HorizontalScrollView cs = new android.widget.HorizontalScrollView(this);
         cs.setHorizontalScrollBarEnabled(false);
         heroChips = Ui.row(this);
         cs.addView(heroChips);
         text.addView(cs, Ui.lp(-1, -2));
-        heroTitle = Ui.text(this, "", 30, Palette.TEXT, true);
+        heroTitle = Ui.text(this, "", Ui.isTv(this) ? 28 : 22, Palette.TEXT, true);
         heroTitle.setMaxLines(1);
         heroTitle.setEllipsize(TextUtils.TruncateAt.END);
         heroTitle.setShadowLayer(10, 0, 2, Palette.BLACK);
         LinearLayout.LayoutParams tl = Ui.lp(Ui.dp(this, 640), -2);
         tl.topMargin = Ui.dp(this, 8);
         text.addView(heroTitle, tl);
-        heroPlot = Ui.text(this, "", 15, 0xFFC8C8C8, false);
+        heroPlot = Ui.text(this, "", Ui.isTv(this) ? 14 : 13, 0xFFC8C8C8, false);
         heroPlot.setMaxLines(2);
         heroPlot.setEllipsize(TextUtils.TruncateAt.END);
         heroPlot.setLineSpacing(0, 1.12f);

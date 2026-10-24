@@ -89,13 +89,14 @@ public class TopBar extends LinearLayout {
     }
 
     private void tab(Activity a, LinearLayout row, final int id, String label, final Listener listener) {
-        TextView t = Ui.text(a, label, 16, Palette.TEXT_DIM, true);
+        TextView t = Ui.text(a, label.toUpperCase(Locale.getDefault()), 14, Palette.TEXT_DIM, true);
+        t.setLetterSpacing(0.06f);
         t.setSingleLine(true);
         t.setFocusable(true);
         t.setClickable(true);
-        t.setPadding(Ui.dp(a, 18), Ui.dp(a, 8), Ui.dp(a, 18), Ui.dp(a, 8));
+        t.setPadding(Ui.dp(a, 16), Ui.dp(a, 8), Ui.dp(a, 16), Ui.dp(a, 8));
         LayoutParams lp = Ui.lp(-2, -2);
-        lp.rightMargin = Ui.dp(a, 4);
+        lp.rightMargin = Ui.dp(a, 2);
         row.addView(t, lp);
         tabs.add(t);
         tabIds.add(id);

@@ -158,14 +158,15 @@ public final class Ui {
      * Rescales this activity so a TV screen is always 1280dp wide, like the layouts were made for.
      */
     public static void fit(android.app.Activity a) {
-        if (!isTv(a)) return;
-        fitMetrics(a.getResources().getDisplayMetrics());
-        fitMetrics(a.getApplicationContext().getResources().getDisplayMetrics());
+        // Phones in landscape get ~900dp so the screens are not cramped (and nothing is cut off).
+        float target = isTv(a) ? 1280f : 900f;
+        fitMetrics(a.getResources().getDisplayMetrics(), target);
+        fitMetrics(a.getApplicationContext().getResources().getDisplayMetrics(), target);
     }
 
-    private static void fitMetrics(android.util.DisplayMetrics m) {
+    private static void fitMetrics(android.util.DisplayMetrics m, float target) {
         int width = Math.max(m.widthPixels, m.heightPixels);
-        float density = width / 1280f;
+        float density = width / target;
         // Only shrinks: TVs that already show 1280dp or more stay as they are.
         if (density >= m.density - 0.01f) return;
         float fontScale = m.scaledDensity / m.density;
