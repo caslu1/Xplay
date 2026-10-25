@@ -68,6 +68,7 @@ public class TecladoService extends InputMethodService
 
     private LinearLayout root;
     private LinearLayout bar;
+    private LinearLayout suggestBar;
     private FrameLayout content;
     private KeyboardView kb;
     private int mode = KEYS;
@@ -114,8 +115,12 @@ public class TecladoService extends InputMethodService
         root.setOrientation(LinearLayout.VERTICAL);
         bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setGravity(Gravity.CENTER_VERTICAL);
-        root.addView(bar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.round(46 * dp)));
+        bar.setGravity(Gravity.CENTER);
+        root.addView(bar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.round(44 * dp)));
+        suggestBar = new LinearLayout(this);
+        suggestBar.setOrientation(LinearLayout.HORIZONTAL);
+        suggestBar.setGravity(Gravity.CENTER_VERTICAL);
+        root.addView(suggestBar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.round(42 * dp)));
         content = new FrameLayout(this);
         root.addView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -301,7 +306,7 @@ public class TecladoService extends InputMethodService
     }
 
     private void updateSuggestions() {
-        if (noSuggestions || mode != KEYS) { prefix = ""; suggestions = new ArrayList<>(); if (mode == KEYS) renderBar(); return; }
+        if (noSuggestions || mode != KEYS) { prefix = ""; suggestions = new ArrayList<>(); if (mode == KEYS) renderSuggest(); return; }
         InputConnection ic = getCurrentInputConnection();
         String word = "";
         if (ic != null) {
@@ -315,7 +320,7 @@ public class TecladoService extends InputMethodService
         if (!word.equals(prefix)) {
             prefix = word;
             suggestions = store.suggest(word, 3);
-            renderBar();
+            renderSuggest();
         }
     }
 
@@ -334,7 +339,7 @@ public class TecladoService extends InputMethodService
         prefix = "";
         suggestions = new ArrayList<>();
         updateShift();
-        renderBar();
+        renderSuggest();
     }
 
     // ---- Clipboard.
@@ -467,6 +472,7 @@ public class TecladoService extends InputMethodService
 
     private void render() {
         renderBar();
+        renderSuggest();
         renderPanel();
     }
 
@@ -488,17 +494,25 @@ public class TecladoService extends InputMethodService
         root.setBackgroundColor(theme.bg);
     }
 
-    // ---- The top bar.
+    // ---- The icon toolbar (top row). The icons are evenly spread and centered,
+    //      with the clipboard ("copiar") in the exact middle, like the reference keyboard.
 
     private void renderBar() {
         if (bar == null) return;
         bar.removeAllViews();
         bar.setBackgroundColor(blend(theme.bg, theme.key, 0.35f));
+
         if (mode != KEYS && mode != RESIZE) {
+            bar.setWeightSum(0);
             bar.addView(barButton(R.drawable.ic_back, theme.keyText, "voltar", new Runnable() {
                 public void run() { setMode(KEYS); }
             }));
             bar.addView(title(titleFor(mode)));
+            if (mode == CLIP) {
+                bar.addView(barButton(R.drawable.ic_history, theme.keyText, "histórico", new Runnable() {
+                    public void run() { setMode(HISTORY); }
+                }));
+            }
             if (mode == CLIP || mode == HISTORY) {
                 bar.addView(barButton(R.drawable.ic_delete, theme.keyText, "limpar", new Runnable() {
                     public void run() {
@@ -509,53 +523,99 @@ public class TecladoService extends InputMethodService
             }
             return;
         }
-        bar.addView(barButton(R.drawable.ic_clip, theme.keyText, "área de transferência", new Runnable() {
-            public void run() { setMode(CLIP); }
-        }));
-        boolean rec = recognizer != null;
-        bar.addView(barButton(R.drawable.ic_mic, rec ? theme.accent : theme.keyText, "microfone", new Runnable() {
-            public void run() { toggleVoice(); }
-        }));
+
         if (mode == RESIZE) {
+            bar.setWeightSum(0);
+            bar.addView(barButton(R.drawable.ic_mic, theme.keyText, "microfone", new Runnable() {
+                public void run() { toggleVoice(); }
+            }));
             bar.addView(title("Tamanho do teclado"));
             bar.addView(barButton(R.drawable.ic_check, theme.accent, "pronto", new Runnable() {
                 public void run() { setMode(KEYS); }
             }));
-        } else {
-            if (suggestions.isEmpty()) {
-                bar.addView(barButton(R.drawable.ic_history, theme.keyText, "histórico", new Runnable() {
-                    public void run() { setMode(HISTORY); }
-                }));
-                bar.addView(spacer());
-                bar.addView(barButton(R.drawable.ic_palette, theme.keyText, "temas", new Runnable() {
-                    public void run() { setMode(THEMES); }
-                }));
-            } else {
-                for (int i = 0; i < suggestions.size(); i++) bar.addView(suggestionChip(suggestions.get(i), i == 1));
-            }
-            bar.addView(barButton(R.drawable.ic_resize, mode == RESIZE ? theme.accent : theme.keyText, "redimensionar",
-                    new Runnable() { public void run() { setMode(RESIZE); } }));
+            return;
+        }
+
+        boolean rec = recognizer != null;
+        bar.setWeightSum(7f);
+        barIcon(R.drawable.ic_emoji, theme.keyText, "emojis", new Runnable() {
+            public void run() { setMode(EMOJI); }
+        });
+        barIcon(R.drawable.ic_mic, rec ? theme.accent : theme.keyText, "microfone", new Runnable() {
+            public void run() { toggleVoice(); }
+        });
+        barIcon(R.drawable.ic_history, theme.keyText, "histórico", new Runnable() {
+            public void run() { setMode(HISTORY); }
+        });
+        barIcon(R.drawable.ic_clip, theme.keyText, "área de transferência", new Runnable() {
+            public void run() { setMode(CLIP); }
+        });
+        barIcon(R.drawable.ic_palette, theme.keyText, "temas", new Runnable() {
+            public void run() { setMode(THEMES); }
+        });
+        barIcon(R.drawable.ic_resize, theme.keyText, "redimensionar", new Runnable() {
+            public void run() { setMode(RESIZE); }
+        });
+        barIcon(R.drawable.ic_more, theme.keyText, "ajustes", new Runnable() {
+            public void run() { openSettings(); }
+        });
+    }
+
+    /** One evenly-weighted centered icon in the toolbar. */
+    private void barIcon(int icon, int color, String desc, final Runnable onTap) {
+        ImageView v = new ImageView(this);
+        v.setImageResource(icon);
+        v.setColorFilter(color, PorterDuff.Mode.SRC_IN);
+        v.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        v.setContentDescription(desc);
+        int p = Math.round(10 * dp);
+        v.setPadding(p, p, p, p);
+        v.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        tap(v, onTap);
+        bar.addView(v);
+    }
+
+    private void openSettings() {
+        Intent i = new Intent(this, SetupActivity.class);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(i);
+    }
+
+    // ---- The suggestions row (just above the keys): the words for what is being typed.
+
+    private void renderSuggest() {
+        if (suggestBar == null) return;
+        suggestBar.removeAllViews();
+        boolean show = mode == KEYS || mode == RESIZE;
+        suggestBar.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (!show) return;
+        suggestBar.setBackgroundColor(theme.bg);
+        for (int i = 0; i < 3; i++) {
+            if (i > 0) suggestBar.addView(divider());
+            String word = i < suggestions.size() ? suggestions.get(i) : null;
+            suggestBar.addView(suggestionChip(word, i == 0 && suggestions.size() > 1));
         }
     }
 
     private View suggestionChip(final String word, boolean strong) {
         TextView t = new TextView(this);
-        t.setText(word);
-        t.setTextColor(theme.keyText);
+        t.setText(word == null ? "" : word);
+        t.setTextColor(strong ? theme.accent : theme.keyText);
         t.setTextSize(16);
         t.setTypeface(strong ? Typeface.DEFAULT_BOLD : Typeface.DEFAULT);
         t.setGravity(Gravity.CENTER);
         t.setMaxLines(1);
         t.setEllipsize(TextUtils.TruncateAt.END);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
-        t.setLayoutParams(lp);
-        tap(t, new Runnable() { public void run() { applySuggestion(word); } });
+        t.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        if (word != null) tap(t, new Runnable() { public void run() { applySuggestion(word); } });
         return t;
     }
 
-    private View spacer() {
+    private View divider() {
         View v = new View(this);
-        v.setLayoutParams(new LinearLayout.LayoutParams(0, 1, 1f));
+        v.setBackgroundColor(theme.hint & 0x55FFFFFF);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Math.round(1 * dp), Math.round(20 * dp));
+        v.setLayoutParams(lp);
         return v;
     }
 
