@@ -719,3 +719,21 @@ svg.chart .peak text { fill: #fff; font-weight: 700; font-size: 10.5px; }
 .clip-b .ph i { width: 15px; height: 15px; }
 .clip .btn { height: 48px; border-radius: 14px; }
 .dp-v b { font-size: 14px; } .dp-v > div { padding: 8px; }
+
+/* Success dialog (cadastro / renovação) */
+.dialog.okd { max-width: 380px; border-radius: 26px; }
+.okd-h { position: relative; text-align: center; color: #fff; padding: 26px 20px 24px; background: linear-gradient(120deg, #5cc06a, #3e9a72); }
+.okd-h .x { color: rgba(255,255,255,.85); top: 12px; right: 12px; }
+.okd-h .c { width: 64px; height: 64px; margin: 0 auto 12px; border-radius: 50%; background: rgba(255,255,255,.22); display: grid; place-items: center; }
+.okd-h .c i { width: 34px; height: 34px; }
+.okd-h h3 { margin: 0; font-size: 21px; }
+.okd-h p { margin: 6px 0 0; opacity: .9; font-size: 15px; }
+.okd-b { padding: 18px 18px 18px; display: grid; gap: 10px; }
+.okd-c { text-align: center; background: linear-gradient(180deg, #f6f8fa, #f2faf4); border: 1px solid #e6eeea; border-radius: 16px; padding: 16px 14px; margin-bottom: 6px; }
+.okd-c > b { display: block; font-size: 19px; }
+.okd-c > span { display: block; color: var(--ink2); margin-top: 2px; }
+.okd-d { margin-top: 12px; background: #fff; border: 1px solid #dff0e4; border-radius: 12px; padding: 12px; color: var(--ink2); font-size: 14px; }
+.okd-d b { color: #2f8a4c; font-size: 19px; margin-left: 6px; }
+.okd .btn { height: 46px; border-radius: 12px; font-size: 16px; }
+.okd .btn.light { box-shadow: none; }
+.okd-d { white-space: nowrap; }

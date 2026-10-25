@@ -910,7 +910,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v1.7 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v1.8 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1108,11 +1108,25 @@ function fillMsg(tpl, c) {
     .replace(/{{\s*vencimento\s*}}|{vencimento}/g, br(c.due)).replace(/{{\s*valor\s*}}|{valor}/g, money(priceOf(c)))
     .replace(/{{\s*empresa\s*}}|{empresa}/g, st.company || st.brand || '');
 }
-function askSend(c, key, title) {
-  if (!(db.settings[key] || '').trim() || !c.phone) return;
-  const s = overlay(`<div class="dialog confirm">${ic('wa', 'style="color:#3fae56"')}<h3>${title}</h3><p>Enviar a mensagem para ${esc(c.name)} no WhatsApp?</p>
-    <div class="two"><button class="cancel" data-act="close">Agora não</button><button class="ok" style="background:#3fae56" id="sendOk">Enviar</button></div></div>`, 'center');
-  s.querySelector('#sendOk').onclick = () => { closeTop(); openUrl(waLink(c, fillMsg(db.settings[key], c))); };
+
+/* Confirmation after a signup or renewal, with the matching WhatsApp text ready to copy. */
+function successDialog(c, kind) {
+  const isNew = kind === 'cadastro';
+  const s = overlay(`<div class="dialog okd">
+    <div class="okd-h"><button class="x" data-act="close">${ic('x')}</button><div class="c">${ic('checkc')}</div>
+      <h3>${isNew ? 'Cliente Cadastrado!' : 'Renovação Efetuada!'}</h3><p>Tudo certo por aqui!</p></div>
+    <div class="okd-b">
+      <div class="okd-c"><b>${esc(c.name)}</b><span>${esc(fmtPhone(c.phone))}</span>
+        <div class="okd-d">Vencimento: <b>${br(c.due)}</b></div></div>
+      <button class="btn blue" id="okCopy">${ic('copy')} Copiar Mensagem</button>
+      <button class="btn light" data-act="close">Fechar</button>
+    </div></div>`, 'center');
+  s.querySelector('#okCopy').onclick = () => {
+    const text = fillMsg(db.settings[isNew ? 'msgCadastro' : 'msgRenovacao'], c);
+    if (window.Android && Android.copy) Android.copy(text);
+    else if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+    toast('Mensagem copiada');
+  };
 }
 
 /* Files */
@@ -1478,8 +1492,7 @@ function clientForm(c, prefill) {
       const p = planOf(nc), pay = addPayment(nc, 'cadastro', priceOf(nc));
       log('Novo Cliente Cadastrado', `${nc.name} - Plano: ${p.name} | Valor: R$ ${priceOf(nc).toFixed(2)}${nc.discount ? ` (Desconto: R$ ${nc.discount.toFixed(2)})` : ''}`,
         { type: 'create', clientId: nc.id, paymentId: pay.id });
-      toast('Cliente cadastrado');
-      setTimeout(() => askSend(nc, 'msgCadastro', 'Mensagem de Cadastro'), 200);
+      setTimeout(() => successDialog(nc, 'cadastro'), 200);
     } else {
       const before = JSON.parse(JSON.stringify(c));
       Object.assign(c, data);
@@ -1511,8 +1524,7 @@ function renewDialog(c) {
     const pay = addPayment(c, 'renovacao', priceOf(c));
     log('Plano Renovado', `${c.name} - ${p.name} | Valor: R$ ${pay.amount.toFixed(2)} | Novo vencimento: ${br(next)}`, { type: 'renew', clientId: c.id, oldDue: old, paymentId: pay.id });
     snapshot(); closeTop(); refresh(); reopenDetail(c.id);
-    toast('Renovado até ' + br(next));
-    askSend(c, 'msgRenovacao', 'Mensagem de Renovação');
+    setTimeout(() => successDialog(c, 'renovacao'), 200);
   };
 }
 
