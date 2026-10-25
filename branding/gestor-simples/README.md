@@ -12,6 +12,7 @@ Abra `guia-da-marca.html` no navegador para ver o guia completo.
 | `icon-mono.svg` | Símbolo de uma cor (herda `currentColor`) |
 | `logo-horizontal-light.svg` | Logo principal sobre fundo claro |
 | `logo-horizontal-dark.svg` | Logo sobre fundo escuro |
+| `png/` | Logos e ícones em PNG com fundo transparente |
 | `tokens.css` | Cores, gradiente, fontes e raios como variáveis CSS |
 
 Os logos horizontais usam a fonte Outfit como texto. Para impressão ou uso fora da web, converta o texto em contornos (Inkscape/Figma: "Objeto em caminho").
