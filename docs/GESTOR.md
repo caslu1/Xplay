@@ -1,21 +1,123 @@
-# Gestor Simples — login e dados na nuvem
+# Gestor Simples — como ligar o login e a nuvem
 
-O Gestor usa o mesmo projeto Supabase do painel Xplay. Cada conta tem os próprios dados (clientes, planos, pagamentos, histórico e configurações) guardados na tabela `gestor_data`, e o celular mantém uma cópia para funcionar sem internet.
+Tempo: uns 10 minutos, uma vez só. Tudo é feito no site do Supabase, no **mesmo projeto do painel Xplay**. Faça pelo computador, que é mais fácil copiar e colar.
 
-## 1. Preparar o Supabase (uma vez)
+Você vai precisar de:
+- o login do Supabase (o mesmo de quando criou o painel Xplay);
+- o **e-mail que você usa para entrar no painel admin do Xplay**;
+- um e-mail e uma senha para a sua conta do Gestor. Pode ser o mesmo e-mail do painel ou outro.
 
-1. Abra o projeto do Xplay no Supabase → **SQL Editor → New query**, cole [`supabase/gestor.sql`](../supabase/gestor.sql) e clique em **Run**.
-2. **Importante:** abra outra query, cole [`supabase/gestor-isolamento.sql`](../supabase/gestor-isolamento.sql), troque `SEU-EMAIL-DO-PAINEL` pelo e-mail do painel admin e clique em **Run**. O resultado deve mostrar o seu e-mail.
-   Sem esse passo, uma conta do Gestor conseguiria ver e alterar os clientes do Xplay.
-3. Crie a conta do Gestor:
-   - **Jeito recomendado (cadastro fechado):** Authentication → Users → **Add user → Create new user**, com e-mail e senha, marcando **Auto Confirm User**. Deixe "Allow new users to sign up" desativado. No app, use **Entrar**.
-   - **Se quiser que o botão "Criar conta" do app funcione:** em Authentication → Sign In / Providers, ative **Allow new users to sign up**. Faça isso só depois do passo 2. Se "Confirm email" estiver ligado, a pessoa precisa clicar no link do e-mail antes de entrar.
+---
 
-## 2. Usar no app
+## Passo 1 — Criar a tabela do Gestor
 
-- Ao abrir, o app pede **e-mail e senha**. O login fica salvo; só pede de novo se você tocar em **Sair** (Ferramentas → Perfil).
-- Na primeira vez que entrar num celular que já tinha dados, eles são enviados para a sua conta.
-- Num celular novo, ao entrar, os dados da conta são baixados.
-- Toda alteração é salva no celular na hora e enviada para a nuvem alguns segundos depois. O ponto no logo do topo mostra o estado: **verde** sincronizado, **amarelo** enviando, **cinza** sem internet (envia quando voltar), **vermelho** erro.
-- Se dois celulares mexerem na mesma conta sem internet, o app pergunta qual cópia manter.
-- Ferramentas → Perfil → **Conta e nuvem**: e-mail da conta, última sincronização, **Sincronizar** e **Sair**.
+1. Entre em <https://supabase.com/dashboard> e abra o projeto do **Xplay**.
+2. No menu da esquerda, clique em **SQL Editor** (ícone `>_`).
+3. Clique em **+ New query**.
+4. Abra o arquivo [`supabase/gestor.sql`](../supabase/gestor.sql), copie **todo** o conteúdo e cole no editor.
+5. Clique em **Run**, no canto inferior direito (ou aperte Ctrl+Enter).
+
+✅ **Deu certo se** aparecer embaixo: `Success. No rows returned`.
+
+---
+
+## Passo 2 — Proteger os clientes do Xplay (não pule)
+
+Hoje, qualquer pessoa logada no Supabase consegue ver os clientes do Xplay. Este passo deixa esses dados só para o seu e-mail do painel.
+
+1. Ainda no **SQL Editor**, clique em **+ New query**.
+2. Abra [`supabase/gestor-isolamento.sql`](../supabase/gestor-isolamento.sql), copie tudo e cole.
+3. Procure a linha com `SEU-EMAIL-DO-PAINEL` e troque **só esse texto** pelo seu e-mail do painel, mantendo as aspas simples. Exemplo:
+   ```sql
+   where lower(email) = lower('voce@gmail.com')
+   ```
+4. Clique em **Run**.
+
+✅ **Deu certo se** aparecer embaixo uma tabela com **o seu e-mail**.
+
+❌ **Se a tabela vier vazia**, o e-mail está diferente do cadastrado e o painel admin vai parar de mostrar os clientes. Para corrigir:
+- confira o e-mail em **Authentication → Users**;
+- arrume a linha do passo 3;
+- clique em **Run** de novo (pode rodar quantas vezes quiser).
+
+Depois abra o painel admin e confira se os clientes continuam aparecendo.
+
+---
+
+## Passo 3 — Criar a sua conta do Gestor
+
+1. No menu da esquerda, clique em **Authentication** → **Users**.
+2. Clique em **Add user** → **Create new user**.
+3. Preencha o **e-mail** e uma **senha** (mínimo 6 caracteres).
+4. Deixe marcado **Auto Confirm User**.
+5. Clique em **Create user**.
+
+✅ **Deu certo se** o e-mail aparecer na lista de usuários.
+
+> Repita este passo para cada pessoa que for usar o Gestor. Cada conta tem os próprios clientes e não enxerga os das outras.
+
+---
+
+## Passo 4 — Entrar no app
+
+1. Instale o APK do Gestor Simples (por cima da versão anterior, sem desinstalar).
+2. Abra o app. Vai aparecer a tela **Gestor Simples** com **Entrar** e **Criar conta**.
+3. Em **Entrar**, digite o e-mail e a senha do passo 3 e toque em **Entrar**.
+
+✅ **Deu certo se** o app abrir no Dashboard e aparecer um **ponto verde** no canto do logo, no topo.
+
+- **Se o celular já tinha clientes:** eles vão para a sua conta automaticamente na primeira vez que você entra.
+- **Num celular novo:** entre com a mesma conta e os clientes são baixados.
+
+---
+
+## No dia a dia
+
+| O que você vê | O que significa |
+|---|---|
+| 🟢 ponto verde no logo | Tudo salvo na nuvem |
+| 🟡 ponto amarelo piscando | Enviando as alterações |
+| ⚪ ponto cinza | Sem internet. Está tudo salvo no celular e será enviado quando a internet voltar |
+| 🔴 ponto vermelho | Erro ao sincronizar. Veja o motivo em Ferramentas → Perfil |
+
+- Você não precisa salvar nada: cada alteração é enviada sozinha alguns segundos depois.
+- Em **Ferramentas → Perfil → Conta e nuvem** ficam a sua conta, a última sincronização e os botões **Sincronizar** e **Sair**.
+- Se usar a mesma conta em **dois celulares sem internet** e mexer nos dois, o app pergunta qual cópia manter. A cópia que você não escolher perde as alterações que só ela tinha.
+
+---
+
+## Problemas comuns
+
+| Mensagem no app | Como resolver |
+|---|---|
+| **E-mail ou senha incorretos** | Confira os dados. Se esqueceu a senha, veja **Trocar a senha** abaixo. Não apague a conta: os clientes dela são apagados junto. |
+| **Confirme seu e-mail antes de entrar** | A conta foi criada sem **Auto Confirm User**. Em Authentication → Users, clique nos **⋯** da conta → **Confirm email**. |
+| **Novas contas estão desativadas neste servidor** | Normal: o botão "Criar conta" do app fica desligado por segurança. Crie as contas pelo Passo 3. |
+| **Erro: relation "gestor_data" does not exist** | O Passo 1 não foi feito no projeto certo. Rode `gestor.sql` no projeto do Xplay. |
+| **Sem conexão com o servidor** | O celular está sem internet. Pode continuar usando: os dados ficam no celular e são enviados depois. |
+| O painel admin parou de mostrar clientes | O e-mail do Passo 2 estava errado. Corrija e rode `gestor-isolamento.sql` de novo. |
+
+---
+
+## Trocar a senha de uma conta
+
+O link de "Esqueci minha senha" do app ainda não tem página para abrir, então troque pelo Supabase:
+
+1. **SQL Editor → + New query**, cole o texto abaixo trocando o e-mail e a nova senha:
+   ```sql
+   update auth.users
+      set encrypted_password = crypt('NOVA-SENHA', gen_salt('bf'))
+    where lower(email) = lower('voce@gmail.com');
+   ```
+2. Clique em **Run**. ✅ Deve aparecer `Success. 1 row affected`.
+3. No app, entre com a senha nova.
+
+---
+
+## Opcional — deixar o "Criar conta" do app funcionando
+
+Só faça isso **depois do Passo 2**. Sem ele, quem criar uma conta consegue ver os clientes do Xplay.
+
+1. **Authentication → Sign In / Providers**.
+2. Ative **Allow new users to sign up**.
+3. Se **Confirm email** estiver ligado, a pessoa precisa clicar no link que chega no e-mail antes de entrar. Desligue essa opção se preferir que ela entre direto.
