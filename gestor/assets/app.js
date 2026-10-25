@@ -999,7 +999,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v3.6 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v3.7 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1663,14 +1663,15 @@ function renewDialog(c) {
       <div class="ren-who"><div><b>${esc(c.name)}</b><span>${esc(p.name)}${c.qty > 1 ? ` · ${c.qty} telas` : ''}</span></div>
         <div class="p"><b>${money(priceOf(c))}</b>${c.discount ? `<small>−${money(c.discount)}</small>` : ''}</div></div>
       <div class="ren-dates"><div><small>Vencimento atual</small><b>${br(c.due)}</b></div>${ic('arrowR')}<div class="new"><small>Novo vencimento</small><b>${br(next)}</b></div></div>
-      <p class="ren-note">⚠️ Renovação será registrada como paga</p>
+      <p class="ren-note">⚠️ Renovação será registrada como paga</p>${c.archived ? '<p class="ren-note" style="color:#1f6b3a">📦 O cliente sairá dos Arquivados e voltará para a lista</p>' : ''}
       <div class="two"><button class="btn light" data-act="close">Cancelar</button><button class="btn blue" id="doRenew">Confirmar</button></div>
     </div></div>`, 'center');
   s.querySelector('#doRenew').onclick = () => {
-    const old = c.due;
+    const old = c.due, wasArchived = !!c.archived;
     c.due = next;
+    c.archived = false;   // a renewed client is active again
     const pay = addPayment(c, 'renovacao', priceOf(c));
-    log('Plano Renovado', `${c.name} - ${p.name} | Valor: R$ ${pay.amount.toFixed(2)} | Novo vencimento: ${br(next)}`, { type: 'renew', clientId: c.id, oldDue: old, paymentId: pay.id });
+    log('Plano Renovado', `${c.name} - ${p.name} | Valor: R$ ${pay.amount.toFixed(2)} | Novo vencimento: ${br(next)}`, { type: 'renew', clientId: c.id, oldDue: old, paymentId: pay.id, wasArchived });
     snapshot(); closeTop(); refresh(); reopenDetail(c.id);
     setTimeout(() => successDialog(c, 'renovacao'), 200);
   };
@@ -1751,7 +1752,7 @@ function undo(id) {
   const u = h.undo;
   const dropPay = pid => { db.payments = db.payments.filter(p => p.id !== pid); };
   if (u.type === 'create') { db.clients = db.clients.filter(c => c.id !== u.clientId); if (u.paymentId) dropPay(u.paymentId); }
-  else if (u.type === 'renew') { const c = db.clients.find(x => x.id === u.clientId); if (c) c.due = u.oldDue; dropPay(u.paymentId); }
+  else if (u.type === 'renew') { const c = db.clients.find(x => x.id === u.clientId); if (c) { c.due = u.oldDue; if (u.wasArchived) c.archived = true; } dropPay(u.paymentId); }
   else if (u.type === 'delete') { db.clients.push(u.client); }
   else if (u.type === 'edit') { const i = db.clients.findIndex(x => x.id === u.before.id); if (i >= 0) db.clients[i] = u.before; }
   h.undone = true;
