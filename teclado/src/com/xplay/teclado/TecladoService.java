@@ -89,6 +89,8 @@ public class TecladoService extends InputMethodService
         super.onCreate();
         store = new Store(this);
         dp = getResources().getDisplayMetrics().density;
+        theme = Themes.get(store.theme());
+        scale = store.scale();
         clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
         clipboard.addPrimaryClipChangedListener(this);
     }
@@ -117,7 +119,12 @@ public class TecladoService extends InputMethodService
         content = new FrameLayout(this);
         root.addView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT));
+        theme = Themes.get(store.theme());
         scale = store.scale();
+        kb.setTheme(theme);
+        kb.setScale(scale);
+        kb.setVibrate(store.vibrate());
+        kb.setNumberRow(store.numberRow());
         render();
         return root;
     }

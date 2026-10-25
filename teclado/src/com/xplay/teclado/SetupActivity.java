@@ -79,7 +79,9 @@ public class SetupActivity extends Activity {
         foot.setPadding(dp(4), dp(18), dp(4), 0);
         root.addView(foot);
 
-        if (getIntent() != null && getIntent().getBooleanExtra("askMic", false) && Build.VERSION.SDK_INT >= 23) {
+        // Ask for the microphone up front, like the official keyboards do, so dictation just works.
+        if (Build.VERSION.SDK_INT >= 23
+                && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 1);
         }
     }
