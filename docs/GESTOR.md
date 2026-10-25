@@ -109,3 +109,14 @@ Só faça isso **depois do Passo 2**. Sem ele, quem criar uma conta consegue ver
 1. **Authentication → Sign In / Providers**.
 2. Ative **Allow new users to sign up**.
 3. Se **Confirm email** estiver ligado, a pessoa precisa clicar no link que chega no e-mail antes de entrar. Desligue essa opção se preferir que ela entre direto.
+
+---
+
+## Ver os dados no Supabase
+
+O app guarda tudo de cada conta numa linha só da tabela `gestor_data` (coluna `data`). Para ver clientes, planos e pagamentos como tabelas:
+
+1. Abra <https://supabase.com/dashboard/project/xgubfucijtaazvuzcluw/sql/new>, cole [`supabase/gestor-visoes.sql`](../supabase/gestor-visoes.sql) e clique em **Run**.
+2. Em **Table Editor**, aparecem `gestor_clientes`, `gestor_planos` e `gestor_pagamentos`, uma linha por item, com a coluna `conta` (e-mail).
+
+São só para consulta: alterações devem ser feitas pelo app.
