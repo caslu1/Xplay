@@ -53,6 +53,11 @@ public class MainActivity extends Activity {
                 openExternal(url);
                 return true;
             }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                checkClipboard();
+            }
         });
         web.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -75,6 +80,30 @@ public class MainActivity extends Activity {
         if (state != null) web.restoreState(state);
         else web.loadUrl("file:///android_asset/index.html");
         setContentView(web);
+    }
+
+    private String lastClip;
+
+    /** Android only lets the focused app read the clipboard, so check whenever the window gets focus. */
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) checkClipboard();
+    }
+
+    private void checkClipboard() {
+        try {
+            ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cm == null || !cm.hasPrimaryClip() || cm.getPrimaryClip().getItemCount() == 0) return;
+            CharSequence t = cm.getPrimaryClip().getItemAt(0).coerceToText(this);
+            if (t == null) return;
+            String text = t.toString().trim();
+            if (text.length() == 0 || text.length() > 40 || text.equals(lastClip)) return;
+            lastClip = text;
+            String js = "window.onClipboard && window.onClipboard(" + org.json.JSONObject.quote(text) + ")";
+            web.evaluateJavascript(js, null);
+        } catch (Exception ignored) {
+        }
     }
 
     @Override

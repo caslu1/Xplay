@@ -61,6 +61,7 @@ const ICONS = {
   copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   trendDown: '<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
+  clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
   send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
 };
 const ic = (n, extra) => {
@@ -179,12 +180,14 @@ function migrate() {
 let IDX = null;
 function idx() {
   if (IDX) return IDX;
-  const plans = {}, paid = new Set(), byMonth = {};
+  const plans = {}, paid = new Set(), byMonth = {}, use = {};
   db.plans.forEach(p => { plans[p.id] = p; });
+  db.clients.forEach(c => { if (!c.archived && c.planId) use[c.planId] = (use[c.planId] || 0) + 1; });
   db.payments.forEach(p => { paid.add(p.clientId); const k = p.date.slice(0, 7); (byMonth[k] || (byMonth[k] = [])).push(p); });
-  return (IDX = { plans, paid, byMonth });
+  return (IDX = { plans, paid, byMonth, use });
 }
 const invalidate = () => { IDX = null; };
+const plansByUse = () => { const u = idx().use; return db.plans.slice().sort((a, b) => (u[b.id] || 0) - (u[a.id] || 0) || a.name.localeCompare(b.name)); };
 const paysIn = k => idx().byMonth[k] || [];
 // Writing ~2 MB to localStorage takes a few ms, so it runs after the UI has updated.
 let saveT = 0;
@@ -391,7 +394,7 @@ function filteredClients() {
   });
 }
 const optLabel = (opts, v) => (opts.find(o => o[0] === v) || opts[0])[1];
-const planOpts = () => [['todos', 'Todos']].concat(db.plans.map(p => [p.id, p.name]));
+const planOpts = () => [['todos', 'Todos']].concat(plansByUse().map(p => [p.id, p.name]));
 
 VIEWS.clientes = () => {
   const statusOpts = STATUS_OPTS.concat(state.fStatus === 'p5h' ? [['p5h', 'Próx. 5d']] : []);
@@ -907,7 +910,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v1.6 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v1.7 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1398,13 +1401,33 @@ function paysSheet(c) {
 /* Plan field: button + inline list with search, like the original app. */
 function planPicker(sel) {
   const p = db.plans.find(x => x.id === sel);
-  return `<div class="pp" id="pp"><button type="button" class="pp-btn" id="ppBtn"><span class="${p ? '' : 'ph'}">${p ? esc(p.name) : 'Selecione um plano'}</span>${ic('down')}</button>
-    <div class="pp-menu" id="ppMenu" hidden><div class="pp-s"><input id="ppQ" placeholder="Pesquisar plano..." autocomplete="off"></div><div class="pp-list" id="ppList"></div></div></div>`;
+  return `<button type="button" class="pp-btn" id="ppBtn"><span class="${p ? '' : 'ph'}">${p ? esc(p.name) : 'Selecione um plano'}</span>${ic('down')}</button>`;
+}
+/* Full-width plan list, most used plans first; search only when the user taps it (no keyboard over the list). */
+function planSheet(current, onPick) {
+  const use = idx().use;
+  const s = overlay(`<div class="sheet psheet">
+    <div class="ps-h"><b>Selecionar Plano</b><button class="x" data-act="close">${ic('x')}</button></div>
+    <label class="search ps-s">${ic('search')}<input id="psQ" type="search" placeholder="Pesquisar plano ou código..." autocomplete="off"></label>
+    <div class="ps-list" id="psList"></div></div>`);
+  const list = s.querySelector('#psList'), q = s.querySelector('#psQ');
+  const fill = () => {
+    const t = q.value.trim().toUpperCase();
+    const items = plansByUse().filter(p => !t || p.name.toUpperCase().includes(t) || String(p.code).includes(t));
+    const top = t ? 0 : Math.min(5, items.filter(p => use[p.id]).length);
+    list.innerHTML = items.map((p, i) => `${i === 0 && top ? '<div class="ps-sec">Mais usados</div>' : ''}${i === top && top ? '<div class="ps-sec">Todos os planos</div>' : ''}
+      <button type="button" data-id="${p.id}" class="${p.id === current ? 'on' : ''}"><i class="dotc" style="background:${p.color || '#E3F2FD'}"></i>
+        <span><b>${esc(p.name)}</b><small>${TYPE_NAMES[p.type]} · #${esc(p.code)} · ${use[p.id] || 0} clientes</small></span><em>${money(p.price)}</em>${p.id === current ? ic('check') : ''}</button>`).join('')
+      || '<div class="pp-none">Nenhum plano encontrado</div>';
+    paintIcons(list);
+  };
+  q.oninput = fill; fill();
+  list.onclick = e => { const b = e.target.closest('[data-id]'); if (!b) return; closeTop(); onPick(db.plans.find(x => x.id === b.dataset.id)); };
 }
 const dot2 = v => 'R$ ' + (Number(v) || 0).toFixed(2);
-function clientForm(c) {
+function clientForm(c, prefill) {
   const isNew = !c;
-  c = c || { name: '', phone: '', planId: '', due: '', qty: 1, discount: 0, notes: '' };
+  c = c || Object.assign({ name: '', phone: '', planId: '', due: '', qty: 1, discount: 0, notes: '' }, prefill);
   let planId = planOf(c) ? c.planId : '';
   const s = overlay(`<div class="sheet"><form class="form" id="cform" autocomplete="off" novalidate>
     <button type="button" class="x" data-act="close">${ic('x')}</button>
@@ -1425,7 +1448,6 @@ function clientForm(c) {
     <div class="f" id="notesBox" ${c.notes ? '' : 'hidden'}><textarea id="fNotes" placeholder="Usuário, senha, aparelho...">${esc(c.notes || '')}</textarea></div>
     <button class="btn" type="submit">${isNew ? '+ Adicionar Cliente' : '✓ Atualizar Cliente'}</button>
   </form></div>`);
-  const menu = $('#ppMenu'), list = $('#ppList'), q = $('#ppQ');
   const sum = () => {
     const p = db.plans.find(x => x.id === planId), box = $('#priceSum');
     if (!p) { box.hidden = true; return; }
@@ -1433,26 +1455,12 @@ function clientForm(c) {
     box.hidden = false;
     box.innerHTML = `<span>${dot2(p.price)}${qty > 1 ? ` × ${qty}` : ''}${disc ? ` − ${dot2(disc)}` : ''}</span><b>${dot2(Math.max(0, p.price * qty - disc))}</b>`;
   };
-  const fill = () => {
-    const t = q.value.trim().toUpperCase();
-    const items = db.plans.filter(p => !t || p.name.toUpperCase().includes(t) || String(p.code).includes(t));
-    list.innerHTML = items.map(p => `<button type="button" data-id="${p.id}" class="${p.id === planId ? 'on' : ''}"><span>${esc(p.name)}</span><em>${money(p.price)}</em></button>`).join('') || '<div class="pp-none">Nenhum plano encontrado</div>';
-  };
-  const toggle = open => {
-    menu.hidden = !open; $('#ppBtn').classList.toggle('open', open);
-    if (open) { q.value = ''; fill(); setTimeout(() => q.focus(), 30); }
-  };
-  $('#ppBtn').onclick = () => toggle(menu.hidden);
-  q.oninput = fill;
-  list.onclick = e => {
-    const b = e.target.closest('[data-id]'); if (!b) return;
-    planId = b.dataset.id;
-    const p = db.plans.find(x => x.id === planId);
+  $('#ppBtn').onclick = () => planSheet(planId, p => {
+    planId = p.id;
     $('#ppBtn span').textContent = p.name; $('#ppBtn span').className = '';
     if (isNew || !$('#fDue').value) $('#fDue').value = addMonths(today(), TYPES[p.type] || 1);
-    toggle(false); sum();
-  };
-  s.addEventListener('click', e => { if (!menu.hidden && !e.target.closest('#pp')) toggle(false); });
+    sum();
+  });
   $('#fQty').oninput = sum; $('#fDisc').oninput = sum; sum();
   $('#foldNotes').onclick = () => { $('#notesBox').hidden = !$('#notesBox').hidden; if (!$('#notesBox').hidden) $('#fNotes').focus(); };
   s.querySelector('form').onsubmit = e => {
@@ -1692,6 +1700,33 @@ document.addEventListener('click', e => {
     case 'backup-now': backupNow(); break;
   }
 });
+
+/* ---------- Copied phone number ---------- */
+// Called by the Android app when it regains focus with text on the clipboard.
+window.onClipboard = text => {
+  text = String(text || '').trim();
+  if (!text || text.length > 40 || text === onClipboard.last) return;
+  const digits = text.replace(/\D/g, '');
+  if (digits.length < 10 || digits.length > 13 || /[a-zA-Z]{3,}/.test(text)) return;
+  onClipboard.last = text;
+  const phone = normPhone(text), tail = phone.slice(-8);
+  const found = db.clients.filter(c => String(c.phone).slice(-8) === tail);
+  const c = found.find(x => x.phone === phone) || found[0];
+  showClipCard(c, phone);
+};
+function showClipCard(c, phone) {
+  document.querySelectorAll('.clip').forEach(x => x.remove());
+  const el = document.createElement('div');
+  el.className = 'clip';
+  el.innerHTML = `<div class="clip-h">${ic('clipboard')}<span>Número copiado detectado</span><button data-x>${ic('x')}</button></div>
+    <div class="clip-b"><div class="ini">${c ? initials(c.name) : ic('phone')}</div><div><b>${c ? esc(c.name) : 'Número novo'}</b><span class="ph">${ic('phone')} ${esc(fmtPhone(phone))}</span></div></div>
+    <button class="btn" data-go>${ic(c ? 'user' : 'userplus')} ${c ? 'Ver Cliente' : 'Cadastrar Cliente'}</button>`;
+  document.body.appendChild(el);
+  const close = () => { el.classList.add('out'); setTimeout(() => el.remove(), 180); };
+  el.querySelector('[data-x]').onclick = close;
+  el.querySelector('[data-go]').onclick = () => { close(); if (c) detailSheet(c); else clientForm(null, { phone }); };
+  setTimeout(() => { if (el.isConnected) close(); }, 15000);
+}
 
 /* ---------- Start ---------- */
 load();
