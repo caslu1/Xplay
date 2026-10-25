@@ -368,3 +368,4 @@ svg.chart text { font-family: inherit; fill: #9aa0ae; font-size: 12px; }
 .actions .btn-wa { font-size: 13px; }
 .actions .btn-wa i { width: 18px; height: 18px; }
 .val em { white-space: nowrap; }
+.kpi .v { font-size: min(24px, 5vw); letter-spacing: -.3px; }

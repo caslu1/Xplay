@@ -91,18 +91,20 @@ const monLabel = (key, short) => {
 const cap = s => s.replace(/(^|\s)\S/g, c => c.toUpperCase());
 const shiftMonth = (key, n) => addMonths(key + '-01', n).slice(0, 7);
 const nowStamp = () => { const d = new Date(); return `${iso(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+// Phones are stored as digits with country code (Brazilian numbers always start with 55).
 function fmtPhone(p) {
   const d = String(p || '').replace(/\D/g, '');
-  if (d.length >= 12 && d.startsWith('55')) {
+  if (!d) return '';
+  if (d.startsWith('55') && (d.length === 12 || d.length === 13)) {
     const n = d.slice(4);
     return `+55 ${d.slice(2, 4)} ${n.slice(0, n.length - 4)}-${n.slice(-4)}`;
   }
-  if (d.length === 10 || d.length === 11) return `+55 ${d.slice(0, 2)} ${d.slice(2, d.length - 4)}-${d.slice(-4)}`;
-  return p || '';
+  return '+' + d;
 }
 function normPhone(p) {
-  let d = String(p || '').replace(/\D/g, '');
-  if (d.length === 10 || d.length === 11) d = '55' + d;
+  const raw = String(p || '').trim();
+  let d = raw.replace(/\D/g, '');
+  if (!raw.startsWith('+') && (d.length === 10 || d.length === 11)) d = '55' + d;
   return d;
 }
 function toast(msg) {
@@ -246,7 +248,7 @@ const gradFor = name => {
 };
 const initial = n => esc((n || '?').trim().charAt(0).toUpperCase());
 function waLink(c, text) {
-  const d = normPhone(c.phone);
+  const d = String(c.phone || '').replace(/\D/g, '');
   return `https://wa.me/${d}${text ? '?text=' + encodeURIComponent(text) : ''}`;
 }
 function waMessage(c) {
@@ -578,7 +580,7 @@ const DDD = {};
 const UF_GRID = { RR: [1, 0], AP: [3, 0], AM: [1, 1], PA: [2, 1], MA: [3, 1], CE: [4, 1], RN: [5, 1], AC: [0, 2], RO: [1, 2], TO: [2, 2], PI: [3, 2], PE: [4, 2], PB: [5, 2],
   MT: [1, 3], GO: [2, 3], BA: [3, 3], SE: [4, 3], AL: [5, 3], MS: [1, 4], DF: [2, 4], MG: [3, 4], ES: [4, 4], SP: [2, 5], RJ: [3, 5], PR: [2, 6], SC: [2, 7], RS: [2, 8] };
 function ufOf(c) {
-  const d = normPhone(c.phone);
+  const d = String(c.phone || '').replace(/\D/g, '');
   return d.startsWith('55') && d.length >= 12 ? DDD[d.slice(2, 4)] : null;
 }
 function estadosCard() {
@@ -965,13 +967,51 @@ function importFile(f) {
     const txt = String(r.result).replace(/^﻿/, '');
     try {
       if (txt.trim().startsWith('{')) {
-        const d = JSON.parse(txt);
-        if (!d.clients || !d.plans) throw new Error('arquivo não é um backup do gestor');
-        confirmDialog('Restaurar backup', `Substituir os dados atuais por ${d.clients.length} clientes do backup?`, () => { db = d; load2(); refresh(); toast('Backup restaurado'); });
+        let d = JSON.parse(txt);
+        let label = 'backup';
+        if (d.data && Array.isArray(d.data.clientes)) { d = fromGestorSimples(d); label = 'backup do Gestor Simples'; }
+        if (!d.clients || !d.plans) throw new Error('arquivo não é um backup reconhecido');
+        confirmDialog('Restaurar backup', `Substituir os dados atuais pelo ${label}: ${d.clients.length} clientes, ${d.plans.length} planos e ${d.payments.length} pagamentos?`, () => {
+          db = d; load2(); snapshot(); refresh(); toast(`${d.clients.length} clientes importados`);
+        });
       } else importCsv(txt);
     } catch (e) { toast('Erro: ' + e.message); }
   };
   r.readAsText(f);
+}
+/* Converts a "Gestor Simples" export (version 2.x: data.clientes / planos / mensalidades). */
+function fromGestorSimples(src) {
+  const D = src.data, out = blank();
+  const localDate = s => { if (!s) return ''; const t = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s + 'Z'); return isNaN(t) ? s.slice(0, 10) : iso(t); };
+  const localTime = s => { if (!s) return '12:00'; const t = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s + 'Z'); return isNaN(t) ? '12:00' : `${pad(t.getHours())}:${pad(t.getMinutes())}`; };
+  const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(n) ? 0 : n; };
+  out.plans = (D.planos || []).map(p => ({ id: String(p.id), name: String(p.nome || 'PLANO').trim(), type: TYPES[String(p.periodo).toLowerCase()] ? String(p.periodo).toLowerCase() : 'mensal',
+    price: num(p.preco), cost: num(p.custo) }));
+  const planById = {}, planByName = {};
+  out.plans.forEach(p => { planById[p.id] = p; planByName[p.name.toUpperCase()] = p; });
+  out.clients = (D.clientes || []).map(c => {
+    let plan = planById[String(c.plano_id)] || planByName[String(c.plano_nome || '').trim().toUpperCase()];
+    return { id: String(c.id), name: String(c.nome || '').trim() || 'Sem nome', phone: normPhone(c.whatsapp), planId: plan ? plan.id : '',
+      due: /^\d{4}-\d{2}-\d{2}/.test(c.data_vencimento || '') ? c.data_vencimento.slice(0, 10) : '',
+      qty: Math.max(1, parseInt(c.quantidade, 10) || 1), discount: Math.max(0, num(c.desconto)), notes: c.notas || '',
+      essential: !!c.essencial, archived: String(c.status).toLowerCase() === 'arquivado', createdAt: localDate(c.created_date) || today() };
+  });
+  const clientById = {}; out.clients.forEach(c => { clientById[c.id] = c; });
+  out.payments = (D.mensalidades || []).filter(m => !m.status || String(m.status).toLowerCase() === 'pago').map(m => {
+    const c = clientById[String(m.cliente_id)];
+    const desc = String(m.descricao || '');
+    const nm = (desc.match(/plano(?: para)? (.+?)\s*(?:\(|$)/i) || [])[1];
+    const plan = (nm && planByName[nm.trim().toUpperCase()]) || (c && planById[c.planId]);
+    const qty = c ? c.qty : 1;
+    const day = /^\d{4}-\d{2}-\d{2}/.test(m.data_pagamento || '') ? m.data_pagamento.slice(0, 10) : localDate(m.created_date) || today();
+    return { id: String(m.id), clientId: String(m.cliente_id), clientName: m.cliente_nome || (c ? c.name : ''), planName: plan ? plan.name : (nm || ''),
+      amount: num(m.valor), cost: plan ? plan.cost * qty : 0, date: `${day}T${localTime(m.created_date)}`,
+      kind: String(m.metodo_pagamento).toLowerCase() === 'cadastro' || /^pagamento inicial/i.test(desc) ? 'cadastro' : 'renovacao' };
+  });
+  out.history = [{ id: uid(), title: 'Backup Importado', desc: `${src.app || 'Gestor Simples'} - ${out.clients.length} clientes, ${out.plans.length} planos, ${out.payments.length} pagamentos`, at: nowStamp(), undo: null, undone: false }];
+  const notes = (D.notas_adesivas || []).map(n => `${n.titulo || ''}: ${n.conteudo || ''}`.trim()).filter(Boolean);
+  if (notes.length) out.settings.stickyNotes = notes;
+  return out;
 }
 function load2() { db.snapshots = db.snapshots || {}; db.history = db.history || []; db.payments = db.payments || []; db.settings = Object.assign(blank().settings, db.settings || {}); save(); }
 function importCsv(txt) {
