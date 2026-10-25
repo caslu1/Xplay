@@ -3,8 +3,10 @@
 -- os clientes, recargas, aparelhos e configurações do Xplay, porque as regras do schema.sql
 -- liberam essas tabelas para todo usuário autenticado.
 --
--- 1) Troque SEU-EMAIL-DO-PAINEL pelo e-mail que você usa para entrar no painel admin.
--- 2) Cole tudo em: SQL Editor → New query → Run.
+-- Não precisa editar nada: rode ANTES de criar as contas do Gestor.
+-- Todas as contas que já existem no projeto (as do painel admin) viram administradoras do painel.
+-- Contas que já usam o Gestor (têm dados em gestor_data) ficam de fora.
+-- Cole tudo em: SQL Editor → New query → Run.
 
 create table if not exists panel_admins (
   user_id uuid primary key references auth.users(id) on delete cascade
@@ -12,7 +14,8 @@ create table if not exists panel_admins (
 alter table panel_admins enable row level security;
 
 insert into panel_admins (user_id)
-  select id from auth.users where lower(email) = lower('SEU-EMAIL-DO-PAINEL')
+  select u.id from auth.users u
+   where not exists (select 1 from gestor_data g where g.user_id = u.id)
   on conflict do nothing;
 
 -- Roda com permissão do dono, para a regra conseguir consultar panel_admins.
@@ -30,6 +33,5 @@ create policy admin_all on devices   for all to authenticated using (is_panel_ad
 drop policy if exists admin_all on config;
 create policy admin_all on config    for all to authenticated using (is_panel_admin()) with check (is_panel_admin());
 
--- Conferência: deve mostrar o seu e-mail. Se vier vazio, o e-mail do passo 1 está errado
--- e o painel ficará sem acesso até você corrigir e rodar de novo.
+-- Conferência: deve mostrar o e-mail do painel admin.
 select u.email from panel_admins a join auth.users u on u.id = a.user_id;

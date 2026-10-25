@@ -12,8 +12,7 @@ Você vai precisar de:
 ## Passo 1 — Criar a tabela do Gestor
 
 1. Entre em <https://supabase.com/dashboard> e abra o projeto do **Xplay**.
-2. No menu da esquerda, clique em **SQL Editor** (ícone `>_`).
-3. Clique em **+ New query**.
+2. Abra direto: <https://supabase.com/dashboard/project/xgubfucijtaazvuzcluw/sql/new> (ou menu **SQL Editor** → **+ New query**).
 4. Abra o arquivo [`supabase/gestor.sql`](../supabase/gestor.sql), copie **todo** o conteúdo e cole no editor.
 5. Clique em **Run**, no canto inferior direito (ou aperte Ctrl+Enter).
 
@@ -23,30 +22,19 @@ Você vai precisar de:
 
 ## Passo 2 — Proteger os clientes do Xplay (não pule)
 
-Hoje, qualquer pessoa logada no Supabase consegue ver os clientes do Xplay. Este passo deixa esses dados só para o seu e-mail do painel.
+Hoje, qualquer pessoa logada no Supabase consegue ver os clientes do Xplay. Este passo deixa esses dados só para as contas que já existem (as do painel admin). **Faça antes do Passo 3.**
 
-1. Ainda no **SQL Editor**, clique em **+ New query**.
-2. Abra [`supabase/gestor-isolamento.sql`](../supabase/gestor-isolamento.sql), copie tudo e cole.
-3. Procure a linha com `SEU-EMAIL-DO-PAINEL` e troque **só esse texto** pelo seu e-mail do painel, mantendo as aspas simples. Exemplo:
-   ```sql
-   where lower(email) = lower('voce@gmail.com')
-   ```
-4. Clique em **Run**.
+1. Abra <https://supabase.com/dashboard/project/xgubfucijtaazvuzcluw/sql/new>.
+2. Copie todo o conteúdo de [`supabase/gestor-isolamento.sql`](../supabase/gestor-isolamento.sql) e cole. Não precisa mudar nada.
+3. Clique em **Run**.
 
-✅ **Deu certo se** aparecer embaixo uma tabela com **o seu e-mail**.
-
-❌ **Se a tabela vier vazia**, o e-mail está diferente do cadastrado e o painel admin vai parar de mostrar os clientes. Para corrigir:
-- confira o e-mail em **Authentication → Users**;
-- arrume a linha do passo 3;
-- clique em **Run** de novo (pode rodar quantas vezes quiser).
-
-Depois abra o painel admin e confira se os clientes continuam aparecendo.
+✅ **Deu certo se** aparecer embaixo uma tabela com o **e-mail do painel admin**. Depois abra o painel admin e confira se os clientes continuam aparecendo.
 
 ---
 
 ## Passo 3 — Criar a sua conta do Gestor
 
-1. No menu da esquerda, clique em **Authentication** → **Users**.
+1. Abra <https://supabase.com/dashboard/project/xgubfucijtaazvuzcluw/auth/users> (ou menu **Authentication** → **Users**).
 2. Clique em **Add user** → **Create new user**.
 3. Preencha o **e-mail** e uma **senha** (mínimo 6 caracteres).
 4. Deixe marcado **Auto Confirm User**.
@@ -95,7 +83,7 @@ Depois abra o painel admin e confira se os clientes continuam aparecendo.
 | **Novas contas estão desativadas neste servidor** | Normal: o botão "Criar conta" do app fica desligado por segurança. Crie as contas pelo Passo 3. |
 | **Erro: relation "gestor_data" does not exist** | O Passo 1 não foi feito no projeto certo. Rode `gestor.sql` no projeto do Xplay. |
 | **Sem conexão com o servidor** | O celular está sem internet. Pode continuar usando: os dados ficam no celular e são enviados depois. |
-| O painel admin parou de mostrar clientes | O e-mail do Passo 2 estava errado. Corrija e rode `gestor-isolamento.sql` de novo. |
+| O painel admin parou de mostrar clientes | O Passo 2 foi feito depois de entrar no app com o e-mail do painel. Me avise que eu mando o comando para liberar esse e-mail. |
 
 ---
 
