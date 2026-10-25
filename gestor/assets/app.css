@@ -610,3 +610,79 @@ svg.chart .peak text { fill: #fff; font-weight: 700; font-size: 10.5px; }
 .list-card .lc-head > div:nth-child(2) { flex: 1; min-width: 0; }
 .list-card .lc-head .see { white-space: nowrap; flex: none; }
 .chart-ctl .dd { min-width: 0; }
+
+/* ===== v1.6 compact sheets ===== */
+/* Client detail */
+.det-hero { position: relative; display: flex; align-items: center; gap: 12px; padding: 16px 16px 16px; background: linear-gradient(120deg, #6366f1, #a855f7); color: #fff; }
+.det-hero .ini { width: 48px; height: 48px; border-radius: 14px; background: rgba(255,255,255,.22); border: 1.5px solid rgba(255,255,255,.35); display: grid; place-items: center; font-weight: 700; font-size: 17px; flex: none; }
+.det-hero .dh-t { flex: 1; min-width: 0; }
+.det-hero .dh-t b { display: block; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.det-hero .status { margin-top: 4px; font-size: 12px; padding: 3px 10px; }
+.det-hero .x { position: static; color: #fff; width: 34px; height: 34px; flex: none; }
+.det-body { padding: 14px 16px 18px; }
+.wa-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 12px; border-radius: 14px; background: #eaf8ee; color: #1f7a3c; text-align: left; margin-bottom: 12px; }
+.wa-row > i:first-child { width: 34px; height: 34px; padding: 7px; border-radius: 10px; background: #3fae56; color: #fff; }
+.wa-row span { flex: 1; font-size: 14px; } .wa-row span b { display: block; font-size: 15px; }
+.wa-row > i:last-child { width: 18px; height: 18px; color: #6fb683; }
+.det-plan { border: 1px solid #eceef3; border-radius: 16px; padding: 12px; margin-bottom: 12px; }
+.dp-h { display: flex; align-items: center; gap: 8px; }
+.dp-h > i { width: 18px; height: 18px; color: var(--brand); }
+.dp-h b { flex: 1; font-size: 15px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dp-h .tag { font-size: 12px; padding: 3px 8px; }
+.dp-v { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: 8px; margin: 10px 0; }
+.dp-v > div { background: #f7f8fb; border-radius: 11px; padding: 8px 10px; min-width: 0; }
+.dp-v small { display: block; color: var(--mute); font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; }
+.dp-v b { font-size: 15px; white-space: nowrap; } .dp-v b.g { color: #1f8a43; }
+.dp-v em { display: block; font-style: normal; font-size: 11px; color: #c0392b; white-space: nowrap; }
+.dp-due { display: flex; align-items: center; gap: 8px; background: #fff8e8; border-radius: 11px; padding: 9px 12px; font-size: 14px; color: #8a5a00; }
+.dp-due i { width: 17px; height: 17px; } .dp-due span { flex: 1; } .dp-due b { color: var(--ink); font-size: 15px; }
+.det-tg { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.det-tg .tg { border-width: 1px; border-radius: 12px; padding: 8px 10px; font-size: 14px; }
+.det-tg .tg > i:first-child { width: 17px; height: 17px; }
+.det-tg .tg i.sw { width: 36px; height: 21px; } .det-tg .tg i.sw::after { width: 15px; height: 15px; } .det-tg .tg i.sw.on::after { left: 18px; }
+.det-act { display: grid; grid-template-columns: 1fr 1fr 1.1fr; gap: 8px; }
+.det-act button { display: flex; align-items: center; justify-content: center; gap: 6px; height: 44px; border-radius: 12px; font-weight: 600; font-size: 14px; }
+.det-act i { width: 17px; height: 17px; }
+.b-light { background: #f3f4f7; color: var(--ink); }
+.b-blue { background: linear-gradient(90deg, #4f8cf0, #4f46e5); color: #fff; box-shadow: 0 6px 14px rgba(79,70,229,.25); }
+.det .reg { margin-top: 12px; font-size: 13px; }
+.det .notes { margin: 0 0 12px; font-size: 13.5px; padding: 10px; }
+
+/* Renew dialog */
+.dialog.ren { max-width: 380px; border-radius: 22px; }
+.ren-h { display: flex; align-items: center; gap: 12px; padding: 14px 14px 14px 16px; background: linear-gradient(90deg, #4f8cf0, #4f46e5); color: #fff; }
+.ren-h .c { width: 38px; height: 38px; border-radius: 11px; background: rgba(255,255,255,.22); display: grid; place-items: center; }
+.ren-h .c i { width: 20px; height: 20px; }
+.ren-h h3 { flex: 1; margin: 0; font-size: 18px; }
+.ren-h .x { position: static; color: #fff; width: 32px; height: 32px; }
+.ren-b { padding: 14px 16px 16px; }
+.ren-who { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ren-who b { display: block; font-size: 16px; } .ren-who span { color: var(--ink2); font-size: 13.5px; }
+.ren-who .p { text-align: right; } .ren-who .p b { color: #3b6fe0; font-size: 18px; } .ren-who .p small { color: var(--mute); font-size: 12px; }
+.ren-dates { display: flex; align-items: center; gap: 8px; margin: 14px 0 10px; }
+.ren-dates > div { flex: 1; border-radius: 12px; padding: 9px 11px; background: #f5f6f9; }
+.ren-dates > div.new { background: #ebf8ef; border: 1px solid #c7ecd2; }
+.ren-dates small { display: block; font-size: 11.5px; color: var(--mute); font-weight: 600; }
+.ren-dates b { font-size: 16px; } .ren-dates .new b { color: #1f6b3a; }
+.ren-dates > i { width: 18px; height: 18px; color: var(--mute); flex: none; }
+.ren-note { margin: 0 0 14px; font-size: 13px; color: #92400e; }
+.ren .two { gap: 10px; } .ren .btn { height: 46px; font-size: 15px; border-radius: 12px; }
+
+/* Client form */
+#cform { padding: 16px 16px 18px; }
+#cform .x { top: 12px; right: 12px; }
+#cform .fh { gap: 10px; }
+#cform .fh .ico { width: 38px; height: 38px; border-radius: 11px; }
+#cform .fh .ico i { width: 20px; height: 20px; }
+#cform h2 { font-size: 19px; }
+#cform .sub { margin: 4px 0 12px; padding-bottom: 10px; font-size: 13px; }
+#cform .f { margin-bottom: 10px; }
+#cform .f label { font-size: 13.5px; margin-bottom: 5px; gap: 6px; }
+#cform .f label i { width: 15px; height: 15px; }
+#cform .f input, #cform .pp-btn { height: 44px; font-size: 15px; border-radius: 11px; }
+#cform .f .pre span { top: 12px; }
+#cform .f2 { gap: 10px; }
+#cform .price-sum { padding: 9px 14px; margin: 0 0 10px; font-size: 14px; }
+#cform .fold { padding: 10px 12px; margin-bottom: 12px; font-size: 14px; }
+#cform .btn { height: 48px; font-size: 16px; }
+#cform .pp-menu { top: calc(100% + 6px); }

@@ -907,7 +907,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v1.5 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v1.6 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1346,27 +1346,30 @@ function dropdown(btn, opts, value, onPick) {
 
 function detailSheet(c) {
   const p = planOf(c), st = statusOf(c), price = priceOf(c), base = p ? p.price * (c.qty || 1) : 0, cost = costOf(c);
-  const s = overlay(`<div class="sheet">
-    <div class="sheet-hero"><button class="x" data-act="close">${ic('x')}</button>
-      <div class="det-top"><div class="ini">${initials(c.name)}</div><div><b>${esc(c.name)}</b><br><span class="status" style="--c:${st.color}">${st.short || st.text}</span></div></div></div>
-    <div class="sheet-body">
-      <div class="toggles">
+  const s = overlay(`<div class="sheet det">
+    <div class="det-hero"><div class="ini">${initials(c.name)}</div>
+      <div class="dh-t"><b>${esc(c.name)}</b><span class="status" style="--c:${st.color}">${st.short || st.text}</span></div>
+      <button class="x" data-act="close">${ic('x')}</button></div>
+    <div class="det-body">
+      <button class="wa-row" data-act="wa" data-id="${c.id}">${ic('wa')}<span><b>WhatsApp</b>${esc(fmtPhone(c.phone))}</span>${ic('right')}</button>
+      <div class="det-plan">
+        <div class="dp-h">${ic('box')}<b>${p ? esc(p.name) : 'Sem plano'}</b>${p ? `<span class="tag">${p.type}${c.qty > 1 ? ` · ${c.qty} telas` : ''}</span>` : ''}</div>
+        <div class="dp-v">
+          <div><small>Valor</small><b>${money(price)}</b>${c.discount > 0 ? `<em>${money(base)} −${money(c.discount).replace('R$ ', '')}</em>` : ''}</div>
+          <div><small>Custo</small><b>${money(cost)}</b></div>
+          <div><small>Lucro</small><b class="g">${money(price - cost)}</b></div>
+        </div>
+        <div class="dp-due">${ic('calendar')}<span>Vencimento</span><b>${br(c.due)}</b></div>
+      </div>
+      ${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ''}
+      <div class="det-tg">
         <button class="tg" data-act="t-ess" data-id="${c.id}">${ic('star')}<span>Essencial</span><i class="sw ${c.essential ? 'on' : ''}"></i></button>
         <button class="tg" data-act="t-arc" data-id="${c.id}">${ic('archive')}<span>Arquivar</span><i class="sw ${c.archived ? 'on' : ''}"></i></button>
       </div>
-      <button class="wa-big" data-act="wa" data-id="${c.id}"><div class="ic">${ic('wa')}</div><div><b>Abrir WhatsApp</b><span>${esc(fmtPhone(c.phone))}</span></div>${ic('chat')}</button>
-      <div class="plan-box">
-        <div class="ph"><div class="ico">${ic('box')}</div><b>${p ? esc(p.name) : 'Sem plano'}</b>${p ? `<span class="tag">${p.type}</span>` : ''}</div>
-        <div class="vals">
-          <div class="val"><small style="color:#9aa0ae">${ic('dollar', 'style="color:#3fae56"')} VALOR</small>${c.discount > 0 ? `<s>${money(base)}</s>` : ''}<b>${money(price)}</b>${c.discount > 0 ? ` <em>${ic('tag', 'style="width:13px;height:13px"')}-${money(c.discount)}</em>` : ''}${c.qty > 1 ? `<small>${c.qty} telas</small>` : ''}</div>
-          <div class="val"><small>${ic('trending', 'style="color:#3b6fe0"')} CUSTO</small><b>${money(cost)}</b><span class="lucro">Lucro ${money(price - cost)}</span></div>
-        </div>
-        <div class="due-box"><div class="ico">${ic('calendar')}</div><div><b>${br(c.due)}</b><span>Vencimento</span></div></div>
-      </div>
-      ${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ''}
-      <div class="two" style="margin-top:16px">
-        <button class="btn light" data-act="pays" data-id="${c.id}">${ic('history')} Pagamentos</button>
-        <button class="btn blue" data-act="renew" data-id="${c.id}">${ic('renew')} Renovar</button>
+      <div class="det-act">
+        <button class="b-light" data-act="pays" data-id="${c.id}">${ic('history')} Pagamentos</button>
+        <button class="b-light" data-act="edit" data-id="${c.id}">${ic('edit')} Editar</button>
+        <button class="b-blue" data-act="renew" data-id="${c.id}">${ic('renew')} Renovar</button>
       </div>
       <div class="reg">${ic('userplus')} Cadastrado em ${br(c.createdAt)}</div>
     </div></div>`);
@@ -1485,13 +1488,13 @@ function renewDialog(c) {
   if (!p) { toast('Escolha um plano para este cliente antes de renovar'); return clientForm(c); }
   const base = c.due && c.due >= today() ? c.due : today();
   const next = addMonths(base, TYPES[p.type] || 1);
-  const s = overlay(`<div class="dialog">
-    <div class="dlg-hero"><button class="x" data-act="close">${ic('x')}</button><div class="c">${ic('renew', 'style="width:30px;height:30px"')}</div><h3>Renovar Plano</h3></div>
-    <div class="dlg-body">
-      <div class="ren-c"><div><b>${ic('user')} ${esc(c.name)}</b><div style="margin-top:12px;color:#5b6275">${esc(p.name)}${c.qty > 1 ? ` · ${c.qty} telas` : ''}</div></div>
-        <div class="p"><b>${money(priceOf(c))}</b>${c.discount ? `<small>-R$${Number(c.discount).toFixed(2)}</small>` : ''}</div></div>
-      <div class="ren-new"><small>${ic('checkc')} Novo Vencimento</small><b>${br(next)}</b></div>
-      <div class="ren-warn">⚠️ Renovação será registrada como paga</div>
+  const s = overlay(`<div class="dialog ren">
+    <div class="ren-h"><div class="c">${ic('renew')}</div><h3>Renovar Plano</h3><button class="x" data-act="close">${ic('x')}</button></div>
+    <div class="ren-b">
+      <div class="ren-who"><div><b>${esc(c.name)}</b><span>${esc(p.name)}${c.qty > 1 ? ` · ${c.qty} telas` : ''}</span></div>
+        <div class="p"><b>${money(priceOf(c))}</b>${c.discount ? `<small>−${money(c.discount)}</small>` : ''}</div></div>
+      <div class="ren-dates"><div><small>Vencimento atual</small><b>${br(c.due)}</b></div>${ic('arrowR')}<div class="new"><small>Novo vencimento</small><b>${br(next)}</b></div></div>
+      <p class="ren-note">⚠️ Renovação será registrada como paga</p>
       <div class="two"><button class="btn light" data-act="close">Cancelar</button><button class="btn blue" id="doRenew">Confirmar</button></div>
     </div></div>`, 'center');
   s.querySelector('#doRenew').onclick = () => {
