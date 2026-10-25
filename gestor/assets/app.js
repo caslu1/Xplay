@@ -23,7 +23,7 @@ const ICONS = {
   edit: '<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.4 2.6a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/>',
   renew: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
   trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
-  wa: '<path d="M3 21l1.65-4.8A9 9 0 1 1 7.8 19.4z"/><path d="M9.2 8.2c-.4 2.8 3.6 6.9 6.6 6.6l.9-1.5-2-1.1-.9.8c-1-.4-2.4-1.8-2.8-2.8l.8-.9-1.1-2z"/>',
+  wa: '<path fill="currentColor" stroke="none" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>',
   chat: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
   x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
   plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
@@ -254,9 +254,7 @@ function go(tab, keepScroll) {
   if (!keepScroll) window.scrollTo(0, 0);
 }
 function updateHeader() {
-  const brand = db.settings.brand || 'GS';
-  $('#avatar').innerHTML = db.settings.photo ? `<img src="${db.settings.photo}" alt="">` : esc(brand);
-  const due = live().filter(c => c.due && daysLeft(c) === 0).length;
+  const due = notifItems().filter(n => !n.read).length;
   const dot = $('#bellDot'); dot.hidden = !due; dot.textContent = due > 99 ? '99+' : due;
 }
 function render() {
@@ -961,7 +959,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v2.3 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v2.4 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -980,7 +978,6 @@ SUBVIEWS.perfil = () => {
       <input type="file" id="photoIn" accept="image/*" hidden>
       <div class="f"><label>${ic('user', 'style="color:#a855f7"')} Seu nome</label><input id="prName" value="${esc(st.owner || '')}" placeholder="Seu nome"></div>
       <div class="f"><label>${ic('box', 'style="color:#4f46e5"')} Empresa</label><input id="prCompany" value="${esc(st.company || '')}" placeholder="Nome da revenda (usado em {empresa})"></div>
-      <div class="f"><label>${ic('tag', 'style="color:#3b82f6"')} Texto do círculo do topo</label><input id="prBrand" maxlength="12" value="${esc(st.brand || '')}"></div>
       <div class="f"><label>${ic('phone', 'style="color:#3fae56"')} WhatsApp</label><input id="prPhone" type="tel" value="${esc(st.phone || '')}"></div>
       <button class="btn" data-act="save-profile">${ic('save')} Salvar</button>
     </div>`;
@@ -1591,14 +1588,62 @@ function confirmDialog(title, text, onOk) {
 
 function historyPop() {
   closeMenus();
-  const back = document.createElement('div'); back.className = 'pop-scrim'; back.style.cssText = 'position:fixed;inset:0;z-index:59'; back.onclick = closeMenus;
-  const p = document.createElement('div'); p.className = 'pop';
-  const when = s => { const d = parse(s); return `${d.getDate()} de ${MONTHS[d.getMonth()].slice(0, 3)} às ${s.slice(11, 16)}`; };
-  p.innerHTML = `<div class="ph">${ic('history')} Histórico <span class="n">${db.history.length}</span></div><div class="pb">${db.history.map(h => `<div class="hi"><span class="ck">✓</span><div>
-    <b>${esc(h.title)}</b><p>${esc(h.desc)}</p><small>${when(h.at)}</small>
-    ${h.undone ? `<span class="done">${ic('checkc')} Ação desfeita</span>` : h.undo ? `<button class="undo" data-undo="${h.id}">${ic('undo')} Desfazer</button>` : ''}</div></div>`).join('') || '<div class="empty">Nenhuma ação ainda</div>'}</div>`;
-  document.body.append(back, p); paintIcons(p);
-  p.addEventListener('click', e => { const b = e.target.closest('[data-undo]'); if (b) confirmUndo(b.dataset.undo, () => historyPop()); });
+  const dayLbl = d => d === today() ? 'Hoje' : d === addDays(today(), -1) ? 'Ontem' : `${parse(d).getDate()} de ${MONTHS[parse(d).getMonth()]}`;
+  let last = '', html = '';
+  db.history.slice(0, 150).forEach(h => {
+    const d = h.at.slice(0, 10), [e, bg] = actIcon(h);
+    if (d !== last) { html += `<div class="ns-sec">${dayLbl(d)}</div>`; last = d; }
+    html += `<div class="hs-it${h.undone ? ' undone' : ''}"><div class="ai" style="background:${bg}">${e}</div>
+      <div class="hb"><div class="ht"><b>${esc(h.title)}</b><time>${h.at.slice(11, 16)}</time></div><p>${esc(h.desc)}</p>
+      ${h.undone ? `<span class="done">${ic('checkc')} Ação desfeita</span>` : h.undo ? `<button class="undo" data-undo="${h.id}">${ic('undo')} Desfazer</button>` : ''}</div></div>`;
+  });
+  const s = overlay(`<div class="sheet nsheet">
+    <div class="ns-h"><div class="ico" style="background:#eef0ff;color:#4f46e5">${ic('history')}</div><div><b>Histórico</b><small>${db.history.length} atividades</small></div><button class="x" data-act="close">${ic('x')}</button></div>
+    <div class="ns-b">${html || `<div class="empty">${ic('history')}<div>Nenhuma ação ainda</div></div>`}</div></div>`);
+  s.querySelector('.ns-b').addEventListener('click', e => { const b = e.target.closest('[data-undo]'); if (b) { e.stopPropagation(); confirmUndo(b.dataset.undo, () => { closeTop(); setTimeout(historyPop, 200); }); } });
+}
+/* Notifications: due today, tomorrow and yesterday; each can be marked as read (kept for the day). */
+function readSet() {
+  const r = db.settings.notifRead;
+  if (!r || r.day !== today()) db.settings.notifRead = { day: today(), ids: [] };
+  return db.settings.notifRead;
+}
+function notifItems() {
+  const read = new Set(readSet().ids), out = [];
+  const add = (kind, d) => live().forEach(c => { if (daysLeft(c) === d) { const key = kind + ':' + c.id; out.push({ key, kind, c, read: read.has(key) }); } });
+  add('hoje', 0); add('amanha', 1); add('ontem', -1);
+  return out;
+}
+const NOTIF_GROUPS = [['hoje', 'Vencem hoje', '#ea580c'], ['amanha', 'Vencem amanhã', '#ca8a04'], ['ontem', 'Venceram ontem', '#dc2626']];
+function notificationsPop() {
+  closeMenus();
+  const items = notifItems(), unread = items.filter(n => !n.read).length;
+  const body = NOTIF_GROUPS.map(([k, t, col]) => {
+    const g = items.filter(n => n.kind === k); if (!g.length) return '';
+    return `<div class="ns-sec"><i style="background:${col}"></i>${t}<span>${g.length}</span></div>` + g.map(n => { const c = n.c, p = planOf(c);
+      return `<div class="ns-it${n.read ? ' read' : ''}" data-key="${n.key}">
+        <div class="ini">${initials(c.name)}</div>
+        <div class="nb" data-act="detail" data-id="${c.id}"><b>${esc(shortName(c.name))}</b><span>${p ? esc(p.name) : 'Sem plano'} · ${money(priceOf(c))}</span></div>
+        <button class="wa" data-act="wa" data-id="${c.id}" aria-label="WhatsApp">${ic('wa')}</button>
+        <button class="rd" data-read="${n.key}" aria-label="Marcar como lido">${ic(n.read ? 'checkc' : 'check')}</button></div>`; }).join('');
+  }).join('');
+  const s = overlay(`<div class="sheet nsheet">
+    <div class="ns-h"><div class="ico" style="background:#fff1e6;color:#ea580c">${ic('bell')}</div><div><b>Avisos</b><small>${unread ? `${unread} não lido${unread > 1 ? 's' : ''}` : 'Tudo lido'}</small></div><button class="x" data-act="close">${ic('x')}</button></div>
+    ${items.length ? `<button class="ns-all" id="readAll" ${unread ? '' : 'disabled'}>${ic('checkc')} Marcar todas como lidas</button>` : ''}
+    <div class="ns-b">${body || `<div class="empty">${ic('bell')}<div>Nenhum aviso por enquanto</div></div>`}</div></div>`);
+  const mark = keys => { const r = readSet(); keys.forEach(k => { if (!r.ids.includes(k)) r.ids.push(k); }); save(); updateHeader(); };
+  s.querySelector('.ns-b').addEventListener('click', e => {
+    const b = e.target.closest('[data-read]'); if (!b) return;
+    e.stopPropagation();
+    const r = readSet(), k = b.dataset.read, it = b.closest('.ns-it');
+    if (r.ids.includes(k)) { r.ids = r.ids.filter(x => x !== k); save(); updateHeader(); it.classList.remove('read'); b.innerHTML = ic('check'); }
+    else { mark([k]); it.classList.add('read'); b.innerHTML = ic('checkc'); }
+    const left = notifItems().filter(n => !n.read).length;
+    s.querySelector('.ns-h small').textContent = left ? `${left} não lido${left > 1 ? 's' : ''}` : 'Tudo lido';
+    const all = s.querySelector('#readAll'); if (all) all.disabled = !left;
+  });
+  const all = s.querySelector('#readAll');
+  if (all) all.onclick = () => { mark(items.map(n => n.key)); closeTop(); setTimeout(notificationsPop, 200); toast('Avisos marcados como lidos'); };
 }
 function confirmUndo(id, after) {
   const h = db.history.find(x => x.id === id); if (!h) return;
@@ -1615,24 +1660,6 @@ function undo(id) {
   else if (u.type === 'edit') { const i = db.clients.findIndex(x => x.id === u.before.id); if (i >= 0) db.clients[i] = u.before; }
   h.undone = true;
   snapshot(); refresh(); toast('Ação desfeita');
-}
-
-function notificationsPop() {
-  closeMenus();
-  const L = live();
-  const groups = [
-    ['Vencem hoje', L.filter(c => daysLeft(c) === 0)],
-    ['Vencem amanhã', L.filter(c => daysLeft(c) === 1)],
-    ['Venceram ontem', L.filter(c => daysLeft(c) === -1)],
-  ];
-  const back = document.createElement('div'); back.className = 'pop-scrim'; back.style.cssText = 'position:fixed;inset:0;z-index:59'; back.onclick = closeMenus;
-  const p = document.createElement('div'); p.className = 'pop';
-  const total = groups.reduce((a, g) => a + g[1].length, 0);
-  p.innerHTML = `<div class="ph">${ic('bell')} Avisos <span class="n">${total}</span></div><div class="pb">${groups.filter(g => g[1].length).map(([t, list]) =>
-    `<div style="padding:12px 18px 4px;font-weight:700;color:#5b6275">${t} · ${list.length}</div>` + list.map(c => `<div class="row" data-act="detail" data-id="${c.id}" style="border-color:#eceef4">
-      <div class="ini" style="background:linear-gradient(135deg,#6366f1,#9333ea)">${initial(c.name)}</div><div class="nm"><b>${esc(c.name)}</b><span>${planOf(c) ? esc(planOf(c).name) : ''}</span></div>
-      <button class="wa" data-act="wa" data-id="${c.id}">${ic('wa')}</button></div>`).join('')).join('') || '<div class="empty">Nenhum aviso por enquanto</div>'}</div>`;
-  document.body.append(back, p); paintIcons(p);
 }
 
 /* ---------- Backup / import ---------- */
@@ -1779,7 +1806,7 @@ document.addEventListener('click', e => {
     case 'photo': $('#photoIn').click(); break;
     case 'photo-del': db.settings.photo = ''; refresh(); break;
     case 'save-profile':
-      Object.assign(db.settings, { owner: $('#prName').value.trim(), company: $('#prCompany').value.trim(), brand: $('#prBrand').value.trim(), phone: $('#prPhone').value.trim() });
+      Object.assign(db.settings, { owner: $('#prName').value.trim(), company: $('#prCompany').value.trim(), phone: $('#prPhone').value.trim() });
       refresh(); toast('Perfil salvo'); break;
     case 'save-msgs': MSG_FIELDS.forEach(([k]) => { db.settings[k] = $('#' + k).value; }); save(); toast('Mensagens salvas'); break;
     case 'clear-hist': confirmDialog('Limpar Histórico', 'Apagar todas as atividades registradas? Os clientes e pagamentos não são afetados.', () => { db.history = []; refresh(); toast('Histórico limpo'); }); break;
