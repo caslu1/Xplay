@@ -44,6 +44,7 @@ public class MainActivity extends Activity {
         s.setDatabaseEnabled(true);
         s.setAllowFileAccess(true);
         s.setTextZoom(100);
+        web.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         web.addJavascriptInterface(new Bridge(), "Android");
         web.setWebViewClient(new WebViewClient() {
             @Override
@@ -74,6 +75,13 @@ public class MainActivity extends Activity {
         if (state != null) web.restoreState(state);
         else web.loadUrl("file:///android_asset/index.html");
         setContentView(web);
+    }
+
+    @Override
+    protected void onPause() {
+        // The page writes to localStorage shortly after each change; make sure nothing is pending.
+        web.evaluateJavascript("window.flushSave && flushSave()", null);
+        super.onPause();
     }
 
     @Override

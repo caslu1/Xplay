@@ -63,14 +63,18 @@ const ICONS = {
   trendDown: '<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
   send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
 };
-const ic = (n, extra) => `<i data-i="${n}"${extra ? ' ' + extra : ''}></i>`;
+const ic = (n, extra) => {
+  const fill = extra && extra.includes('class="fill"');
+  return `<i data-i="${n}" data-p="1"${extra ? ' ' + extra : ''}><svg viewBox="0 0 24 24" fill="${fill ? 'currentColor' : 'none'}"><use href="#i-${n}"/></svg></i>`;
+};
+(function sprite() {
+  const d = document.createElement('div');
+  d.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" style="display:none">${Object.keys(ICONS).map(k => `<symbol id="i-${k}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[k]}</symbol>`).join('')}</svg>`;
+  document.body.prepend(d.firstChild);
+})();
+// Icons written directly in index.html.
 function paintIcons(root) {
-  (root || document).querySelectorAll('i[data-i]:not([data-p])').forEach(el => {
-    const n = el.dataset.i;
-    const fill = n === 'star' && el.classList.contains('fill');
-    el.innerHTML = `<svg viewBox="0 0 24 24" fill="${fill ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[n] || ''}</svg>`;
-    el.dataset.p = 1;
-  });
+  (root || document).querySelectorAll('i[data-i]:not([data-p])').forEach(el => { el.outerHTML = ic(el.dataset.i, el.className ? `class="${el.className}"` : ''); });
 }
 
 /* ---------- Helpers ---------- */
@@ -80,7 +84,10 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 const pad = n => String(n).padStart(2, '0');
 const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parse = s => { const [y, m, d] = s.slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
-const today = () => iso(new Date());
+let _today = '', _todayAt = 0;
+const today = () => { const n = Date.now(); if (n - _todayAt > 20000) { _today = iso(new Date()); _todayAt = n; } return _today; };
+const _dn = new Map();
+const dayNum = s => { s = s.slice(0, 10); let v = _dn.get(s); if (v === undefined) { const [y, m, d] = s.split('-').map(Number); v = Math.round(Date.UTC(y, m - 1, d) / 864e5); _dn.set(s, v); } return v; };
 const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
 function addMonths(s, n) {
   const d = parse(s), day = d.getDate();
@@ -89,7 +96,7 @@ function addMonths(s, n) {
   d.setDate(Math.min(day, last));
   return iso(d);
 }
-const diffDays = (a, b) => Math.round((parse(a) - parse(b)) / 864e5);
+const diffDays = (a, b) => dayNum(a) - dayNum(b);
 const br = s => s ? s.slice(0, 10).split('-').reverse().join('/') : '—';
 const brShort = s => br(s).slice(0, 5);
 const money = v => 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -166,10 +173,28 @@ function migrate() {
     used.add(String(p.code)); p.color = p.color || '#E3F2FD';
   });
 }
-function save() {
+/* Lookup tables rebuilt lazily after any change (save() drops them). */
+let IDX = null;
+function idx() {
+  if (IDX) return IDX;
+  const plans = {}, paid = new Set(), byMonth = {};
+  db.plans.forEach(p => { plans[p.id] = p; });
+  db.payments.forEach(p => { paid.add(p.clientId); const k = p.date.slice(0, 7); (byMonth[k] || (byMonth[k] = [])).push(p); });
+  return (IDX = { plans, paid, byMonth });
+}
+const invalidate = () => { IDX = null; };
+const paysIn = k => idx().byMonth[k] || [];
+// Writing ~2 MB to localStorage takes a few ms, so it runs after the UI has updated.
+let saveT = 0;
+function save() { invalidate(); clearTimeout(saveT); saveT = setTimeout(persist, 350); }
+function persist() {
+  clearTimeout(saveT); saveT = 0;
   try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { toast('Não foi possível salvar: ' + e.message); }
 }
-const planOf = c => db.plans.find(p => p.id === c.planId);
+window.flushSave = () => { if (saveT) persist(); };
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
+addEventListener('pagehide', () => flushSave());
+const planOf = c => idx().plans[c.planId];
 const priceOf = c => { const p = planOf(c); return p ? Math.max(0, p.price * (c.qty || 1) - (Number(c.discount) || 0)) : 0; };
 const costOf = c => { const p = planOf(c); return p ? p.cost * (c.qty || 1) : 0; };
 const daysLeft = c => c.due ? diffDays(c.due, today()) : null;
@@ -219,18 +244,26 @@ function go(tab, keepScroll) {
   $('#fab').hidden = !(tab === 'dashboard' || tab === 'clientes');
   $('#fab').dataset.act = 'new-client';
   render();
+  const pg = $('#page'); pg.classList.remove('enter'); void pg.offsetWidth; pg.classList.add('enter');
   if (!keepScroll) window.scrollTo(0, 0);
 }
-function render() {
+function updateHeader() {
   const brand = db.settings.brand || 'xplay';
   $('#avatar').innerHTML = db.settings.photo ? `<img src="${db.settings.photo}" alt="">` : esc(brand);
   const due = live().filter(c => c.due && daysLeft(c) === 0).length;
   const dot = $('#bellDot'); dot.hidden = !due; dot.textContent = due > 99 ? '99+' : due;
-  $('#page').innerHTML = VIEWS[state.tab]();
-  paintIcons($('#page'));
+}
+function render() {
+  updateHeader();
+  const page = $('#page');
+  page.innerHTML = VIEWS[state.tab]();
   if (VIEWS[state.tab + 'After']) VIEWS[state.tab + 'After']();
 }
-const refresh = () => { save(); render(); };
+// Re-draws only what depends on data: the list on Clientes, the whole page elsewhere.
+function rerender() {
+  if (state.tab === 'clientes' && $('#clist')) { updateHeader(); renderList(true); } else render();
+}
+const refresh = () => { save(); rerender(); };
 
 /* ---------- Status helpers ---------- */
 function statusOf(c) {
@@ -348,8 +381,6 @@ const optLabel = (opts, v) => (opts.find(o => o[0] === v) || opts[0])[1];
 const planOpts = () => [['todos', 'Todos']].concat(db.plans.map(p => [p.id, p.name]));
 
 VIEWS.clientes = () => {
-  const list = filteredClients();
-  const shown = state.show === 0 ? list : list.slice(0, state.show);
   const statusOpts = STATUS_OPTS.concat(state.fStatus === 'p5h' ? [['p5h', 'Próx. 5d']] : []);
   return `
     <div class="card">
@@ -361,16 +392,15 @@ VIEWS.clientes = () => {
       </div>
     </div>
     <div class="count-row">
-      <span class="chip">${ic('users')} ${list.length} ${list.length === 1 ? 'cliente' : 'clientes'}</span>
+      <span class="chip">${ic('users')} <span id="cnum"></span></span>
       <label>Mostrar:</label>
       <button class="dd" data-act="dd" data-k="show"><span>${state.show || 'Todos'}</span>${ic('down')}</button>
     </div>
-    <div id="clist">${shown.map(clientCard).join('') || `<div class="card empty">${ic('users')}<div>Nenhum cliente encontrado</div></div>`}</div>
-    ${shown.length < list.length ? `<button class="card more" data-act="more">Mostrar mais (${list.length - shown.length} restantes)</button>` : ''}`;
+    <div id="clist"></div><div id="cmore"></div>`;
 };
 function clientCard(c) {
   const p = planOf(c), st = statusOf(c);
-  const hasPays = db.payments.some(x => x.clientId === c.id);
+  const hasPays = idx().paid.has(c.id);
   return `<div class="card client" data-act="detail" data-id="${c.id}">
     <div class="head"><div class="ini">${initial(c.name)}</div>
       <div class="who"><b>${hasPays ? `<button data-act="pays" data-id="${c.id}">${ic('history')}</button>` : ''}<span class="n">${esc(c.name)}</span></b>
@@ -379,22 +409,40 @@ function clientCard(c) {
     <div class="due">${ic('calendar')} Vencimento <b>${br(c.due)}</b></div>
     <div class="actions">
       <button class="btn-wa" data-act="wa" data-id="${c.id}">${ic('wa')} WhatsApp</button>
-      <button class="sq star ${c.essential ? 'on' : ''}" data-act="star" data-id="${c.id}">${ic('star', c.essential ? 'class="fill"' : '')}</button>
+      ${starBtn(c)}
       <button class="sq" data-act="edit" data-id="${c.id}">${ic('edit')}</button>
       <button class="sq renew" data-act="renew" data-id="${c.id}">${ic('renew')}</button>
       <button class="sq del" data-act="del" data-id="${c.id}">${ic('trash')}</button>
     </div></div>`;
 }
+const starBtn = c => `<button class="sq star ${c.essential ? 'on' : ''}" data-act="star" data-id="${c.id}">${ic('star', c.essential ? 'class="fill"' : '')}</button>`;
+/* Fills #clist: the first cards at once, the rest a frame at a time so taps stay responsive. */
+function renderList(keep) {
+  const box = $('#clist'); if (!box) return;
+  const list = filteredClients(), tok = renderList.tok = (renderList.tok || 0) + 1;
+  state.list = list;
+  $('#cnum').textContent = `${list.length} ${list.length === 1 ? 'cliente' : 'clientes'}`;
+  const want = state.show === 0 ? list.length : Math.min(state.show, list.length);
+  const keepN = keep ? Math.min(+box.dataset.n || 0, list.length) : 0;
+  box.innerHTML = ''; box.dataset.n = 0;
+  if (!list.length) { box.innerHTML = `<div class="card empty">${ic('users')}<div>Nenhum cliente encontrado</div></div>`; $('#cmore').innerHTML = ''; return; }
+  appendCards(Math.max(keepN, Math.min(want, 20)), tok, want);
+}
+function appendCards(upto, tok, want) {
+  const box = $('#clist'), list = state.list;
+  if (!box || tok !== renderList.tok) return;
+  const from = +box.dataset.n || 0, to = Math.min(upto, list.length);
+  if (to > from) { box.insertAdjacentHTML('beforeend', list.slice(from, to).map(clientCard).join('')); box.dataset.n = to; }
+  if (to < want) requestAnimationFrame(() => appendCards(to + 60, tok, want));
+  else {
+    const rest = list.length - to;
+    $('#cmore').innerHTML = rest > 0 ? `<button class="card more" data-act="more">Mostrar mais (${rest} restantes)</button>` : '';
+  }
+}
 VIEWS.clientesAfter = () => {
   const q = $('#q');
-  q.addEventListener('input', () => {
-    state.q = q.value;
-    clearTimeout(q.t);
-    q.t = setTimeout(() => {
-      const pos = q.selectionStart; render();
-      const n = $('#q'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { }
-    }, 220);
-  });
+  q.addEventListener('input', () => { state.q = q.value; clearTimeout(q.t); q.t = setTimeout(() => renderList(), 140); });
+  renderList();
 };
 
 /* ----- Finance ----- */
@@ -469,7 +517,7 @@ VIEWS.financeiroAfter = () => {
 
 function monthOpts() {
   const keys = new Set([monKey(today())]);
-  db.payments.forEach(p => keys.add(monKey(p.date)));
+  Object.keys(idx().byMonth).forEach(k => keys.add(k));
   return [...keys].sort().reverse().map(k => [k, `${MONTHS[+k.slice(5) - 1].slice(0, 3)} de ${k.slice(0, 4)}`]);
 }
 
@@ -479,21 +527,21 @@ function lucroCard() {
   if (mode === 'mes') {
     const [y, m] = key.split('-').map(Number), n = new Date(y, m, 0).getDate();
     const byDay = Array(n).fill(0);
-    db.payments.forEach(p => { if (monKey(p.date) === key) byDay[+p.date.slice(8, 10) - 1] += p.amount - (p.cost || 0); });
+    paysIn(key).forEach(p => { byDay[+p.date.slice(8, 10) - 1] += p.amount - (p.cost || 0); });
     vals = byDay; labels = byDay.map((_, i) => i + 1);
   } else if (mode === 'sem') {
     const end = key === monKey(today()) ? today() : iso(new Date(+key.slice(0, 4), +key.slice(5), 0));
     for (let i = 6; i >= 0; i--) {
       const d = addDays(end, -i);
       labels.push(brShort(d));
-      vals.push(sumBy(db.payments.filter(p => p.date.slice(0, 10) === d)).prof);
+      vals.push(sumBy(paysIn(d.slice(0, 7)).filter(p => p.date.slice(0, 10) === d)).prof);
     }
   } else {
     const y = key.slice(0, 4);
     for (let m = 1; m <= 12; m++) {
       const k = `${y}-${pad(m)}`;
       labels.push(MONTHS[m - 1].slice(0, 3));
-      vals.push(sumBy(db.payments.filter(p => monKey(p.date) === k)).prof);
+      vals.push(sumBy(paysIn(k)).prof);
     }
   }
   const step = mode === 'mes' ? 5 : 1;
@@ -511,7 +559,7 @@ function lucroCard() {
 function evolucaoCard() {
   const keys = []; for (let i = 5; i >= 0; i--) keys.push(shiftMonth(state.anchor, -i));
   const rev = [], prof = [];
-  keys.forEach(k => { const s = sumBy(db.payments.filter(p => monKey(p.date) === k)); rev.push(s.rev); prof.push(s.prof); });
+  keys.forEach(k => { const s = sumBy(paysIn(k)); rev.push(s.rev); prof.push(s.prof); });
   return `<div class="card">
     <div class="card-head"><div class="ico" style="background:#eef4ff;color:#2f6ae0">${ic('trending')}</div><h3>Evolução Financeira</h3></div>
     ${lineChart([{ vals: rev, color: '#4f86e8', fill: 'rgba(79,134,232,.16)' }, { vals: prof, color: '#43a35a', fill: 'rgba(67,163,90,.16)' }],
@@ -565,7 +613,7 @@ function porDiaCard() {
   const key = state.dayMonth, [y, m] = key.split('-').map(Number);
   const last = key === monKey(today()) ? +today().slice(8) : new Date(y, m, 0).getDate();
   const ren = Array(last).fill(0), cad = Array(last).fill(0);
-  db.payments.forEach(p => { if (monKey(p.date) !== key) return; const d = +p.date.slice(8, 10) - 1; if (d >= last) return; (p.kind === 'cadastro' ? cad : ren)[d]++; });
+  paysIn(key).forEach(p => { const d = +p.date.slice(8, 10) - 1; if (d >= last) return; (p.kind === 'cadastro' ? cad : ren)[d]++; });
   const R = ren.reduce((a, b) => a + b, 0), C = cad.reduce((a, b) => a + b, 0);
   let peak = -1, pv = 0; ren.forEach((v, i) => { if (v + cad[i] > pv) { pv = v + cad[i]; peak = i; } });
   const mini = (icon, bg, col, v, l, hl) => `<div class="mini ${hl ? 'hl' : ''}"><div class="ic" style="background:${bg};color:${col}">${ic(icon)}</div><div><b>${v}</b><span>${l}</span></div></div>`;
@@ -580,7 +628,7 @@ function porDiaCard() {
   </div>`;
 }
 function countCard(k, icon, bg, col, title, sub, pred) {
-  const n = db.payments.filter(p => monKey(p.date) === state[k] && pred(p)).length;
+  const n = paysIn(state[k]).filter(pred).length;
   return `<div class="card">
     <div class="card-head"><div class="ico" style="background:${bg};color:${col}">${ic(icon)}</div><div class="grow"><h3 style="display:flex;gap:8px;align-items:center">${title} ${ic('pie', `style="color:${col};width:20px;height:20px"`)}</h3><small>${cap(monLabel(state[k]))}</small></div>${monthNav(k)}</div>
     <div class="big" style="color:${col}">${n}</div><p>${sub}</p></div>`;
@@ -588,7 +636,7 @@ function countCard(k, icon, bg, col, title, sub, pred) {
 function mediaCard() {
   const key = state.avgMonth, [y, m] = key.split('-').map(Number);
   const days = key === monKey(today()) ? +today().slice(8) : new Date(y, m, 0).getDate();
-  const n = db.payments.filter(p => monKey(p.date) === key).length;
+  const n = paysIn(key).length;
   return `<div class="card">
     <div class="card-head"><div class="ico" style="background:#fff6e0;color:#c2861d">${ic('users')}</div><div class="grow"><h3>Média de Clientes no Mês</h3><small>${cap(monLabel(key))}</small></div>${monthNav('avgMonth')}</div>
     <div class="big" style="color:#a85d1c">${Math.round(n / days)}</div><p style="display:flex;justify-content:space-between">média diária de clientes <small style="color:#9aa0ae">${days} dias</small></p></div>`;
@@ -650,13 +698,13 @@ function estadosCard() {
 
 function comparadorCard() {
   const A = state.cmpA, B = state.cmpB, day = +state.cmpDay;
-  const tally = key => { const m = {}; let tot = 0; db.payments.forEach(p => {
-    if (monKey(p.date) !== key || (day && +p.date.slice(8, 10) > day)) return;
+  const tally = key => { const m = {}; let tot = 0; paysIn(key).forEach(p => {
+    if (day && +p.date.slice(8, 10) > day) return;
     const k = p.planName || 'Sem plano'; m[k] = m[k] || { n: 0, v: 0 }; m[k].n++; m[k].v += p.amount; tot++; }); return [m, tot]; };
   const [ma, ta] = tally(A), [mb, tb] = tally(B);
   const names = [...new Set(Object.keys(ma).concat(Object.keys(mb)))].sort((x, y) => ((mb[y] || {}).n || 0) + ((ma[y] || {}).n || 0) - ((ma[x] || {}).n || 0) - ((mb[x] || {}).n || 0));
   const cols = ['#4f86e8', '#43a35a', '#ea7d32', '#9b51e0', '#e0457b', '#0ea5e9', '#d4a017', '#64748b'];
-  const mon = k => MONTHS[+k.slice(5) - 1], diff = ta - tb;
+  const mon = k => MONTHS[+k.slice(5) - 1], diff = tb - ta;
   return `<div class="card cmp">
     <div class="card-head"><div class="ico" style="background:#eef4ff;color:#2f6ae0">${ic('box')}</div><h3>Planos Vendidos — Comparador</h3></div>
     <button class="dd full" data-act="dd" data-k="cmpA"><span>${monLabel(A)}</span>${ic('down')}</button>
@@ -664,7 +712,7 @@ function comparadorCard() {
     <button class="dd full alt" data-act="dd" data-k="cmpB"><span>${monLabel(B)}</span>${ic('down')}</button>
     <div class="cmp-day"><span>Comparar até o dia:</span><button class="dd" data-act="dd" data-k="cmpDay"><span>${day ? 'Até o dia ' + day : 'Mês inteiro'}</span>${ic('down')}</button></div>
     <p class="cmp-sum"><b style="color:#3b6fe0">${monLabel(A)}:</b> ${ta} planos • <b style="color:#9333ea">${monLabel(B)}:</b> ${tb} planos • <b style="color:${diff >= 0 ? '#2f9c50' : '#d24444'}">${diff >= 0 ? '+' : ''}${diff} planos</b></p>
-    ${names.map((n, i) => { const a = ma[n] || { n: 0, v: 0 }, b = mb[n] || { n: 0, v: 0 }, mx = Math.max(a.n, b.n, 1), d = a.n - b.n;
+    ${names.map((n, i) => { const a = ma[n] || { n: 0, v: 0 }, b = mb[n] || { n: 0, v: 0 }, mx = Math.max(a.n, b.n, 1), d = b.n - a.n;
       return `<div class="cmp-row"><div class="cr-h"><i class="swc" style="background:${cols[i % cols.length]}"></i><b>${esc(n)}</b>
         <span class="delta ${d >= 0 ? 'up' : 'down'}">${ic(d >= 0 ? 'trending' : 'trendDown')} ${d >= 0 ? '+' : ''}${d}</span></div>
         <div class="cr-two"><div><div class="cr-l"><span style="color:#3b6fe0">${mon(A)}</span><b>${a.n}</b></div><div class="tr"><div style="width:${a.n / mx * 100}%;background:#4f86e8"></div></div><small>${money(a.v)}</small></div>
@@ -762,9 +810,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <button class="card tool" data-act="demo"><div class="ico" style="background:linear-gradient(135deg,#f6b73c,#ef8a2c)">${ic('sparkle')}</div><div><b>Dados de exemplo</b><span>Preenche o app para testar.</span></div>${ic('right')}</button>
-    <button class="card tool" data-act="wipe"><div class="ico" style="background:linear-gradient(135deg,#ef4444,#b91c1c)">${ic('trash')}</div><div><b>Apagar tudo</b><span>Remove clientes, pagamentos e histórico.</span></div>${ic('right')}</button>
-    <p class="hint" style="text-align:center">Xplay Gestor — v1.2 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Xplay Gestor — v1.3 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -883,7 +929,7 @@ SUBVIEWS.backup = () => `${subHead('Backup Completo')}
       <div class="drop purple">${ic('upload', 'class="big-ic"')}<b>Selecione um arquivo de backup JSON</b>
         <button class="pick" data-act="pick" data-v="bkIn">${ic('upload')} Selecionar Arquivo</button></div>
       <input type="file" id="bkIn" accept=".json,application/json,text/*" hidden>
-      <div class="att">⚠️ <b>Atenção:</b> A importação adiciona dados, não substitui. Para trocar tudo, use "Apagar tudo" antes.</div>
+      <div class="att">⚠️ <b>Atenção:</b> A importação adiciona dados, não substitui.</div>
     </div>
   </div>`;
 SUBVIEWS.backupAfter = () => { $('#bkIn').onchange = e => { importBackup(e.target.files[0]); e.target.value = ''; }; };
@@ -1163,11 +1209,16 @@ function overlay(html, cls) {
   paintIcons(s);
   return s;
 }
-function closeTop() { const l = layer().lastElementChild; if (l) l.remove(); }
+const openLayers = () => [...layer().children].filter(x => !x.classList.contains('out'));
+function closeTop() {
+  const l = openLayers().pop(); if (!l) return;
+  l.classList.add('out');
+  setTimeout(() => { l.remove(); if (state.dirty && !openLayers().length) { state.dirty = false; rerender(); } }, 170);
+}
 function closeMenus() { document.querySelectorAll('.menu,.pop,.pop-scrim').forEach(m => m.remove()); }
 window.onBack = () => {
   if (document.querySelector('.menu,.pop')) { closeMenus(); return true; }
-  if (layer().children.length) { closeTop(); return true; }
+  if (openLayers().length) { closeTop(); return true; }
   if (state.tab === 'ferramentas' && state.sub) { setSub(null); return true; }
   if (state.tab !== 'dashboard') { go('dashboard'); return true; }
   return false;
@@ -1225,7 +1276,7 @@ function detailSheet(c) {
   s.dataset.detail = c.id;
 }
 function reopenDetail(id) {
-  const open = layer().querySelector('[data-detail]');
+  const open = layer().querySelector('[data-detail]:not(.out)');
   if (open) { open.remove(); const c = db.clients.find(x => x.id === id); if (c) detailSheet(c); }
 }
 
@@ -1244,47 +1295,83 @@ function paysSheet(c) {
   </div>`);
 }
 
+/* Plan field: button + inline list with search, like the original app. */
+function planPicker(sel) {
+  const p = db.plans.find(x => x.id === sel);
+  return `<div class="pp" id="pp"><button type="button" class="pp-btn" id="ppBtn"><span class="${p ? '' : 'ph'}">${p ? esc(p.name) : 'Selecione um plano'}</span>${ic('down')}</button>
+    <div class="pp-menu" id="ppMenu" hidden><div class="pp-s"><input id="ppQ" placeholder="Pesquisar plano..." autocomplete="off"></div><div class="pp-list" id="ppList"></div></div></div>`;
+}
+const dot2 = v => 'R$ ' + (Number(v) || 0).toFixed(2);
 function clientForm(c) {
   const isNew = !c;
-  c = c || { name: '', phone: '', planId: db.plans[0] ? db.plans[0].id : '', due: '', qty: 1, discount: 0, notes: '' };
-  const defDue = () => { const p = db.plans.find(x => x.id === $('#fPlan').value); return addMonths(today(), p ? TYPES[p.type] : 1); };
-  const s = overlay(`<div class="sheet"><form class="form" id="cform" autocomplete="off">
+  c = c || { name: '', phone: '', planId: '', due: '', qty: 1, discount: 0, notes: '' };
+  let planId = planOf(c) ? c.planId : '';
+  const s = overlay(`<div class="sheet"><form class="form" id="cform" autocomplete="off" novalidate>
     <button type="button" class="x" data-act="close">${ic('x')}</button>
-    <div class="fh"><div class="ico">${ic(isNew ? 'userplus' : 'user')}</div><h2>${isNew ? 'Novo Cliente' : 'Editar Cliente'}</h2></div>
+    <div class="fh"><div class="ico">${ic('user')}</div><h2>${isNew ? 'Novo Cliente' : 'Editar Cliente'}</h2></div>
     <p class="sub">${isNew ? 'Preencha os dados do novo cliente' : 'Atualize as informações do cliente'}</p>
-    <div class="f"><label>${ic('user', 'style="color:#a855f7"')} Nome <em>*</em></label><input id="fName" required value="${esc(c.name)}"></div>
-    <div class="f"><label>${ic('phone', 'style="color:#3fae56"')} WhatsApp <em>*</em></label><input id="fPhone" type="tel" inputmode="tel" required placeholder="+55 11 99999-9999" value="${esc(fmtPhone(c.phone))}"></div>
+    <div class="f"><label>${ic('user', 'style="color:#a855f7"')} Nome <em>*</em></label><input id="fName" placeholder="Nome completo do cliente" value="${esc(c.name)}"></div>
+    <div class="f"><label>${ic('phone', 'style="color:#3fae56"')} WhatsApp <em>*</em></label><input id="fPhone" type="tel" inputmode="tel" placeholder="(11) 99999-9999" value="${esc(fmtPhone(c.phone))}"></div>
     <div class="f2">
-      <div class="f"><label>${ic('box', 'style="color:#4f46e5"')} Plano <em>*</em></label><select id="fPlan">${db.plans.map(p => `<option value="${p.id}" ${p.id === c.planId ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}<option value="" ${!planOf(c) ? 'selected' : ''}>Sem plano</option></select></div>
+      <div class="f"><label>${ic('box', 'style="color:#4f46e5"')} Plano <em>*</em></label>${planPicker(planId)}</div>
       <div class="f"><label>${ic('calendar', 'style="color:#e05252"')} Vencimento <em>*</em></label><input id="fDue" type="date" value="${c.due || ''}"></div>
     </div>
     <div class="f2">
       <div class="f"><label>${ic('tag', 'style="color:#3b82f6"')} Quantidade</label><input id="fQty" type="number" min="1" inputmode="numeric" value="${c.qty || 1}"></div>
-      <div class="f"><label>${ic('percent', 'style="color:#ef8a2c"')} Desconto (R$)</label><div class="pre"><span>R$</span><input id="fDisc" type="number" min="0" step="0.01" inputmode="decimal" value="${c.discount || ''}"></div></div>
+      <div class="f"><label>${ic('percent', 'style="color:#ef8a2c"')} Desconto (R$)</label><div class="pre"><span>R$</span><input id="fDisc" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(c.discount) || 0}"></div></div>
     </div>
+    <div class="price-sum" id="priceSum" hidden></div>
     <button type="button" class="fold" id="foldNotes">${ic('file')} ${c.notes ? 'Notas' : 'Adicionar Notas (Opcional)'} ${ic('down')}</button>
     <div class="f" id="notesBox" ${c.notes ? '' : 'hidden'}><textarea id="fNotes" placeholder="Usuário, senha, aparelho...">${esc(c.notes || '')}</textarea></div>
-    ${isNew ? '<p class="hint" style="margin:-4px 0 14px">O cadastro é registrado como pagamento no Financeiro.</p>' : ''}
-    <button class="btn" type="submit">✓ ${isNew ? 'Cadastrar Cliente' : 'Atualizar Cliente'}</button>
+    <button class="btn" type="submit">${isNew ? '+ Adicionar Cliente' : '✓ Atualizar Cliente'}</button>
   </form></div>`);
-  if (isNew) { $('#fDue').value = defDue(); $('#fPlan').onchange = () => { $('#fDue').value = defDue(); }; }
+  const menu = $('#ppMenu'), list = $('#ppList'), q = $('#ppQ');
+  const sum = () => {
+    const p = db.plans.find(x => x.id === planId), box = $('#priceSum');
+    if (!p) { box.hidden = true; return; }
+    const qty = Math.max(1, parseInt($('#fQty').value, 10) || 1), disc = Math.max(0, parseFloat(String($('#fDisc').value).replace(',', '.')) || 0);
+    box.hidden = false;
+    box.innerHTML = `<span>${dot2(p.price)}${qty > 1 ? ` × ${qty}` : ''}${disc ? ` − ${dot2(disc)}` : ''}</span><b>${dot2(Math.max(0, p.price * qty - disc))}</b>`;
+  };
+  const fill = () => {
+    const t = q.value.trim().toUpperCase();
+    const items = db.plans.filter(p => !t || p.name.toUpperCase().includes(t) || String(p.code).includes(t));
+    list.innerHTML = items.map(p => `<button type="button" data-id="${p.id}" class="${p.id === planId ? 'on' : ''}"><span>${esc(p.name)}</span><em>${money(p.price)}</em></button>`).join('') || '<div class="pp-none">Nenhum plano encontrado</div>';
+  };
+  const toggle = open => {
+    menu.hidden = !open; $('#ppBtn').classList.toggle('open', open);
+    if (open) { q.value = ''; fill(); setTimeout(() => q.focus(), 30); }
+  };
+  $('#ppBtn').onclick = () => toggle(menu.hidden);
+  q.oninput = fill;
+  list.onclick = e => {
+    const b = e.target.closest('[data-id]'); if (!b) return;
+    planId = b.dataset.id;
+    const p = db.plans.find(x => x.id === planId);
+    $('#ppBtn span').textContent = p.name; $('#ppBtn span').className = '';
+    if (isNew || !$('#fDue').value) $('#fDue').value = addMonths(today(), TYPES[p.type] || 1);
+    toggle(false); sum();
+  };
+  s.addEventListener('click', e => { if (!menu.hidden && !e.target.closest('#pp')) toggle(false); });
+  $('#fQty').oninput = sum; $('#fDisc').oninput = sum; sum();
   $('#foldNotes').onclick = () => { $('#notesBox').hidden = !$('#notesBox').hidden; if (!$('#notesBox').hidden) $('#fNotes').focus(); };
   s.querySelector('form').onsubmit = e => {
     e.preventDefault();
     const name = $('#fName').value.trim(), phone = normPhone($('#fPhone').value);
     if (!name) return toast('Informe o nome');
     if (phone.length < 10) return toast('WhatsApp inválido');
+    if (!planId) return toast('Selecione um plano');
     if (!$('#fDue').value) return toast('Informe o vencimento');
-    const data = { name, phone, planId: $('#fPlan').value, due: $('#fDue').value, qty: Math.max(1, parseInt($('#fQty').value, 10) || 1),
+    const data = { name, phone, planId, due: $('#fDue').value, qty: Math.max(1, parseInt($('#fQty').value, 10) || 1),
       discount: Math.max(0, parseFloat(String($('#fDisc').value).replace(',', '.')) || 0), notes: $('#fNotes').value.trim() };
     if (isNew) {
       const nc = Object.assign({ id: uid(), essential: false, archived: false, createdAt: today() }, data);
       db.clients.push(nc);
-      const p = planOf(nc), pay = p ? addPayment(nc, 'cadastro', priceOf(nc)) : null;
-      log('Novo Cliente Cadastrado', `${nc.name} - Plano: ${p ? p.name : '—'} | Valor: R$ ${priceOf(nc).toFixed(2)}${nc.discount ? ` (Desconto: R$ ${nc.discount.toFixed(2)})` : ''}`,
-        { type: 'create', clientId: nc.id, paymentId: pay && pay.id });
+      const p = planOf(nc), pay = addPayment(nc, 'cadastro', priceOf(nc));
+      log('Novo Cliente Cadastrado', `${nc.name} - Plano: ${p.name} | Valor: R$ ${priceOf(nc).toFixed(2)}${nc.discount ? ` (Desconto: R$ ${nc.discount.toFixed(2)})` : ''}`,
+        { type: 'create', clientId: nc.id, paymentId: pay.id });
       toast('Cliente cadastrado');
-      setTimeout(() => askSend(nc, 'msgCadastro', 'Mensagem de Cadastro'), 50);
+      setTimeout(() => askSend(nc, 'msgCadastro', 'Mensagem de Cadastro'), 200);
     } else {
       const before = JSON.parse(JSON.stringify(c));
       Object.assign(c, data);
@@ -1403,37 +1490,6 @@ function fromGestorSimples(src) {
   if (notes.length) out.settings.stickyNotes = notes;
   return out;
 }
-function demoData() {
-  const names = ['Julio', 'Edo', 'Maria rosa', 'Maria', 'Paulo', 'Débora', 'Wedson', 'Denio', 'Arsênio', 'Valeria', 'Andrr', 'Carlos', 'Fernanda', 'Rafael', 'Juliana', 'Bruno',
-    'Patrícia', 'Lucas', 'Camila', 'Rodrigo', 'Aline', 'Marcos', 'Tatiane', 'Felipe', 'Renata', 'Gustavo', 'Simone', 'Diego', 'Larissa', 'Thiago', 'Vanessa', 'André', 'Priscila', 'Leandro'];
-  const ddds = ['11', '11', '11', '12', '13', '19', '21', '31', '41', '47', '51', '61', '62', '71', '81', '85', '91', '92', '27', '35'];
-  const plans = [['XPRIMETV MENSAL', 'mensal', 34.89, 7.25], ['XPRIMETV TRIMESTRAL', 'trimestral', 94.9, 21.75], ['PIXEL PLAYER MENSAL', 'mensal', 30, 6], ['FUNPLAY ANUAL', 'anual', 299.9, 70]];
-  plans.forEach(([name, type, price, cost]) => { if (!db.plans.some(p => p.name === name)) db.plans.push({ id: uid(), name, type, price, cost }); });
-  const pick = a => a[Math.floor(Math.random() * a.length)];
-  const t = today();
-  for (let i = 0; i < 160; i++) {
-    const p = Math.random() < .75 ? db.plans.find(x => x.name === 'XPRIMETV MENSAL') : pick(db.plans);
-    const months = TYPES[p.type];
-    const created = addDays(t, -Math.floor(Math.random() * 200));
-    const c = { id: uid(), name: pick(names) + (Math.random() < .3 ? ' ' + pick(['Silva', 'Souza', 'Lima', 'Costa']) : ''), phone: '55' + pick(ddds) + '9' + String(Math.floor(1e7 + Math.random() * 9e7)),
-      planId: p.id, due: '', qty: Math.random() < .1 ? 2 : 1, discount: Math.random() < .2 ? 7 : 0, notes: '', essential: Math.random() < .04, archived: false, createdAt: created };
-    db.clients.push(c);
-    let due = created, first = true;
-    while (due <= t) {
-      const at = `${due}T${pad(8 + Math.floor(Math.random() * 13))}:${pad(Math.floor(Math.random() * 60))}`;
-      if (!first && Math.random() < .12) break;
-      db.payments.push({ id: uid(), clientId: c.id, clientName: c.name, planName: p.name, amount: priceOf(c), cost: costOf(c), date: at, kind: first ? 'cadastro' : 'renovacao' });
-      first = false;
-      due = addMonths(due, months);
-    }
-    c.due = due;
-  }
-  const keys = []; for (let i = 9; i >= 1; i--) keys.push(addDays(t, -i));
-  let base = live().filter(isActive).length - 40;
-  keys.forEach(k => { base += Math.round(Math.random() * 12 - 3); db.snapshots[k] = base; });
-  snapshot(); refresh(); toast('Dados de exemplo adicionados');
-}
-
 /* ---------- PDF report ---------- */
 function pdf() {
   const r = periodRange();
@@ -1452,7 +1508,7 @@ function pdf() {
 /* ---------- Events ---------- */
 document.addEventListener('click', e => {
   const tab = e.target.closest('[data-tab]');
-  if (tab) { closeMenus(); while (layer().children.length) closeTop(); return go(tab.dataset.tab); }
+  if (tab) { closeMenus(); layer().innerHTML = ''; state.dirty = false; return go(tab.dataset.tab); }
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const act = el.dataset.act, id = el.dataset.id, c = id && db.clients.find(x => x.id === id);
@@ -1469,10 +1525,14 @@ document.addEventListener('click', e => {
     case 'edit': if (c) clientForm(c); break;
     case 'new-client': clientForm(null); break;
     case 'renew': if (c) renewDialog(c); break;
-    case 'star': if (c) { c.essential = !c.essential; refresh(); toast(c.essential ? 'Marcado como essencial' : 'Removido dos essenciais'); } break;
-    case 't-ess': if (c) { c.essential = !c.essential; el.querySelector('.sw').classList.toggle('on', c.essential); refresh(); } break;
+    case 'star': if (c) {
+      c.essential = !c.essential; save();
+      if (state.tab === 'clientes') document.querySelectorAll(`.star[data-id="${c.id}"]`).forEach(b => { b.outerHTML = starBtn(c); }); else render();
+      toast(c.essential ? 'Marcado como essencial' : 'Removido dos essenciais');
+    } break;
+    case 't-ess': if (c) { c.essential = !c.essential; el.querySelector('.sw').classList.toggle('on', c.essential); save(); state.dirty = true; } break;
     case 't-arc': if (c) {
-      c.archived = !c.archived; el.querySelector('.sw').classList.toggle('on', c.archived); snapshot(); refresh();
+      c.archived = !c.archived; el.querySelector('.sw').classList.toggle('on', c.archived); snapshot(); save(); state.dirty = true;
       toast(c.archived ? 'Cliente arquivado' : 'Cliente restaurado');
     } break;
     case 'del': if (c) confirmDialog('Confirmar Exclusão', 'Tem certeza que deseja apagar este cliente? Esta ação não pode ser desfeita.', () => {
@@ -1480,7 +1540,7 @@ document.addEventListener('click', e => {
       log('Cliente Excluído', `${c.name} - ${planOf(c) ? planOf(c).name : 'Sem plano'}`, { type: 'delete', client: c });
       snapshot(); refresh(); toast('Cliente apagado');
     }); break;
-    case 'more': state.show = state.show ? state.show + 50 : 0; render(); break;
+    case 'more': { const n = +$('#clist').dataset.n; state.show = n + 50; $('#cmore').innerHTML = ''; appendCards(n + 50, renderList.tok, n + 50); break; }
     case 'dd': {
       const k = el.dataset.k;
       const opts = { fStatus: STATUS_OPTS, fType: TYPE_OPTS, fPlan: planOpts(), show: [['20', '20'], ['50', '50'], ['100', '100'], ['0', 'Todos']], period: PERIODS,
@@ -1530,10 +1590,6 @@ document.addEventListener('click', e => {
     case 'report': (el.dataset.v === 'fmtClients' ? clientsReport : finReport)(state[el.dataset.v]); break;
     case 'model-csv': modelCsv(); break;
     case 'backup-now': backupNow(); break;
-    case 'demo': demoData(); break;
-    case 'wipe': confirmDialog('Apagar tudo', 'Todos os clientes, pagamentos e histórico serão removidos deste aparelho.', () => {
-      const keep = { plans: db.plans, settings: db.settings }; db = Object.assign(blank(), keep); migrate(); refresh(); toast('Dados apagados');
-    }); break;
   }
 });
 
