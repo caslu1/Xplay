@@ -120,3 +120,18 @@ O app guarda tudo de cada conta numa linha só da tabela `gestor_data` (coluna `
 2. Em **Table Editor**, aparecem `gestor_clientes`, `gestor_planos` e `gestor_pagamentos`, uma linha por item, com a coluna `conta` (e-mail).
 
 São só para consulta: alterações devem ser feitas pelo app.
+
+---
+
+## Versão web (navegador)
+
+O mesmo Gestor funciona no navegador, no celular ou no computador, com o mesmo login e os mesmos dados da nuvem.
+
+1. Pegue o arquivo [`releases/GestorSimples-web.zip`](../releases/GestorSimples-web.zip) e descompacte (ou rode `gestor/build-web.sh`, que gera a pasta `gestor/build/web`).
+2. Entre em <https://app.netlify.com/drop> (crie uma conta grátis para o link não expirar) e **arraste a pasta descompactada** para a página.
+3. A Netlify mostra um link `https://xxxx.netlify.app`. Em **Site configuration → Change site name** dá para trocar por algo como `https://gestorsimples.netlify.app`.
+4. Mande esse link para os seus clientes. Eles entram com o mesmo e-mail e senha do app.
+
+No celular, pelo Chrome: menu ⋮ → **Adicionar à tela inicial** (ou **Instalar app**) cria um ícone igual a um app.
+
+Para publicar uma versão nova, arraste a pasta nova em **Deploys** do mesmo site na Netlify.

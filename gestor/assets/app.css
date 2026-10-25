@@ -1002,3 +1002,15 @@ body.theme-dark .acct .ac-h > i { background: #262748; color: #c9c7ff; }
 .chk td { padding: 7px 6px; border-top: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
 .chk td:first-child, .chk th:first-child { text-align: left; }
 .chk p { font-size: 14px !important; }
+
+/* ===== Web on a computer: phone-width column in the middle ===== */
+@media (min-width: 700px) {
+  html { background: #e4e7f0; }
+  body { max-width: 520px; margin: 0 auto; box-shadow: 0 0 40px rgba(20,30,70,.12); }
+  .top, .tabs { max-width: 520px; margin: 0 auto; }
+  .fab { right: calc(50% - 260px + 18px); }
+  #layer > .scrim { justify-content: center; }
+  .sheet { max-width: 520px; }
+  .clip { max-width: 496px; left: 0; right: 0; margin: 0 auto; }
+  body.theme-dark, html:has(body.theme-dark) { background: #08081a; }
+}
