@@ -150,11 +150,7 @@ let KEY = LEGACY_KEY;   // becomes per account after login (cloud.js)
 let db;
 function blank() {
   return {
-    plans: [
-      { id: 'p1', name: 'XPRIMETV MENSAL', type: 'mensal', price: 34.89, cost: 7.25 },
-      { id: 'p2', name: 'XPRIMETV TRIMESTRAL', type: 'trimestral', price: 94.9, cost: 21.75 },
-      { id: 'p3', name: 'XPRIMETV ANUAL', type: 'anual', price: 349.9, cost: 87 },
-    ],
+    plans: [],
     clients: [], payments: [], history: [], snapshots: {},
     settings: {
       brand: 'GS', company: '', owner: '', phone: '', photo: '',
@@ -170,7 +166,13 @@ function load() {
   db.snapshots = db.snapshots || {};
   migrate();
 }
+// Example plans that older versions put in every new account; dropped while unused and unchanged.
+const OLD_SAMPLE_PLANS = [['p1', 'XPRIMETV MENSAL', 34.89, 7.25], ['p2', 'XPRIMETV TRIMESTRAL', 94.9, 21.75], ['p3', 'XPRIMETV ANUAL', 349.9, 87]];
 function migrate() {
+  if (db.plans && db.clients) {
+    const used = new Set(db.clients.map(c => c.planId));
+    db.plans = db.plans.filter(p => !OLD_SAMPLE_PLANS.some(([id, n, pr, co]) => p.id === id && p.name === n && +p.price === pr && +p.cost === co && !used.has(p.id)));
+  }
   db.snapshots = db.snapshots || {}; db.history = db.history || []; db.payments = db.payments || [];
   const old = db.settings || {};
   db.settings = Object.assign(blank().settings, old);
@@ -997,7 +999,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v3.4 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v3.5 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
