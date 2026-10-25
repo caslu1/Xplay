@@ -133,7 +133,8 @@ public class MainActivity extends Activity {
             Uri uri = result == RESULT_OK && data != null ? data.getData() : null;
             if (uri == null || text == null) return;
             try {
-                OutputStream out = getContentResolver().openOutputStream(uri);
+                // "wt" truncates: without it, saving over a bigger file leaves its old tail behind.
+                OutputStream out = getContentResolver().openOutputStream(uri, "wt");
                 out.write(text.getBytes(Charset.forName("UTF-8")));
                 out.close();
                 Toast.makeText(this, "Arquivo salvo", Toast.LENGTH_SHORT).show();
@@ -220,6 +221,27 @@ public class MainActivity extends Activity {
                     }
                 }
             });
+        }
+
+        /** Inflates a raw-deflate ZIP entry (base64) for WebViews without DecompressionStream. */
+        @JavascriptInterface
+        public String inflate(String base64) {
+            try {
+                byte[] in = android.util.Base64.decode(base64, android.util.Base64.DEFAULT);
+                java.util.zip.Inflater inf = new java.util.zip.Inflater(true);
+                inf.setInput(in);
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(in.length * 4);
+                byte[] buf = new byte[65536];
+                while (!inf.finished()) {
+                    int n = inf.inflate(buf);
+                    if (n == 0 && (inf.needsInput() || inf.needsDictionary())) break;
+                    out.write(buf, 0, n);
+                }
+                inf.end();
+                return new String(out.toByteArray(), Charset.forName("UTF-8"));
+            } catch (Exception e) {
+                return null;
+            }
         }
 
         @JavascriptInterface

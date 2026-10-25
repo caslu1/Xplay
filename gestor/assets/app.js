@@ -997,7 +997,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v3.1 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v3.2 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1117,9 +1117,9 @@ SUBVIEWS.backup = () => `${subHead('Backup Completo')}
       <div class="tip">💡 <b>Dica:</b> Faça backups regulares para não perder dados.</div>
       <div class="bk-t"><div class="ico" style="background:#f1e8ff;color:#9333ea">${ic('shield')}</div><b>Restaurar Backup</b></div>
       <p>Importe um arquivo de backup JSON para restaurar dados. Aceita backups deste app e do Gestor Simples.</p>
-      <div class="drop purple">${ic('upload', 'class="big-ic"')}<b>Selecione um arquivo de backup JSON</b>
+      <div class="drop purple">${ic('upload', 'class="big-ic"')}<b>Selecione um arquivo de backup (.json ou .zip)</b>
         <button class="pick" data-act="pick" data-v="bkIn">${ic('upload')} Selecionar Arquivo</button></div>
-      <input type="file" id="bkIn" accept=".json,application/json,text/*" hidden>
+      <input type="file" id="bkIn" accept=".json,.zip,application/json,application/zip,text/*" hidden>
       <div class="att">⚠️ <b>Atenção:</b> A importação adiciona dados, não substitui.</div>
     </div>
   </div>`;
@@ -1245,12 +1245,12 @@ function parseCsv(text) {
   return rows.filter(r => r.some(x => String(x).trim()));
 }
 /* Minimal .xlsx reader: first worksheet, shared/inline strings, numbers. */
-async function readXlsx(buf) {
-  if (typeof DecompressionStream === 'undefined') throw new Error('este aparelho não abre .xlsx; salve a planilha como CSV');
+/* Minimal ZIP reader: lists entries and inflates them (browser DecompressionStream, or the Android app). */
+function openZip(buf) {
   const dv = new DataView(buf), u8 = new Uint8Array(buf);
   let eocd = -1;
   for (let i = u8.length - 22; i >= Math.max(0, u8.length - 66000); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
-  if (eocd < 0) throw new Error('arquivo .xlsx inválido');
+  if (eocd < 0) throw new Error('arquivo compactado inválido');
   const n = dv.getUint16(eocd + 10, true); let off = dv.getUint32(eocd + 16, true);
   const files = {};
   for (let k = 0; k < n; k++) {
@@ -1264,9 +1264,21 @@ async function readXlsx(buf) {
     const start = f.lo + 30 + dv.getUint16(f.lo + 26, true) + dv.getUint16(f.lo + 28, true);
     const data = u8.subarray(start, start + f.csize);
     if (f.method === 0) return new TextDecoder().decode(data);
-    const ds = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-    return await new Response(ds).text();
+    if (typeof DecompressionStream !== 'undefined') {
+      try { return await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text(); } catch (e) { }
+    }
+    if (window.Android && Android.inflate) {
+      let bin = ''; for (let i = 0; i < data.length; i += 0x8000) bin += String.fromCharCode.apply(null, data.subarray(i, i + 0x8000));
+      const out = Android.inflate(btoa(bin));
+      if (out != null) return out;
+    }
+    throw new Error('não foi possível descompactar o arquivo neste aparelho');
   };
+  return { names: Object.keys(files), read };
+}
+const isZip = buf => { const u = new Uint8Array(buf, 0, Math.min(4, buf.byteLength)); return u[0] === 0x50 && u[1] === 0x4b; };
+async function readXlsx(buf) {
+  const z = openZip(buf), files = {}; z.names.forEach(n => { files[n] = 1; }); const read = z.read;
   const xml = t => new DOMParser().parseFromString(t, 'application/xml');
   const sst = [];
   const ss = await read('xl/sharedStrings.xml');
@@ -1341,10 +1353,21 @@ function modelCsv() {
   saveFile('modelo-importacao-clientes.csv', 'text/csv', toCsv([['nome', 'whatsapp', 'plano_id', 'data_vencimento', 'quantidade', 'desconto', 'notas'],
     ['Maria Silva', '+55 11 99999-9999', p ? p.code : '1234', '25/12/2026', '1', '0', 'Exemplo']]));
 }
+async function backupText(f) {
+  const buf = await f.arrayBuffer();
+  if (!isZip(buf)) return new TextDecoder().decode(buf);
+  // Backup that came compressed (.zip from WhatsApp, Drive, e-mail…): use the .json inside.
+  const z = openZip(buf), name = z.names.find(n => /\.json$/i.test(n) && !/__MACOSX/.test(n)) || z.names.find(n => !n.endsWith('/'));
+  if (!name) throw new Error('o arquivo .zip não tem um backup .json');
+  return z.read(name);
+}
 function importBackup(f) {
   if (!f) return;
-  f.text().then(txt => {
-    let d = JSON.parse(txt.replace(/^﻿/, '')), label = 'backup';
+  toast('Lendo backup…');
+  backupText(f).then(txt => {
+    txt = String(txt).replace(/^\uFEFF/, '').trim();
+    if (!txt.startsWith('{')) throw new Error('o arquivo escolhido não é um backup .json');
+    let d = JSON.parse(txt), label = 'backup';
     if (d.data && Array.isArray(d.data.clientes)) { d = fromGestorSimples(d); label = 'backup do Gestor Simples'; }
     if (!d.clients || !d.plans) throw new Error('arquivo não é um backup reconhecido');
     const known = new Set(db.clients.map(c => c.id));
@@ -1376,7 +1399,7 @@ function mergeData(d) {
   return { clients: nc, payments: np };
 }
 function backupNow() {
-  saveFile(`gestor_simples_backup_${today()}.json`, 'application/json', JSON.stringify(Object.assign({ app: 'Gestor Simples (app)', version: 2, exported_at: new Date().toISOString() }, db)));
+  saveFile(`backup-gestor-app_${today()}_${pad(new Date().getHours())}${pad(new Date().getMinutes())}.json`, 'application/json', JSON.stringify(Object.assign({ app: 'Gestor Simples (app)', version: 2, exported_at: new Date().toISOString() }, db)));
 }
 
 /* Reports */
