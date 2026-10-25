@@ -997,7 +997,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v3.3 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v3.4 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1022,6 +1022,7 @@ SUBVIEWS.perfil = () => {
     <div class="card acct">
       <div class="ac-h">${ic('cloud')}<div><b>Conta e nuvem</b><span>${esc((window.cloudInfo && cloudInfo().email) || '')}</span></div></div>
       <p id="syncInfo">${window.cloudInfo ? cloudInfo().text : ''}</p>
+      <button class="btn blue" data-act="cloud-check" style="margin-bottom:10px">${ic('checkc')} Conferir dados na nuvem</button>
       <div class="two"><button class="btn light" data-act="sync-now">${ic('refresh')} Sincronizar</button><button class="btn red" data-act="logout">${ic('logout')} Sair</button></div>
     </div>`;
 };
@@ -1909,6 +1910,7 @@ document.addEventListener('click', e => {
       document.querySelectorAll('#fpanels > .card.panel').forEach(c => { c.classList.toggle('closed', !open); const k = panelKey(c); if (open) delete closed[k]; else closed[k] = 1; });
       save(); break;
     }
+    case 'cloud-check': if (window.cloudCheck) cloudCheck(); break;
     case 'sync-now': if (window.cloudSyncNow) cloudSyncNow(); break;
     case 'logout': if (window.cloudLogout) cloudLogout(); break;
     case 'dark': db.settings.dark = !db.settings.dark; applyTheme(); refresh(); break;

@@ -997,3 +997,8 @@ body.locked > :not(#auth):not(#toast):not(#layer) { visibility: hidden; }
 .acct p { color: var(--ink2); font-size: 13.5px; line-height: 1.45; margin: 12px 0 14px; }
 .acct .two { gap: 10px; } .acct .btn { height: 46px; font-size: 15px; }
 body.theme-dark .acct .ac-h > i { background: #262748; color: #c9c7ff; }
+.chk table { width: 100%; border-collapse: collapse; margin: 6px 0 12px; font-size: 14.5px; }
+.chk th { font-size: 12px; color: var(--mute); font-weight: 600; text-align: right; padding: 4px 6px; }
+.chk td { padding: 7px 6px; border-top: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
+.chk td:first-child, .chk th:first-child { text-align: left; }
+.chk p { font-size: 14px !important; }

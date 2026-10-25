@@ -92,11 +92,13 @@ async function pushData() {
 /* Called after every local save. */
 window.onPersist = () => {
   if (!cloud.session) return;
-  setSyncMeta({ dirty: true });
+  // rev counts local changes, so an edit made while an upload is running is not marked as sent.
+  setSyncMeta({ dirty: true, rev: (syncMeta().rev || 0) + 1 });
   clearTimeout(cloud.timer); cloud.timer = setTimeout(() => sync(), 2500);
 };
 async function sync(opts = {}) {
-  if (!cloud.session || cloud.busy) return;
+  if (!cloud.session) return;
+  if (cloud.busy) { cloud.again = true; return; }   // run once more when the current sync ends
   cloud.busy = true; setStatus('busy');
   try {
     const meta = syncMeta(), stamp = await remoteStamp();
@@ -105,20 +107,46 @@ async function sync(opts = {}) {
       cloud.busy = false; setStatus('ok');
       return conflict(stamp);
     }
-    if (remoteNewer) {
+    if (remoteNewer && !opts.force) {
       const row = await pullData();
       if (row) { applyRemote(row.data); setSyncMeta({ lastSync: row.updated_at, dirty: false }); }
-    } else if (meta.dirty || !stamp) {
+    } else if (meta.dirty || !stamp || opts.force) {
       flushLocal();
+      const rev = syncMeta().rev || 0;
       const at = await pushData();
-      setSyncMeta({ lastSync: at, dirty: false });
+      setSyncMeta({ lastSync: at, dirty: (syncMeta().rev || 0) !== rev });
     }
-    setStatus('ok');
+    setStatus(syncMeta().dirty ? 'busy' : 'ok');
   } catch (e) {
     setStatus(e.offline ? 'off' : 'err', e.message);
     if (e.status === 401 || e.status === 400 && /refresh/i.test(e.message)) { toast('Sessão expirada. Entre de novo.'); logout(true); }
-  } finally { cloud.busy = false; }
+  } finally {
+    cloud.busy = false;
+    if (cloud.again || syncMeta().dirty && cloud.status === 'busy') { cloud.again = false; setTimeout(() => sync(), 300); }
+  }
 }
+/* Compares this phone with the cloud copy, item by item. */
+async function cloudCheck() {
+  flushLocal();
+  toast('Conferindo a nuvem…');
+  try {
+    const row = await pullData(), r = row && row.data || {};
+    const cnt = d => ({ c: (d.clients || []).length, p: (d.plans || []).length, g: (d.payments || []).length, h: (d.history || []).length });
+    const a = cnt(db), b = cnt(r);
+    const ids = new Set((r.clients || []).map(c => c.id)), missing = db.clients.filter(c => !ids.has(c.id)).length;
+    const same = JSON.stringify(r) === JSON.stringify(db);
+    const line = (t, x, y) => `<tr><td>${t}</td><td>${x}</td><td>${y}</td><td>${x === y ? '✅' : '⚠️'}</td></tr>`;
+    const when = row ? new Date(row.updated_at).toLocaleString('pt-BR') : '—';
+    overlay(`<div class="dialog confirm chk">${ic(same ? 'checkc' : 'alert', `style="color:${same ? '#23944f' : '#d97706'}"`)}
+      <h3>${same ? 'Tudo salvo na nuvem' : 'Há diferenças'}</h3>
+      <table><tr><th></th><th>Aparelho</th><th>Nuvem</th><th></th></tr>${line('Clientes', a.c, b.c)}${line('Planos', a.p, b.p)}${line('Pagamentos', a.g, b.g)}${line('Histórico', a.h, b.h)}</table>
+      <p>${same ? `A cópia da nuvem é idêntica à deste aparelho.` : missing ? `${missing} cliente(s) deste aparelho ainda não estão na nuvem. Toque em Enviar agora.` : 'A nuvem tem uma versão diferente. Toque em Sincronizar.'}<br><small>Última gravação na nuvem: ${when}</small></p>
+      <div class="two">${same ? '' : '<button class="cancel" id="chkSend">Enviar agora</button>'}<button class="ok" style="background:#4f46e5" data-act="close">OK</button></div></div>`, 'center');
+    const b2 = document.getElementById('chkSend');
+    if (b2) b2.onclick = () => { closeTop(); setSyncMeta({ dirty: true }); sync({ force: true }); };
+  } catch (e) { toast('Não foi possível conferir: ' + e.message); }
+}
+window.cloudCheck = cloudCheck;
 function flushLocal() { if (window.flushSave) flushSave(); }
 function applyRemote(data) {
   if (!data || !data.clients) return;
@@ -202,6 +230,7 @@ async function enterApp(name) {
   // First login on this phone: bring the data that was here before accounts existed.
   if (!hadLocal && localStorage.getItem(LEGACY_KEY) && !localStorage.getItem('gs-legacy-owner')) {
     localStorage.setItem(KEY, localStorage.getItem(LEGACY_KEY)); localStorage.setItem('gs-legacy-owner', uid);
+    localStorage.removeItem(LEGACY_KEY);
   }
   startApp();
   if (name && !db.settings.owner) { db.settings.owner = name; save(); }
