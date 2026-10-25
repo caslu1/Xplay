@@ -1,4 +1,4 @@
-# Xplay Gestor
+# Gestor Simples
 
 App Android para revendedores gerenciarem clientes, vencimentos e faturamento.
 

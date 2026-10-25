@@ -535,21 +535,10 @@ button:active, .card[data-act]:active, .row[data-act]:active { transform: scale(
 .sheet { overflow-x: hidden; }
 
 /* ===== v1.4 layout ===== */
-/* Dashboard tiles */
-.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
-.stat { position: relative; display: flex; flex-direction: column; align-items: flex-start; text-align: left; background: #fff; border-radius: 20px;
-  padding: 16px; box-shadow: 0 4px 18px rgba(30,40,80,.06); min-height: 138px; }
-.stat .ic { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; color: #fff; box-shadow: 0 6px 14px rgba(0,0,0,.12); }
-.stat .ic i { width: 22px; height: 22px; }
-.stat > b { font-size: 30px; font-weight: 800; line-height: 1; margin-top: 14px; letter-spacing: -.5px; }
-.stat > span { color: var(--ink2); font-size: 13.5px; margin-top: 6px; font-weight: 500; }
-.stat .go { position: absolute; top: 18px; right: 14px; width: 18px; height: 18px; color: #c3c7d1; }
 .list-card { margin-bottom: 16px; }
 .list-card .lc-head { padding: 14px 16px; }
 .list-card .lc-head .ico { width: 40px; height: 40px; }
 .list-card .lc-head b { font-size: 17px; }
-.list-card.ess { background: linear-gradient(180deg, #fffaf0, #fff 64px); }
-.list-card.next { background: linear-gradient(180deg, #f6f5ff, #fff 64px); }
 .list-card .row { border-top: 1px solid #f1f2f5; padding: 11px 16px; }
 .list-card .row .ini { width: 42px; height: 42px; border-radius: 12px; font-size: 15px; }
 .list-card .row .nm b { font-size: 15.5px; }

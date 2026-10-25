@@ -149,7 +149,7 @@ function blank() {
     ],
     clients: [], payments: [], history: [], snapshots: {},
     settings: {
-      brand: 'xplay', company: '', owner: '', phone: '', photo: '',
+      brand: 'GS', company: '', owner: '', phone: '', photo: '',
       msgWhats: 'Bom dia, tudo bem? 😊\n\n🕗 Estou passando para lembrar que seu plano {{plano}} vence em {{vencimento}}.\n\n💰 Valor: {{valor}}\n\nPara renovar é só responder esta mensagem. {empresa} agradece! 🙏',
       msgCadastro: '🛍️ Seu cadastro foi realizado com sucesso!\n🕒 Vencimento: {{vencimento}}\n📦 Plano: {{plano}}\n📌 Caso tenha alguma dúvida ou problema estamos à disposição.',
       msgRenovacao: '✅ Renovação confirmada!\n📦 Plano: {{plano}}\n🕒 Novo vencimento: {{vencimento}}\nObrigado pela preferência! 🙏',
@@ -167,6 +167,7 @@ function migrate() {
   const old = db.settings || {};
   db.settings = Object.assign(blank().settings, old);
   if (old.template && !old.msgWhats) db.settings.msgWhats = old.template;
+  if (db.settings.brand === 'xplay') db.settings.brand = 'GS';
   delete db.settings.template;
   const used = new Set();
   db.plans.forEach(p => {
@@ -249,7 +250,7 @@ function go(tab, keepScroll) {
   if (!keepScroll) window.scrollTo(0, 0);
 }
 function updateHeader() {
-  const brand = db.settings.brand || 'xplay';
+  const brand = db.settings.brand || 'GS';
   $('#avatar').innerHTML = db.settings.photo ? `<img src="${db.settings.photo}" alt="">` : esc(brand);
   const due = live().filter(c => c.due && daysLeft(c) === 0).length;
   const dot = $('#bellDot'); dot.hidden = !due; dot.textContent = due > 99 ? '99+' : due;
@@ -339,37 +340,39 @@ VIEWS.dashboard = () => {
   const todayN = L.filter(c => c.due && daysLeft(c) === 0).length;
   const next5 = L.filter(c => { const d = daysLeft(c); return d !== null && d >= 1 && d <= 5; }).length;
   const stat = (f, color, icon, title, n) => `
-    <button class="stat" data-act="filter" data-f="${f}">
-      <div class="ic" style="background:${color}">${ic(icon)}</div>
-      <b>${n}</b><span>${title}</span>${ic('right', 'class="go"')}
+    <button class="card stat" data-act="filter" data-f="${f}" style="width:100%;text-align:left">
+      <div class="st"><div class="ic" style="background:${color}">${ic(icon)}</div>
+        <div class="num"><b>${n}</b><span>clientes</span></div></div>
+      <b>${title}</b><span>Toque para ver detalhes</span>
     </button>`;
   const ess = L.filter(c => c.essential).sort((a, b) => (a.due || '9') < (b.due || '9') ? -1 : 1);
   const upcoming = L.filter(c => { const d = daysLeft(c); return d !== null && d >= 0 && d <= 5; })
     .sort((a, b) => a.due < b.due ? -1 : a.due > b.due ? 1 : a.name.localeCompare(b.name));
-  const row = (c, grad) => {
-    const p = planOf(c);
-    return `<div class="row" data-act="detail" data-id="${c.id}">
-      <div class="ini" style="background:linear-gradient(135deg,${grad[0]},${grad[1]})">${initials(c.name)}</div>
-      <div class="nm"><b>${esc(shortName(c.name))}</b><span>${br(c.due)}${p ? ` · ${esc(p.name)}` : ''}</span></div>
+  const row = (c, date, grad) => {
+    const d = daysLeft(c);
+    return `<div class="row ${d !== null && d <= 0 ? 'late' : d !== null && d <= 5 ? 'warn' : ''}" data-act="detail" data-id="${c.id}">
+      <div class="ini" style="background:linear-gradient(135deg,${grad[0]},${grad[1]})">${initial(c.name)}</div>
+      <div class="nm"><b>${esc(shortName(c.name))}</b><span>${date}</span></div>
       ${pillOf(c)}
       <button class="wa" data-act="wa" data-id="${c.id}">${ic('wa')}</button></div>`;
   };
-  const section = (cls, grad, icon, title, sub, f, seeColor, list, empty) => `
-    <div class="card list-card ${cls}">
-      <div class="lc-head"><div class="ico" style="background:linear-gradient(135deg,${grad[0]},${grad[1]})">${icon}</div>
-        <div><b>${title}</b><small>${sub}</small></div>
-        <button class="see" style="color:${seeColor}" data-act="filter" data-f="${f}">Ver Todos ${ic('arrowR')}</button></div>
-      ${list.slice(0, 3).map(c => row(c, grad)).join('') || `<div class="empty" style="padding:18px">${empty}</div>`}
-    </div>`;
   return `
-    <div class="stats">
-      ${stat('ativos', 'linear-gradient(135deg,#3b82f6,#4f46e5)', 'users', 'Clientes Ativos', active)}
-      ${stat('vencidos', 'linear-gradient(135deg,#e0457b,#c0303a)', 'alert', 'Vencidos', late)}
-      ${stat('hoje', 'linear-gradient(135deg,#f59e0b,#ea580c)', 'calcheck', 'Vencem Hoje', todayN)}
-      ${stat('p5', 'linear-gradient(135deg,#a855f7,#7c3aed)', 'calendar', 'Próximos 5 Dias', next5)}
+    ${stat('ativos', 'linear-gradient(135deg,#3b82f6,#4f46e5)', 'users', 'Clientes Ativos', active)}
+    ${stat('vencidos', 'linear-gradient(135deg,#e0457b,#c0303a)', 'alert', 'Vencidos', late)}
+    ${stat('hoje', 'linear-gradient(135deg,#ea7c2c,#b8742a)', 'calcheck', 'Vencem Hoje', todayN)}
+    ${stat('p5', 'linear-gradient(135deg,#a855f7,#7c3aed)', 'dollar', 'Próximos 5 Dias', next5)}
+    <div class="card list-card ess">
+      <div class="lc-head"><div class="ico" style="background:linear-gradient(135deg,#f6b73c,#ef8a2c)">${ic('star', 'class="fill"')}</div>
+        <div><b>Essenciais</b><small>${ess.length} ${ess.length === 1 ? 'cliente' : 'clientes'}</small></div>
+        <button class="see" style="color:#c96f19" data-act="filter" data-f="essenciais">Ver Todos ${ic('arrowR')}</button></div>
+      ${ess.slice(0, 3).map(c => row(c, br(c.due), ['#f6b73c', '#ef8a2c'])).join('') || '<div class="empty" style="padding:20px">Marque clientes com a ⭐ para vê-los aqui</div>'}
     </div>
-    ${section('ess', ['#f6b73c', '#ef8a2c'], ic('star', 'class="fill"'), 'Essenciais', `${ess.length} ${ess.length === 1 ? 'cliente' : 'clientes'}`, 'essenciais', '#c96f19', ess, 'Marque clientes com a ⭐ para vê-los aqui')}
-    ${section('next', ['#6366f1', '#9333ea'], ic('calendar'), 'Próx. Vencimentos', `${upcoming.length} em 5 dias`, 'p5h', '#4f46e5', upcoming, 'Nenhum vencimento nos próximos 5 dias')}`;
+    <div class="card list-card" style="background:linear-gradient(180deg,#f5f5ff,#fff 70px)">
+      <div class="lc-head"><div class="ico" style="background:linear-gradient(135deg,#6366f1,#9333ea)">${ic('calendar')}</div>
+        <div><b>Próx. Vencimentos</b><small>${upcoming.length} em 5 dias</small></div>
+        <button class="see" style="color:#4f46e5" data-act="filter" data-f="p5h">Ver Todos ${ic('arrowR')}</button></div>
+      ${upcoming.slice(0, 3).map(c => row(c, brShort(c.due), ['#6366f1', '#9333ea'])).join('') || '<div class="empty" style="padding:20px">Nenhum vencimento nos próximos 5 dias</div>'}
+    </div>`;
 };
 
 function filteredClients() {
@@ -904,7 +907,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Xplay Gestor — v1.4 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v1.5 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1265,7 +1268,7 @@ function mergeData(d) {
   return { clients: nc, payments: np };
 }
 function backupNow() {
-  saveFile(`xplay_gestor_backup_${today()}.json`, 'application/json', JSON.stringify(Object.assign({ app: 'Xplay Gestor', version: 2, exported_at: new Date().toISOString() }, db)));
+  saveFile(`gestor_simples_backup_${today()}.json`, 'application/json', JSON.stringify(Object.assign({ app: 'Gestor Simples (app)', version: 2, exported_at: new Date().toISOString() }, db)));
 }
 
 /* Reports */
