@@ -125,6 +125,12 @@ async function sync(opts = {}) {
     if (cloud.again || syncMeta().dirty && cloud.status === 'busy') { cloud.again = false; setTimeout(() => sync(), 300); }
   }
 }
+// Postgres jsonb reorders object keys, so compare with keys sorted.
+function canon(v) {
+  if (Array.isArray(v)) return '[' + v.map(canon).join(',') + ']';
+  if (v && typeof v === 'object') return '{' + Object.keys(v).filter(k => v[k] !== undefined).sort().map(k => JSON.stringify(k) + ':' + canon(v[k])).join(',') + '}';
+  return JSON.stringify(v);
+}
 /* Compares this phone with the cloud copy, item by item. */
 async function cloudCheck() {
   flushLocal();
@@ -134,7 +140,7 @@ async function cloudCheck() {
     const cnt = d => ({ c: (d.clients || []).length, p: (d.plans || []).length, g: (d.payments || []).length, h: (d.history || []).length });
     const a = cnt(db), b = cnt(r);
     const ids = new Set((r.clients || []).map(c => c.id)), missing = db.clients.filter(c => !ids.has(c.id)).length;
-    const same = JSON.stringify(r) === JSON.stringify(db);
+    const same = canon(r) === canon(db);
     const line = (t, x, y) => `<tr><td>${t}</td><td>${x}</td><td>${y}</td><td>${x === y ? '✅' : '⚠️'}</td></tr>`;
     const when = row ? new Date(row.updated_at).toLocaleString('pt-BR') : '—';
     overlay(`<div class="dialog confirm chk">${ic(same ? 'checkc' : 'alert', `style="color:${same ? '#23944f' : '#d97706'}"`)}
