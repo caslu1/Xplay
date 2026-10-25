@@ -83,7 +83,10 @@ public class TecladoService extends InputMethodService
     private boolean noSuggestions;
     private String prefix = "";
     private List<String> suggestions = new ArrayList<>();
-    private long confirmUntil;
+
+    // Autocorrect undo: set right after a word is auto-fixed, so one backspace brings it back.
+    private boolean undoArmed;
+    private String undoOriginal, undoCorrected;
 
     @Override
     public void onCreate() {
@@ -203,6 +206,17 @@ public class TecladoService extends InputMethodService
     public void onText(String text) {
         InputConnection ic = getCurrentInputConnection();
         if (ic == null) return;
+        undoArmed = false;
+        // Finishing a word with punctuation also triggers the autocorrect.
+        if (text.length() == 1 && ".,!?;:".indexOf(text.charAt(0)) >= 0) {
+            boolean fixed = autocorrectBefore(ic);
+            ic.commitText(text, 1);
+            record(text);
+            undoArmed = fixed;
+            updateShift();
+            updateSuggestions();
+            return;
+        }
         ic.commitText(text, 1);
         record(text);
         updateShift();
@@ -217,6 +231,7 @@ public class TecladoService extends InputMethodService
             return;        }
         if (ic == null) return;
         if (code == KeyboardView.DELETE) {
+            if (undoArmed) { undoAutocorrect(ic); return; }
             CharSequence sel = ic.getSelectedText(0);
             if (!TextUtils.isEmpty(sel)) ic.commitText("", 1);
             else ic.deleteSurroundingText(1, 0);
@@ -225,7 +240,9 @@ public class TecladoService extends InputMethodService
             updateSuggestions();
             return;
         }
+        undoArmed = false;
         if (code == '\n') {
+            autocorrectBefore(ic); // fix the last word before sending too
             if (sendAction(ic)) return;
             ic.commitText("\n", 1);
             record("\n");
@@ -234,11 +251,51 @@ public class TecladoService extends InputMethodService
             return;
         }
         if (code == ' ') {
+            boolean fixed = autocorrectBefore(ic);
             ic.commitText(" ", 1);
             record(" ");
+            undoArmed = fixed;
             updateShift();
             updateSuggestions();
         }
+    }
+
+    // ---- Autocorrect.
+
+    /** Replaces the word just before the cursor with its corrected form, if there is one. */
+    private boolean autocorrectBefore(InputConnection ic) {
+        if (noSuggestions) return false;
+        CharSequence before = ic.getTextBeforeCursor(32, 0);
+        if (before == null || before.length() == 0) return false;
+        int i = before.length();
+        while (i > 0 && isWordChar(before.charAt(i - 1))) i--;
+        String word = before.subSequence(i, before.length()).toString();
+        if (word.isEmpty()) return false;
+        String fixed = store.correct(word);
+        if (fixed == null || fixed.equals(word)) return false;
+        ic.beginBatchEdit();
+        ic.deleteSurroundingText(word.length(), 0);
+        ic.commitText(fixed, 1);
+        ic.endBatchEdit();
+        if (typed.length() >= word.length()) typed.setLength(typed.length() - word.length());
+        typed.append(fixed);
+        undoOriginal = word;
+        undoCorrected = fixed;
+        return true;
+    }
+
+    /** One backspace right after a correction puts the word the user actually typed back. */
+    private void undoAutocorrect(InputConnection ic) {
+        undoArmed = false;
+        ic.beginBatchEdit();
+        ic.deleteSurroundingText(undoCorrected.length() + 1, 0); // corrected word + the separator
+        ic.commitText(undoOriginal + " ", 1);
+        ic.endBatchEdit();
+        int remove = undoCorrected.length() + 1;
+        if (typed.length() >= remove) typed.setLength(typed.length() - remove);
+        typed.append(undoOriginal).append(" ");
+        updateShift();
+        updateSuggestions();
     }
 
     @Override
@@ -331,6 +388,7 @@ public class TecladoService extends InputMethodService
     private void applySuggestion(String word) {
         InputConnection ic = getCurrentInputConnection();
         if (ic == null) return;
+        undoArmed = false;
         ic.beginBatchEdit();
         if (!prefix.isEmpty()) ic.deleteSurroundingText(prefix.length(), 0);
         ic.commitText(word + " ", 1);

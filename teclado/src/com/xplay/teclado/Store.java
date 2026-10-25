@@ -30,21 +30,60 @@ final class Store {
 
     static final float MIN_SCALE = 0.6f, MAX_SCALE = 1.6f;
     private static final int MAX_CLIPS = 60, MAX_HISTORY = 1000, MAX_WORDS = 5000;
-
-    /** Seeds the suggestions before the keyboard has learned anything. */
-    private static final String COMMON = "de a o que e do da em um para é com não uma os no se na por mais as dos como"
-            + " mas foi ao ele das tem à seu sua ou ser quando muito há nos já está eu também só pelo pela até isso ela"
-            + " entre era depois sem mesmo aos ter seus quem nas me esse eles estão você tinha foram essa num nem suas"
-            + " meu às minha têm numa pelos elas havia seja qual será nós tenho lhe deles essas esses pelas este fosse"
-            + " dele tu te vocês vos lhes meus minhas teu tua teus tuas nosso nossa nossos nossas obrigado obrigada"
-            + " bom boa dia tarde noite tudo bem beleza certo ok sim valeu amanhã hoje agora onde porque pode fazer"
-            + " quero preciso vamos aqui ali então ainda sempre nunca casa trabalho mensagem favor desculpa abraço";
+    private static final int LEARN_BOOST = 400; // learned words outrank the dictionary
 
     private final SharedPreferences prefs;
+    private final Context ctx;
     private JSONObject words;
 
+    /** The built-in dictionary: correct word -> rough frequency, plus an accent-free index. */
+    private java.util.HashMap<String, Integer> dict;
+    private java.util.HashMap<String, String> byNorm; // "voce" -> "você", "obrigado" -> "obrigado"
+
     Store(Context c) {
+        ctx = c.getApplicationContext();
         prefs = c.getSharedPreferences("teclado", Context.MODE_PRIVATE);
+    }
+
+    // ---- Text helpers for accent-insensitive matching.
+
+    /** Lowercase and strip accents, so "Você" and "voce" compare equal. */
+    static String norm(String s) {
+        String n = java.text.Normalizer.normalize(s.toLowerCase(Locale.ROOT), java.text.Normalizer.Form.NFD);
+        return n.replaceAll("\\p{Mn}+", "");
+    }
+
+    /** Puts a dictionary word into the same case the user is typing in. */
+    private static String withCase(String word, String typed) {
+        if (typed.isEmpty()) return word;
+        if (typed.length() > 1 && typed.equals(typed.toUpperCase(Locale.ROOT))) return word.toUpperCase(Locale.ROOT);
+        if (Character.isUpperCase(typed.charAt(0))) return Character.toUpperCase(word.charAt(0)) + word.substring(1);
+        return word;
+    }
+
+    private void ensureDict() {
+        if (dict != null) return;
+        dict = new java.util.HashMap<>();
+        byNorm = new java.util.HashMap<>();
+        try {
+            java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(
+                    ctx.getResources().openRawResource(R.raw.words), "UTF-8"));
+            String line;
+            int rank = 0, total = 2000;
+            while ((line = r.readLine()) != null) {
+                String w = line.trim();
+                if (w.isEmpty()) continue;
+                int freq = Math.max(10, total - rank);
+                dict.put(w, freq);
+                String nk = norm(w);
+                // Keep the most frequent spelling for each accent-free form.
+                String prev = byNorm.get(nk);
+                if (prev == null || dict.get(prev) < freq) byNorm.put(nk, w);
+                rank++;
+            }
+            r.close();
+        } catch (Exception ignored) {
+        }
     }
 
     int theme() { return prefs.getInt("theme", 0); }
@@ -136,36 +175,118 @@ final class Store {
         prefs.edit().putString("words", w.toString()).apply();
     }
 
-    /** Up to n known words starting with prefix, most used first, in the prefix's case. */
+    /** The combined vocabulary (dictionary + learned words) with a usable frequency each. */
+    private java.util.HashMap<String, Integer> vocabulary() {
+        ensureDict();
+        java.util.HashMap<String, Integer> v = new java.util.HashMap<>(dict);
+        JSONObject w = words();
+        for (Iterator<String> it = w.keys(); it.hasNext(); ) {
+            String k = it.next();
+            Integer base = v.get(k);
+            v.put(k, (base == null ? 0 : base) + LEARN_BOOST + w.optInt(k));
+        }
+        return v;
+    }
+
+    /**
+     * Up to n suggestions for what is being typed. Matches ignore accents, so "voce" offers
+     * "você"; words that merely start with the prefix come first, then close misspellings.
+     */
     List<String> suggest(String prefix, int n) {
         List<String> out = new ArrayList<>();
         if (prefix.isEmpty()) return out;
-        String p = prefix.toLowerCase(Locale.ROOT);
-        final JSONObject w = words();
-        List<String> hits = new ArrayList<>();
-        for (Iterator<String> it = w.keys(); it.hasNext(); ) {
-            String k = it.next();
-            if (k.startsWith(p) && !k.equals(p)) hits.add(k);
+        final String np = norm(prefix);
+        final java.util.HashMap<String, Integer> vocab = vocabulary();
+
+        final List<String> starts = new ArrayList<>();
+        final List<String> near = new ArrayList<>();
+        for (String word : vocab.keySet()) {
+            String nw = norm(word);
+            if (nw.equals(np)) continue;
+            if (nw.startsWith(np)) starts.add(word);
+            else if (np.length() >= 3 && Math.abs(nw.length() - np.length()) <= 1 && editDistance(np, nw, 1) <= 1) {
+                near.add(word);
+            }
         }
-        for (String k : COMMON.split(" ")) {
-            if (k.startsWith(p) && !k.equals(p) && !w.has(k)) hits.add(k);
-        }
-        Collections.sort(hits, new Comparator<String>() {
+        final Comparator<String> byFreq = new Comparator<String>() {
             @Override
             public int compare(String a, String b) {
-                int d = w.optInt(b) - w.optInt(a);
+                int d = vocab.get(b) - vocab.get(a);
                 return d != 0 ? d : a.length() - b.length();
             }
-        });
-        boolean upper = Character.isUpperCase(prefix.charAt(0));
-        boolean allUpper = prefix.length() > 1 && prefix.equals(prefix.toUpperCase(Locale.ROOT));
-        for (int i = 0; i < hits.size() && out.size() < n; i++) {
-            String s = hits.get(i);
-            if (allUpper) s = s.toUpperCase(Locale.ROOT);
-            else if (upper) s = Character.toUpperCase(s.charAt(0)) + s.substring(1);
-            out.add(s);
+        };
+        Collections.sort(starts, byFreq);
+        Collections.sort(near, byFreq);
+
+        // If what was typed is itself a correct word, keep it as one of the options too.
+        boolean typedIsWord = byNorm.containsKey(np) && byNorm.get(np).equalsIgnoreCase(prefix);
+        for (String s : starts) { if (out.size() < n) add(out, withCase(s, prefix)); }
+        for (String s : near) { if (out.size() < n) add(out, withCase(s, prefix)); }
+        if (!typedIsWord && byNorm.containsKey(np)) add(out, withCase(byNorm.get(np), prefix));
+        return out.size() > n ? out.subList(0, n) : out;
+    }
+
+    /**
+     * The autocorrected form of a finished word, or null to leave it alone. Fixes missing accents
+     * ("voce" -> "você") and small typos ("qeuro" -> "quero"); never touches short words, words
+     * with digits, or words the user has taught the keyboard.
+     */
+    String correct(String word) {
+        if (word == null || word.length() < 3 || word.length() > 24) return null;
+        for (int i = 0; i < word.length(); i++) {
+            if (Character.isDigit(word.charAt(i))) return null;
         }
-        return out;
+        ensureDict();
+        JSONObject w = words();
+        if (w.has(word.toLowerCase(Locale.ROOT))) return null; // the user types it on purpose
+        String nw = norm(word);
+        // Already a correct spelling (perhaps only the accents are missing).
+        if (byNorm.containsKey(nw)) {
+            String right = withCase(byNorm.get(nw), word);
+            return right.equals(word) ? null : right;
+        }
+        // Otherwise look for the closest correct word.
+        int max = word.length() <= 4 ? 1 : 2;
+        String best = null;
+        int bestDist = max + 1, bestFreq = -1;
+        for (java.util.Map.Entry<String, String> e : byNorm.entrySet()) {
+            String cand = e.getKey();
+            if (Math.abs(cand.length() - nw.length()) > max) continue;
+            if (cand.charAt(0) != nw.charAt(0)) continue; // typos rarely change the first letter
+            int d = editDistance(nw, cand, max);
+            if (d > max) continue;
+            int freq = dict.get(e.getValue());
+            if (d < bestDist || (d == bestDist && freq > bestFreq)) {
+                bestDist = d; bestFreq = freq; best = e.getValue();
+            }
+        }
+        return best == null ? null : withCase(best, word);
+    }
+
+    private static void add(List<String> out, String s) {
+        if (!out.contains(s)) out.add(s);
+    }
+
+    /** Levenshtein distance, giving up (returns max+1) once it is clearly over the limit. */
+    private static int editDistance(String a, String b, int max) {
+        int la = a.length(), lb = b.length();
+        if (Math.abs(la - lb) > max) return max + 1;
+        int[] prev = new int[lb + 1];
+        int[] cur = new int[lb + 1];
+        for (int j = 0; j <= lb; j++) prev[j] = j;
+        for (int i = 1; i <= la; i++) {
+            cur[0] = i;
+            int rowMin = cur[0];
+            char ca = a.charAt(i - 1);
+            for (int j = 1; j <= lb; j++) {
+                int cost = ca == b.charAt(j - 1) ? 0 : 1;
+                cur[j] = Math.min(Math.min(prev[j] + 1, cur[j - 1] + 1), prev[j - 1] + cost);
+                rowMin = Math.min(rowMin, cur[j]);
+            }
+            if (rowMin > max) return max + 1;
+            int[] t = prev; prev = cur; cur = t;
+        }
+        return prev[lb];
     }
 
     private JSONObject words() {
