@@ -260,6 +260,7 @@ function updateHeader() {
 }
 function render() {
   for (const k in CH) delete CH[k];
+  PIE.sel = -1;
   const tip = $('#ctip'); if (tip) tip.hidden = true;
   updateHeader();
   const page = $('#page');
@@ -593,23 +594,59 @@ function evolucaoCard() {
   </div>`;
 }
 
+const PIE_COLORS = ['#4f86e8', '#43a35a', '#ea7d32', '#9b5cf0', '#e0559a', '#4ab0cc', '#8b5cf6', '#e8a33a'];
 function receitaPlanoCard() {
-  const r = periodRange(), map = {};
-  db.payments.forEach(p => { if (!inRange(p, r)) return; const k = p.planName || 'Sem plano'; map[k] = map[k] || { name: k, n: 0, v: 0 }; map[k].n++; map[k].v += p.amount; });
-  let rows = Object.values(map).sort((a, b) => b.v - a.v);
-  const total = rows.reduce((a, x) => a + x.v, 0);
-  if (rows.length > 8) {
-    const rest = rows.slice(7);
-    rows = rows.slice(0, 7).concat([{ name: `Outros (${rest.length} planos)`, n: rest.reduce((a, x) => a + x.n, 0), v: rest.reduce((a, x) => a + x.v, 0), other: true }]);
-  }
-  const max = Math.max(1, ...rows.map(x => x.v));
-  return `<div class="card">
-    <div class="card-head"><div class="ico" style="background:#f5f0ff;color:#7c3aed">${ic('box')}</div><div class="grow"><h3>Receita por Plano</h3><small>Faturamento por plano · ${esc(periodShort())}</small></div></div>
-    ${rows.length ? `<div class="chart-sum"><span>Total</span><b>${money(total)}</b></div><div class="bars-h">${rows.map(x => `<div class="bh${x.other ? ' other' : ''}"><div><span>${esc(x.name)}</span><b>${money(x.v)}</b></div>
-      <div class="track"><div class="fill" style="width:${Math.max(2, x.v / max * 100)}%"></div></div><small>${x.n} ${x.n === 1 ? 'venda' : 'vendas'} · ${Math.round(x.v / total * 100)}%</small></div>`).join('')}</div>`
-      : `<div class="empty">${ic('box')}<div>Sem dados de faturamento</div></div>`}
+  const r = periodRange(), map = {}, all = new Set();
+  db.payments.forEach(p => {
+    if (!inRange(p, r)) return;
+    const k = p.planName || 'Sem plano';
+    const m = map[k] || (map[k] = { name: k, ids: new Set(), v: 0, l: 0 });
+    m.ids.add(p.clientId); all.add(p.clientId); m.v += p.amount; m.l += p.amount - (p.cost || 0);
+  });
+  const order = {}; db.plans.forEach((p, i) => { order[p.name] = i; });
+  const rows = Object.values(map).map(m => ({ name: m.name, n: m.ids.size, v: m.v, l: m.l }))
+    .sort((a, b) => b.n - a.n || b.v - a.v);
+  const total = rows.reduce((a, x) => a + x.n, 0);
+  rows.forEach((x, i) => { x.color = PIE_COLORS[i % PIE_COLORS.length]; });
+  PIE.rows = rows; PIE.total = total;
+  if (!rows.length) return `<div class="card">
+    <div class="card-head"><div class="ico" style="background:#f5f0ff;color:#7c3aed">${ic('box')}</div><h3>Receita por Plano</h3></div>
+    <div class="empty">${ic('box')}<div>Sem dados de faturamento</div></div></div>`;
+  // Pie slices
+  const C = 110, R = 100;
+  let a0 = -Math.PI / 2, paths = '';
+  rows.forEach((x, i) => {
+    const ang = x.n / total * Math.PI * 2, a1 = a0 + ang;
+    const p0 = [C + R * Math.cos(a0), C + R * Math.sin(a0)], p1 = [C + R * Math.cos(a1), C + R * Math.sin(a1)];
+    const d = rows.length === 1 ? `M${C - R},${C}a${R},${R} 0 1,0 ${2 * R},0a${R},${R} 0 1,0 ${-2 * R},0Z`
+      : `M${C},${C}L${p0[0].toFixed(2)},${p0[1].toFixed(2)}A${R},${R} 0 ${ang > Math.PI ? 1 : 0},1 ${p1[0].toFixed(2)},${p1[1].toFixed(2)}Z`;
+    paths += `<path data-pi="${i}" d="${d}" fill="${x.color}" stroke="#fff" stroke-width="1.5"/>`;
+    a0 = a1;
+  });
+  return `<div class="card pie-card">
+    <div class="card-head"><div class="ico" style="background:#f5f0ff;color:#7c3aed">${ic('box')}</div><h3>Receita por Plano</h3></div>
+    <p class="pie-tot">Total: <b>${total} clientes ativos</b></p>
+    <div class="pie-wrap"><svg class="pie" viewBox="0 0 220 220">${paths}</svg><div class="pie-info" id="pieInfo" hidden></div></div>
+    <div class="pie-leg">${rows.map((x, i) => `<button data-pi="${i}"><i style="background:${x.color}"></i><span>${esc(x.name)}</span><b>${x.n}</b></button>`).join('')}</div>
   </div>`;
 }
+const PIE = { rows: [], total: 0, sel: -1 };
+function pieSelect(i) {
+  const box = $('#pieInfo'); if (!box) return;
+  PIE.sel = i;
+  document.querySelectorAll('.pie path').forEach(p => p.classList.toggle('dim', i >= 0 && +p.dataset.pi !== i));
+  document.querySelectorAll('.pie-leg button').forEach(b => b.classList.toggle('on', +b.dataset.pi === i));
+  if (i < 0) { box.hidden = true; return; }
+  const x = PIE.rows[i];
+  box.hidden = false;
+  box.innerHTML = `<b class="pn">${esc(x.name)}</b><b class="pc" style="color:${x.color}">${x.n} ${x.n === 1 ? 'cliente' : 'clientes'}</b>
+    <span class="pp">${(x.n / PIE.total * 100).toFixed(1)}% do total</span><hr><span class="pr">Receita: ${money(x.v)}</span><span class="pl">Lucro: ${money(x.l)}</span>`;
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-pi]');
+  if (t) { const i = +t.dataset.pi; pieSelect(PIE.sel === i ? -1 : i); }
+  else if (PIE.sel >= 0 && !e.target.closest('.pie-info')) pieSelect(-1);
+});
 
 function historicoAtivosCard() {
   const cutoff = addDays(today(), -29);
@@ -688,34 +725,42 @@ function ufOf(c) {
   const d = String(c.phone || '').replace(/\D/g, '');
   return d.startsWith('55') && d.length >= 11 ? DDD[d.slice(2, 4)] || null : null;
 }
+const UF_NAMES = {}; BR_MAP.loc.forEach(l => { UF_NAMES[l.id] = l.name; });
+// Teal -> green -> yellow -> orange -> red by share of the busiest state.
+const MAP_STOPS = [[0, [63, 147, 168]], [.3, [92, 186, 110]], [.55, [227, 195, 65]], [.78, [236, 154, 60]], [1, [224, 82, 82]]];
+function mapColor(t) {
+  for (let i = 1; i < MAP_STOPS.length; i++) if (t <= MAP_STOPS[i][0]) {
+    const [t0, c0] = MAP_STOPS[i - 1], [t1, c1] = MAP_STOPS[i], k = (t - t0) / (t1 - t0);
+    return `rgb(${c0.map((v, j) => Math.round(v + (c1[j] - v) * k)).join(',')})`;
+  }
+  return 'rgb(224,82,82)';
+}
 function estadosCard() {
   const cnt = {}; let total = 0;
   db.clients.forEach(c => { const uf = ufOf(c); if (uf) { cnt[uf] = (cnt[uf] || 0) + 1; total++; } });
   const max = Math.max(1, ...Object.values(cnt));
-  const color = n => {
-    if (!n) return ['#2c3a4f', '#7b8aa0'];
-    const t = n / max;
-    if (t > .66) return ['#e05252', '#fff'];
-    if (t > .2) return ['#5cba6e', '#fff'];
-    if (t > .05) return ['#3fae9a', '#fff'];
-    return ['#3f93a8', '#fff'];
-  };
-  let tiles = '';
-  for (let r = 0; r <= 8; r++) for (let col = 0; col < 7; col++) {
-    const uf = Object.keys(UF_GRID).find(k => UF_GRID[k][0] === col && UF_GRID[k][1] === r);
-    if (!uf) { tiles += '<div></div>'; continue; }
-    const [bg, fg] = color(cnt[uf]);
-    tiles += `<div class="tile" style="background:${bg};color:${fg}">${uf}<small>${cnt[uf] || 0}</small></div>`;
-  }
+  const col = uf => mapColor((cnt[uf] || 0) / max);
+  const paths = BR_MAP.loc.map(l => `<path data-uf="${l.id}" d="${l.path}" fill="${col(l.id)}"/>`).join('');
   const top = Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const noDdd = db.clients.length - total;
   return `<div class="card dark">
     <div class="card-head"><div class="ico">${ic('pin')}</div><h3>Clientes por Estado</h3><span class="tot">Total: <b>${total}</b></span></div>
-    <div class="tilemap">${tiles}</div>
-    <div class="uf-list">${top.map(([uf, n]) => `<div><span>${uf}</span><b>${n} · ${Math.round(n / total * 100)}%</b></div>`).join('') || '<div><span style="color:#9aa0ae">Estado identificado pelo DDD do WhatsApp</span></div>'}
-      ${noDdd ? `<p style="color:#7b8aa0;font-size:13px;margin:10px 0 0">${noDdd} cliente(s) sem DDD brasileiro identificado</p>` : ''}</div>
+    <div class="br-map"><svg viewBox="${BR_MAP.viewBox}">${paths}</svg><div class="uf-tip" id="ufTip" hidden></div></div>
+    <div class="map-scale"><span>0</span><i></i><span>${max}</span></div>
+    <div class="top-uf"><h4>Top Estados</h4><div>${top.map(([uf, n]) => `<div><i style="background:${col(uf)}"></i><span>${UF_NAMES[uf]}</span><b>${n}</b></div>`).join('')}</div>
+      ${noDdd ? `<p>${noDdd} cliente(s) sem DDD identificado</p>` : ''}</div>
   </div>`;
 }
+document.addEventListener('click', e => {
+  const tip = $('#ufTip'); if (!tip) return;
+  const p = e.target.closest('.br-map path');
+  document.querySelectorAll('.br-map path.on').forEach(x => x.classList.remove('on'));
+  if (!p) { tip.hidden = true; return; }
+  const uf = p.dataset.uf; let n = 0;
+  db.clients.forEach(c => { if (ufOf(c) === uf) n++; });
+  p.classList.add('on'); p.parentNode.appendChild(p);
+  tip.innerHTML = `<b>${UF_NAMES[uf]}</b> ${n} ${n === 1 ? 'cliente' : 'clientes'}`; tip.hidden = false;
+});
 
 function comparadorCard() {
   const A = state.cmpA, B = state.cmpB, day = +state.cmpDay;
@@ -910,7 +955,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v1.9 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v2.0 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1297,9 +1342,13 @@ function clientsReport(fmt) {
       .concat(rows.map(c => { const p = planOf(c); return [c.name, fmtPhone(c.phone), p ? p.name : '', p ? p.code : '', br(c.due), stTxt(c), c.qty, c.discount, priceOf(c).toFixed(2).replace('.', ','), c.essential ? 'sim' : 'não', c.notes, br(c.createdAt)]; }))));
     return;
   }
-  $('#print').innerHTML = `<h1>Relatório de Clientes</h1><div>${esc(db.settings.company || db.settings.brand)} · ${rows.length} clientes · gerado em ${br(today())}</div>
-    <table><thead><tr><th>Nome</th><th>WhatsApp</th><th>Plano</th><th>Vencimento</th><th>Status</th><th class="r">Valor</th></tr></thead><tbody>
-    ${rows.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(fmtPhone(c.phone))}</td><td>${esc(planOf(c) ? planOf(c).name : '—')}</td><td>${br(c.due)}</td><td>${stTxt(c)}</td><td class="r">${money(priceOf(c))}</td></tr>`).join('')}</tbody></table>`;
+  const L = rows.filter(c => !c.archived);
+  const kp = (l, v, c) => `<div class="kp"><small>${l}</small><b style="color:${c}">${v}</b></div>`;
+  $('#print').innerHTML = reportShell('Relatório de Clientes', `${br(today())}`, `
+    <div class="rp-k">${kp('TOTAL', rows.length, '#7c3aed')}${kp('ATIVOS', L.filter(isActive).length, '#3e9a4f')}${kp('VENCIDOS', L.filter(c => c.due && daysLeft(c) < 0).length, '#d23c3c')}${kp('VENCEM HOJE', L.filter(c => daysLeft(c) === 0).length, '#e0702c')}${kp('ARQUIVADOS', rows.length - L.length, '#5b6275')}</div>
+    <div class="rp-t"><b>Clientes</b><span>${rows.length} registros</span></div>
+    <table><thead><tr><th>#</th><th>CLIENTE</th><th>WHATSAPP</th><th>PLANO</th><th>VENCIMENTO</th><th class="r">VALOR</th><th>STATUS</th></tr></thead><tbody>
+    ${rows.map((c, i) => `<tr><td class="m">${i + 1}</td><td>${esc(c.name)}</td><td>${esc(fmtPhone(c.phone))}</td><td>${esc(planOf(c) ? planOf(c).name : '—')}</td><td>${br(c.due)}</td><td class="r b">${money(priceOf(c))}</td><td>${stTxt(c)}</td></tr>`).join('')}</tbody></table>`);
   if (window.Android) Android.print('Relatorio-Clientes'); else window.print();
 }
 function finReport(fmt) {
@@ -1611,17 +1660,34 @@ function fromGestorSimples(src) {
   return out;
 }
 /* ---------- PDF report ---------- */
+function periodTitle() {
+  const r = periodRange();
+  if (state.period === 'tudo') return 'Todo o período';
+  if (state.period === 'mes') return monLabel(state.finMonth);
+  const long = d => { const x = parse(d); return `${x.getDate()} de ${MONTHS[x.getMonth()]} de ${x.getFullYear()}`; };
+  if (r[0] === r[1]) return long(r[0]);
+  return `${br(r[0])} a ${br(r[1])}`;
+}
+function reportShell(title, period, body) {
+  const d = new Date(), stamp = `${br(today())} às ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `<div class="rp">
+    <div class="rp-h"><img src="logo.png" alt=""><div><h1>${title}</h1><p>Gestor Simples — Gestão de Mensalidades</p></div>
+      <div class="rp-per"><small>PERÍODO</small><b>${esc(period)}</b></div></div>
+    ${body}
+    <div class="rp-f"><span>Relatório gerado em ${stamp}</span><span>Gestor Simples © ${d.getFullYear()}</span></div></div>`;
+}
 function pdf() {
   const r = periodRange();
   const pays = db.payments.filter(p => inRange(p, r)).sort((a, b) => a.date < b.date ? -1 : 1);
-  const { rev, prof } = sumBy(pays);
-  const label = state.period === 'tudo' ? 'Todo período' : `${br(r[0])} a ${br(r[1])}`;
-  $('#print').innerHTML = `<h1>Relatório Financeiro</h1><div>${esc(db.settings.brand)} · ${label} · gerado em ${br(today())}</div>
-    <div class="kp"><div>Receita<b>${money(rev)}</b></div><div>Lucro<b>${money(prof)}</b></div><div>Pagamentos<b>${pays.length}</b></div><div>Ticket médio<b>${money(pays.length ? rev / pays.length : 0)}</b></div></div>
-    <table><thead><tr><th>Data</th><th>Cliente</th><th>Plano</th><th>Tipo</th><th class="r">Valor</th><th class="r">Lucro</th></tr></thead><tbody>
-    ${pays.map(p => `<tr><td>${br(p.date)} ${p.date.slice(11, 16)}</td><td>${esc(p.clientName)}</td><td>${esc(p.planName)}</td><td>${p.kind === 'cadastro' ? 'Cadastro' : 'Renovação'}</td><td class="r">${money(p.amount)}</td><td class="r">${money(p.amount - (p.cost || 0))}</td></tr>`).join('')}
-    </tbody></table>`;
-  const name = `Relatorio-${r[0] === '0000-01-01' ? 'completo' : r[0]}`;
+  const { rev, prof } = sumBy(pays), cost = rev - prof, n = new Set(pays.map(p => p.clientId)).size;
+  const kp = (l, v, c) => `<div class="kp"><small>${l}</small><b style="color:${c}">${v}</b></div>`;
+  $('#print').innerHTML = reportShell('Relatório Financeiro', periodTitle(), `
+    <div class="rp-k">${kp('RECEITA TOTAL', money(rev), '#3e9a4f')}${kp('CUSTO TOTAL', money(cost), '#d23c3c')}${kp('LUCRO LÍQUIDO', money(prof), '#3b6fe0')}${kp('CLIENTES ATIVOS', n, '#7c3aed')}${kp('TICKET MÉDIO', money(pays.length ? rev / pays.length : 0), '#e0702c')}</div>
+    <div class="rp-t"><b>Transações do Período</b><span>${pays.length} ${pays.length === 1 ? 'registro' : 'registros'}</span></div>
+    <table><thead><tr><th>#</th><th>CLIENTE</th><th>PLANO</th><th class="r">VALOR</th><th class="r">CUSTO</th><th class="r">LUCRO</th><th>DATA</th><th>MÉTODO</th><th>STATUS</th></tr></thead><tbody>
+    ${pays.map((p, i) => `<tr><td class="m">${i + 1}</td><td>${esc(p.clientName)}</td><td>${esc(p.planName)}</td><td class="r b">${money(p.amount)}</td><td class="r b">${money(p.cost || 0)}</td><td class="r b">${money(p.amount - (p.cost || 0))}</td><td>${br(p.date)}</td><td>${p.kind === 'cadastro' ? 'Cadastro' : 'Renovação'}</td><td><span class="pg">Pago</span></td></tr>`).join('')}
+    </tbody></table>`);
+  const name = `Relatorio-Financeiro-${r[0] === '0000-01-01' ? 'completo' : r[0]}`;
   if (window.Android) Android.print(name); else window.print();
 }
 
