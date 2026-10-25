@@ -63,6 +63,7 @@ const ICONS = {
   trendDown: '<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
   clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  up: '<polyline points="18 15 12 9 6 15"/>',
   send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
 };
 const ic = (n, extra) => {
@@ -515,6 +516,8 @@ VIEWS.financeiro = () => {
       ${kpi('k3', 'wallet', 'Clientes ativos', clients)}
       ${kpi('k4', 'piggy', 'Ticket médio', money(pays.length ? rev / pays.length : 0))}
     </div>
+    <div class="fp-bar"><b>Painéis</b><button data-act="fp-all" data-v="1">${ic('down')} Expandir tudo</button><button data-act="fp-all" data-v="0">${ic('up')} Minimizar tudo</button></div>
+    <div id="fpanels">
     ${lucroCard()}
     ${evolucaoCard()}
     ${receitaPlanoCard()}
@@ -525,13 +528,40 @@ VIEWS.financeiro = () => {
     ${mediaCard()}
     ${naoRenovaramCard()}
     ${estadosCard()}
-    ${comparadorCard()}`;
+    ${comparadorCard()}
+    </div>`;
 };
 VIEWS.financeiroAfter = () => {
   const f = $('#pFrom'), t = $('#pTo');
   if (f) f.onchange = () => { state.from = f.value; syncMonths(); render(); };
   if (t) t.onchange = () => { state.to = t.value; syncMonths(); render(); };
+  setupPanels();
 };
+/* Every finance panel gets the same header with a collapse toggle; the choice is remembered. */
+const panelKey = card => (card.querySelector('.card-head h3') || {}).textContent.trim().replace(/\s+/g, ' ');
+function setupPanels() {
+  const closed = db.settings.finClosed || (db.settings.finClosed = {});
+  document.querySelectorAll('#fpanels > .card').forEach(card => {
+    const head = card.querySelector('.card-head'); if (!head) return;
+    const key = panelKey(card);
+    const body = document.createElement('div'); body.className = 'pb';
+    const inner = document.createElement('div'); inner.className = 'pbi';
+    while (head.nextSibling) inner.appendChild(head.nextSibling);
+    body.appendChild(inner); card.appendChild(body);
+    card.classList.add('panel');
+    if (!head.querySelector('.grow')) { const h3 = head.querySelector('h3'); const g = document.createElement('div'); g.className = 'grow'; h3.replaceWith(g); g.appendChild(h3); }
+    const btn = document.createElement('button');
+    btn.className = 'pt'; btn.setAttribute('aria-label', 'Expandir ou minimizar'); btn.innerHTML = ic('down');
+    head.appendChild(btn);
+    card.classList.toggle('closed', !!closed[key]);
+    head.addEventListener('click', e => {
+      if (e.target.closest('[data-act]')) return;
+      const c = card.classList.toggle('closed');
+      if (c) closed[key] = 1; else delete closed[key];
+      save();
+    });
+  });
+}
 
 function monthOpts() {
   const keys = new Set([monKey(today())]);
@@ -691,7 +721,7 @@ function porDiaCard() {
 function countCard(k, icon, bg, col, title, sub, pred) {
   const n = paysIn(state[k]).filter(pred).length;
   return `<div class="card">
-    <div class="card-head"><div class="ico" style="background:${bg};color:${col}">${ic(icon)}</div><div class="grow"><h3 style="display:flex;gap:8px;align-items:center">${title} ${ic('pie', `style="color:${col};width:20px;height:20px"`)}</h3><small>${cap(monLabel(state[k]))}</small></div>${monthNav(k)}</div>
+    <div class="card-head"><div class="ico" style="background:${bg};color:${col}">${ic(icon)}</div><div class="grow"><h3>${title}</h3><small>${cap(monLabel(state[k]))}</small></div>${monthNav(k)}</div>
     <div class="big" style="color:${col}">${n}</div><p>${sub}</p></div>`;
 }
 function mediaCard() {
@@ -959,7 +989,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v2.4 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v2.5 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1811,6 +1841,11 @@ document.addEventListener('click', e => {
     case 'save-msgs': MSG_FIELDS.forEach(([k]) => { db.settings[k] = $('#' + k).value; }); save(); toast('Mensagens salvas'); break;
     case 'clear-hist': confirmDialog('Limpar Histórico', 'Apagar todas as atividades registradas? Os clientes e pagamentos não são afetados.', () => { db.history = []; refresh(); toast('Histórico limpo'); }); break;
     case 'undo': confirmUndo(el.dataset.v); break;
+    case 'fp-all': {
+      const open = el.dataset.v === '1', closed = db.settings.finClosed || (db.settings.finClosed = {});
+      document.querySelectorAll('#fpanels > .card.panel').forEach(c => { c.classList.toggle('closed', !open); const k = panelKey(c); if (open) delete closed[k]; else closed[k] = 1; });
+      save(); break;
+    }
     case 'dark': db.settings.dark = !db.settings.dark; applyTheme(); refresh(); break;
     case 'late-type':
       Object.assign(state, { fStatus: 'vencidos', fType: el.dataset.v, fPlan: state.lateType === 'todos' ? 'todos' : state.lateType, q: '' });

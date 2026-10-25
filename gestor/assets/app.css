@@ -925,3 +925,38 @@ body.theme-dark .ns-it.read .rd { background: #183326; color: #7be3a1; border-co
 body.theme-dark .ns-all { background: #262748; color: #c9c7ff; } body.theme-dark .ns-sec span { background: #2a2c44; }
 body.theme-dark .client .actions .btn-wa { background: #183326; color: #6fe09a; }
 body.theme-dark { --ink2: #b6bbd0; --mute: #8a90a8; }
+
+/* ===== v2.5 finance panels ===== */
+.fp-bar { display: flex; align-items: center; gap: 8px; margin: 4px 2px 12px; }
+.fp-bar b { flex: 1; font-size: 17px; }
+.fp-bar button { display: flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: #4338ca; background: #eef0ff; border-radius: 10px; padding: 7px 10px; }
+.fp-bar button i { width: 14px; height: 14px; }
+#fpanels > .card { margin-bottom: 14px; padding: 0; overflow: hidden; }
+#fpanels .card-head { margin: 0; padding: 14px 12px 14px 16px; gap: 12px; cursor: pointer; min-height: 68px; }
+#fpanels .card-head .ico { width: 40px; height: 40px; border-radius: 12px; }
+#fpanels .card-head .ico i { width: 20px; height: 20px; }
+#fpanels .card-head h3 { font-size: 16.5px; line-height: 1.25; }
+#fpanels .card-head small { font-size: 12.5px; color: var(--ink2); }
+#fpanels .card-head .arrows { gap: 2px; }
+#fpanels .card-head .arrows button { width: 30px; height: 30px; background: #f1f2f6; border-radius: 9px; }
+#fpanels .card-head .tot { margin-left: 0; white-space: nowrap; font-size: 13px; }
+.pt { width: 32px; height: 32px; flex: none; border-radius: 10px; background: #f1f2f6; display: grid; place-items: center; color: var(--ink2); }
+.pt i { width: 18px; height: 18px; transition: transform .2s; }
+.panel.closed .pt i { transform: rotate(-90deg); }
+.pb { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .22s ease; }
+.pbi { overflow: hidden; min-height: 0; padding: 0 16px 16px; }
+.panel.closed .pb { grid-template-rows: 0fr; }
+.panel.closed .pbi { padding-bottom: 0; }
+#fpanels .panel:not(.closed) .card-head { border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+#fpanels .card.dark .pt { background: rgba(255,255,255,.08); color: #c9cde0; }
+#fpanels .card.dark .card-head { border-bottom-color: rgba(255,255,255,.08) !important; margin-bottom: 0 !important; }
+#fpanels .card.dark .pbi { padding: 0; }
+#fpanels .card.dark .card-head h3 { color: #fff; }
+#fpanels .big { font-size: 38px; margin: 0; }
+#fpanels .chart-ctl { margin-bottom: 12px; }
+#fpanels .cmp .dd.full { height: 46px; }
+body.theme-dark .fp-bar button { background: #262748; color: #c9c7ff; }
+body.theme-dark .pt, body.theme-dark #fpanels .card-head .arrows button { background: #2a2c44; color: var(--ink2); }
+.fp-bar button { white-space: nowrap; padding: 7px 9px; }
+#fpanels .pie-tot { margin: 0 0 4px; }
+.panel.closed .card-head .arrows { display: none; }
