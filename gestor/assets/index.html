@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Xplay Gestor</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <img class="logo" src="logo.png" alt="">
+  <div class="titles">
+    <h1 id="pageTitle">Dashboard</h1>
+    <p id="pageSub">Visão geral do seu negócio</p>
+  </div>
+  <button class="round" data-act="notifications" aria-label="Notificações"><i data-i="bell"></i><span class="dot" id="bellDot" hidden></span></button>
+  <button class="round" data-act="history" aria-label="Histórico"><i data-i="history"></i></button>
+  <button class="avatar" data-act="profile" id="avatar">x</button>
+</header>
+
+<main id="page"></main>
+
+<button class="fab" data-act="new-client" id="fab" aria-label="Novo cliente"><i data-i="plus"></i></button>
+
+<nav class="tabs">
+  <button data-tab="dashboard"><i data-i="home"></i><span>Dashboard</span></button>
+  <button data-tab="clientes"><i data-i="users"></i><span>Clientes</span></button>
+  <button data-tab="financeiro"><i data-i="trending"></i><span>Financeiro</span></button>
+  <button data-tab="ferramentas"><i data-i="wrench"></i><span>Ferramentas</span></button>
+</nav>
+
+<div id="layer"></div>
+<div id="toast"></div>
+<section id="print"></section>
+
+<script src="app.js"></script>
+</body>
+</html>
