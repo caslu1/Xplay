@@ -800,3 +800,11 @@ svg.chart .peak text { fill: #fff; font-weight: 700; font-size: 10.5px; }
 }
 .pie-leg { gap: 2px 6px; } .pie-leg button { font-size: 12.5px; padding: 7px 6px; gap: 6px; }
 .top-uf > div > div { font-size: 12.5px; padding: 8px; gap: 6px; }
+.cmp-tot { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: center; margin: 4px 0 16px; }
+.cmp-tot > div { background: #f7f8fb; border-radius: 12px; padding: 8px 12px; }
+.cmp-tot small { display: flex; align-items: center; gap: 6px; color: var(--ink2); font-size: 13px; }
+.cmp-tot i.swc { width: 10px; height: 10px; border-radius: 3px; }
+.cmp-tot b { font-size: 20px; }
+.cmp-tot .delta { font-size: 15px; padding: 8px 12px; border-radius: 12px; }
+.confirm p small { color: var(--mute); font-size: 13.5px; }
+.pie-leg { grid-template-columns: 1fr; } .pie-leg button { font-size: 14px; padding: 8px 10px; } .pie-leg b { color: var(--ink); }

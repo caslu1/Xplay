@@ -607,7 +607,11 @@ function receitaPlanoCard() {
   const rows = Object.values(map).map(m => ({ name: m.name, n: m.ids.size, v: m.v, l: m.l }))
     .sort((a, b) => b.n - a.n || b.v - a.v);
   const total = rows.reduce((a, x) => a + x.n, 0);
-  rows.forEach((x, i) => { x.color = PIE_COLORS[i % PIE_COLORS.length]; });
+  if (rows.length > 8) {
+    const rest = rows.splice(7);
+    rows.push({ name: `Outros (${rest.length} planos)`, n: rest.reduce((a, x) => a + x.n, 0), v: rest.reduce((a, x) => a + x.v, 0), l: rest.reduce((a, x) => a + x.l, 0), other: true });
+  }
+  rows.forEach((x, i) => { x.color = x.other ? '#b8bdc9' : PIE_COLORS[i % PIE_COLORS.length]; });
   PIE.rows = rows; PIE.total = total;
   if (!rows.length) return `<div class="card">
     <div class="card-head"><div class="ico" style="background:#f5f0ff;color:#7c3aed">${ic('box')}</div><h3>Receita por Plano</h3></div>
@@ -770,15 +774,15 @@ function comparadorCard() {
   const [ma, ta] = tally(A), [mb, tb] = tally(B);
   const names = [...new Set(Object.keys(ma).concat(Object.keys(mb)))].sort((x, y) => ((mb[y] || {}).n || 0) + ((ma[y] || {}).n || 0) - ((ma[x] || {}).n || 0) - ((mb[x] || {}).n || 0));
   const cols = ['#4f86e8', '#43a35a', '#ea7d32', '#9b51e0', '#e0457b', '#0ea5e9', '#d4a017', '#64748b'];
-  const mon = k => MONTHS[+k.slice(5) - 1], diff = tb - ta;
+  const mon = k => MONTHS[+k.slice(5) - 1], diff = ta - tb;
   return `<div class="card cmp">
     <div class="card-head"><div class="ico" style="background:#eef4ff;color:#2f6ae0">${ic('box')}</div><h3>Planos Vendidos — Comparador</h3></div>
     <button class="dd full" data-act="dd" data-k="cmpA"><span>${monLabel(A)}</span>${ic('down')}</button>
     <div style="height:10px"></div>
     <button class="dd full alt" data-act="dd" data-k="cmpB"><span>${monLabel(B)}</span>${ic('down')}</button>
     <div class="cmp-day"><span>Comparar até o dia:</span><button class="dd" data-act="dd" data-k="cmpDay"><span>${day ? 'Até o dia ' + day : 'Mês inteiro'}</span>${ic('down')}</button></div>
-    <p class="cmp-sum"><span><i class="swc" style="background:#3b82f6"></i>${capFirst(monLabel(A))}: <b>${ta}</b></span> <span><i class="swc" style="background:#e8833a"></i>${capFirst(monLabel(B))}: <b>${tb}</b></span> <span class="delta ${diff >= 0 ? 'up' : 'down'}">${ic(diff >= 0 ? 'trending' : 'trendDown')} ${diff >= 0 ? '+' : ''}${diff} planos</span></p>
-    ${names.map((n, i) => { const a = ma[n] || { n: 0, v: 0 }, b = mb[n] || { n: 0, v: 0 }, mx = Math.max(a.n, b.n, 1), d = b.n - a.n;
+    <div class="cmp-tot"><div><small><i class="swc" style="background:#3b82f6"></i>${capFirst(mon(A))}</small><b>${ta}</b></div><div><small><i class="swc" style="background:#e8833a"></i>${capFirst(mon(B))}</small><b>${tb}</b></div> <span class="delta ${diff >= 0 ? 'up' : 'down'}">${ic(diff >= 0 ? 'trending' : 'trendDown')} ${diff >= 0 ? '+' : ''}${diff}</span></div>
+    ${names.map((n, i) => { const a = ma[n] || { n: 0, v: 0 }, b = mb[n] || { n: 0, v: 0 }, mx = Math.max(a.n, b.n, 1), d = a.n - b.n;
       return `<div class="cmp-row"><div class="cr-h"><i class="swc" style="background:${cols[i % cols.length]}"></i><b>${esc(n)}</b>
         <span class="delta ${d >= 0 ? 'up' : 'down'}">${ic(d >= 0 ? 'trending' : 'trendDown')} ${d >= 0 ? '+' : ''}${d}</span></div>
         <div class="cr-two"><div><div class="cr-l"><span>${cap(mon(A))}</span><b>${a.n}</b></div><div class="tr"><div style="width:${a.n / mx * 100}%;background:#3b82f6"></div></div><small>${money(a.v)}</small></div>
@@ -955,7 +959,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v2.0 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v2.1 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1592,7 +1596,12 @@ function historyPop() {
     <b>${esc(h.title)}</b><p>${esc(h.desc)}</p><small>${when(h.at)}</small>
     ${h.undone ? `<span class="done">${ic('checkc')} Ação desfeita</span>` : h.undo ? `<button class="undo" data-undo="${h.id}">${ic('undo')} Desfazer</button>` : ''}</div></div>`).join('') || '<div class="empty">Nenhuma ação ainda</div>'}</div>`;
   document.body.append(back, p); paintIcons(p);
-  p.addEventListener('click', e => { const b = e.target.closest('[data-undo]'); if (b) { undo(b.dataset.undo); closeMenus(); historyPop(); } });
+  p.addEventListener('click', e => { const b = e.target.closest('[data-undo]'); if (b) confirmUndo(b.dataset.undo, () => historyPop()); });
+}
+function confirmUndo(id, after) {
+  const h = db.history.find(x => x.id === id); if (!h) return;
+  closeMenus();
+  confirmDialog('Desfazer ação?', `Tem certeza que deseja desfazer <b>${esc(h.title)}</b>?<br><small>${esc(h.desc)}</small>`, () => { undo(id); if (after) after(); });
 }
 function undo(id) {
   const h = db.history.find(x => x.id === id); if (!h || !h.undo || h.undone) return;
@@ -1772,7 +1781,7 @@ document.addEventListener('click', e => {
       refresh(); toast('Perfil salvo'); break;
     case 'save-msgs': MSG_FIELDS.forEach(([k]) => { db.settings[k] = $('#' + k).value; }); save(); toast('Mensagens salvas'); break;
     case 'clear-hist': confirmDialog('Limpar Histórico', 'Apagar todas as atividades registradas? Os clientes e pagamentos não são afetados.', () => { db.history = []; refresh(); toast('Histórico limpo'); }); break;
-    case 'undo': undo(el.dataset.v); break;
+    case 'undo': confirmUndo(el.dataset.v); break;
     case 'report': (el.dataset.v === 'fmtClients' ? clientsReport : finReport)(state[el.dataset.v]); break;
     case 'model-csv': modelCsv(); break;
     case 'backup-now': backupNow(); break;
