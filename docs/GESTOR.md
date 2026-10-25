@@ -83,7 +83,7 @@ Hoje, qualquer pessoa logada no Supabase consegue ver os clientes do Xplay. Este
 | **Novas contas estão desativadas neste servidor** | Normal: o botão "Criar conta" do app fica desligado por segurança. Crie as contas pelo Passo 3. |
 | **Erro: relation "gestor_data" does not exist** | O Passo 1 não foi feito no projeto certo. Rode `gestor.sql` no projeto do Xplay. |
 | **Sem conexão com o servidor** | O celular está sem internet. Pode continuar usando: os dados ficam no celular e são enviados depois. |
-| O painel admin parou de mostrar clientes | O Passo 2 foi feito depois de entrar no app com o e-mail do painel. Me avise que eu mando o comando para liberar esse e-mail. |
+| O painel admin parou de mostrar clientes | O Passo 2 foi feito depois de entrar no Gestor com o e-mail do painel. No SQL Editor rode: `insert into panel_admins (user_id) select id from auth.users where lower(email) = lower('SEU-EMAIL-DO-PAINEL') on conflict do nothing;` |
 
 ---
 
