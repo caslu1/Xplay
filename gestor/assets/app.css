@@ -960,3 +960,40 @@ body.theme-dark .pt, body.theme-dark #fpanels .card-head .arrows button { backgr
 .fp-bar button { white-space: nowrap; padding: 7px 9px; }
 #fpanels .pie-tot { margin: 0 0 4px; }
 .panel.closed .card-head .arrows { display: none; }
+
+/* ===== v3.0 login & cloud ===== */
+body.locked > :not(#auth):not(#toast):not(#layer) { visibility: hidden; }
+#auth { position: fixed; inset: 0; z-index: 90; overflow-y: auto; background: radial-gradient(circle at 20% 0%, #a855f7 0, transparent 50%), linear-gradient(160deg, #7c3aed, #4f46e5 55%, #312e81);
+  display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+.au-card { width: 100%; max-width: 400px; background: #fff; border-radius: 26px; padding: 28px 22px 20px; box-shadow: 0 24px 60px rgba(20,10,60,.4); text-align: center; color: #151a28; }
+.au-card > img { width: 72px; height: 72px; border-radius: 20px; box-shadow: 0 8px 20px rgba(79,70,229,.3); }
+.au-card h1 { margin: 12px 0 2px; font-size: 24px; }
+.au-sub { margin: 0 0 18px; color: #677085; font-size: 14px; }
+.au-txt { color: #3f4659; font-size: 14px; line-height: 1.5; margin: 0 0 14px; text-align: left; }
+.au-tabs { display: flex; background: #f1f0fb; border-radius: 14px; padding: 4px; margin-bottom: 18px; }
+.au-tabs button { flex: 1; height: 40px; border-radius: 11px; font-weight: 600; color: #677085; }
+.au-tabs button.on { background: #fff; color: #4f46e5; box-shadow: 0 2px 8px rgba(30,40,80,.1); }
+#auth form { text-align: left; display: grid; gap: 12px; }
+#auth label { display: grid; gap: 6px; font-size: 13.5px; font-weight: 600; color: #3f4659; }
+#auth input, #auth textarea { width: 100%; height: 48px; border: 1px solid #dfe3ea; border-radius: 12px; padding: 0 14px; font-size: 16px; outline: 0; background: #f8f9fc; color: #151a28; }
+#auth textarea { height: auto; padding: 10px 14px; font-size: 13px; font-family: monospace; resize: none; }
+#auth input:focus, #auth textarea:focus { border: 2px solid #6366f1; background: #fff; }
+#auth .pw { position: relative; display: block; } #auth .pw input { padding-right: 48px; }
+#auth .pw button { position: absolute; right: 6px; top: 6px; width: 36px; height: 36px; display: grid; place-items: center; color: #677085; }
+#auth .pw button i { width: 20px; height: 20px; }
+#auth .btn { margin-top: 4px; height: 50px; }
+#auth .btn:disabled { opacity: .7; }
+.au-err { margin: 0; background: #fde3e3; color: #a11d1d; border-radius: 10px; padding: 10px 12px; font-size: 13.5px; font-weight: 500; }
+.au-link { display: block; margin: 14px auto 0; color: #4f46e5; font-weight: 600; font-size: 14px; }
+.au-link.small { display: inline-flex; align-items: center; gap: 6px; color: #9aa0ae; font-size: 12.5px; font-weight: 500; margin-top: 18px; }
+.au-link.small i { width: 14px; height: 14px; }
+.logo-w { position: relative; flex: none; display: block; }
+.sync-dot { position: absolute; right: -2px; bottom: -2px; width: 13px; height: 13px; border-radius: 50%; border: 2px solid #6d3ef0; background: transparent; }
+.sync-dot.ok { background: #22c55e; } .sync-dot.busy { background: #facc15; animation: blink 1s infinite; } .sync-dot.off { background: #9aa0ae; } .sync-dot.err { background: #ef4444; }
+@keyframes blink { 50% { opacity: .35; } }
+.acct .ac-h { display: flex; align-items: center; gap: 12px; }
+.acct .ac-h > i { width: 40px; height: 40px; padding: 9px; border-radius: 12px; background: #eef0ff; color: #4f46e5; }
+.acct .ac-h b { display: block; font-size: 16px; } .acct .ac-h span { color: var(--ink2); font-size: 13.5px; }
+.acct p { color: var(--ink2); font-size: 13.5px; line-height: 1.45; margin: 12px 0 14px; }
+.acct .two { gap: 10px; } .acct .btn { height: 46px; font-size: 15px; }
+body.theme-dark .acct .ac-h > i { background: #262748; color: #c9c7ff; }

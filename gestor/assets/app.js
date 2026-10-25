@@ -64,6 +64,10 @@ const ICONS = {
   clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
   up: '<polyline points="18 15 12 9 6 15"/>',
+  cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+  eye: '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>',
   send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
 };
 const ic = (n, extra) => {
@@ -141,7 +145,8 @@ const kFmt = v => Math.abs(v) >= 1000 ? (Math.round(v / 100) / 10).toLocaleStrin
 /* ---------- Data ---------- */
 const TYPES = { mensal: 1, trimestral: 3, semestral: 6, anual: 12 };
 const TYPE_NAMES = { mensal: 'Mensal', trimestral: 'Trimestral', semestral: 'Semestral', anual: 'Anual' };
-const KEY = 'xplay-gestor-v1';
+const LEGACY_KEY = 'xplay-gestor-v1';
+let KEY = LEGACY_KEY;   // becomes per account after login (cloud.js)
 let db;
 function blank() {
   return {
@@ -196,7 +201,10 @@ let saveT = 0;
 function save() { invalidate(); clearTimeout(saveT); saveT = setTimeout(persist, 350); }
 function persist() {
   clearTimeout(saveT); saveT = 0;
-  try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { toast('Não foi possível salvar: ' + e.message); }
+  const str = JSON.stringify(db);
+  if (str === localStorage.getItem(KEY)) return;   // nothing changed: no upload
+  try { localStorage.setItem(KEY, str); } catch (e) { toast('Não foi possível salvar: ' + e.message); }
+  if (window.onPersist) onPersist();
 }
 window.flushSave = () => { if (saveT) persist(); };
 document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
@@ -989,7 +997,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v2.5 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v3.0 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1010,6 +1018,11 @@ SUBVIEWS.perfil = () => {
       <div class="f"><label>${ic('box', 'style="color:#4f46e5"')} Empresa</label><input id="prCompany" value="${esc(st.company || '')}" placeholder="Nome da revenda (usado em {empresa})"></div>
       <div class="f"><label>${ic('phone', 'style="color:#3fae56"')} WhatsApp</label><input id="prPhone" type="tel" value="${esc(st.phone || '')}"></div>
       <button class="btn" data-act="save-profile">${ic('save')} Salvar</button>
+    </div>
+    <div class="card acct">
+      <div class="ac-h">${ic('cloud')}<div><b>Conta e nuvem</b><span>${esc((window.cloudInfo && cloudInfo().email) || '')}</span></div></div>
+      <p id="syncInfo">${window.cloudInfo ? cloudInfo().text : ''}</p>
+      <div class="two"><button class="btn light" data-act="sync-now">${ic('refresh')} Sincronizar</button><button class="btn red" data-act="logout">${ic('logout')} Sair</button></div>
     </div>`;
 };
 SUBVIEWS.perfilAfter = () => {
@@ -1846,6 +1859,8 @@ document.addEventListener('click', e => {
       document.querySelectorAll('#fpanels > .card.panel').forEach(c => { c.classList.toggle('closed', !open); const k = panelKey(c); if (open) delete closed[k]; else closed[k] = 1; });
       save(); break;
     }
+    case 'sync-now': if (window.cloudSyncNow) cloudSyncNow(); break;
+    case 'logout': if (window.cloudLogout) cloudLogout(); break;
     case 'dark': db.settings.dark = !db.settings.dark; applyTheme(); refresh(); break;
     case 'late-type':
       Object.assign(state, { fStatus: 'vencidos', fType: el.dataset.v, fPlan: state.lateType === 'todos' ? 'todos' : state.lateType, q: '' });
@@ -1859,6 +1874,7 @@ document.addEventListener('click', e => {
 /* ---------- Copied phone number ---------- */
 // Called by the Android app when it regains focus with text on the clipboard.
 window.onClipboard = text => {
+  if (!db || document.body.classList.contains('locked')) return;
   text = String(text || '').trim();
   if (!text || text.length > 40 || text === onClipboard.last) return;
   const digits = text.replace(/\D/g, '');
@@ -1895,12 +1911,14 @@ function applyTheme() {
   if (window.Android && Android.setTheme) Android.setTheme(!!db.settings.dark);
 }
 
-/* ---------- Start ---------- */
-load();
-applyTheme();
-snapshot(); save();
-paintIcons();
-go('dashboard');
+/* ---------- Start (called by cloud.js after login) ---------- */
+function startApp() {
+  load();
+  applyTheme();
+  paintIcons();
+  state.sub = null;
+  go('dashboard');
+}
 // Day rollover while the app stays open.
-setInterval(() => { const t = today(); if (t !== go.day) { go.day = t; snapshot(); save(); render(); } }, 60000);
+setInterval(() => { if (!db) return; const t = today(); if (t !== go.day) { go.day = t; snapshot(); save(); render(); } }, 60000);
 go.day = today();

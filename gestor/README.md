@@ -11,7 +11,7 @@ App Android para revendedores gerenciarem clientes, vencimentos e faturamento.
 - **Planos**: busca, código de 4 dígitos, cor, link, descrição, lucro e margem, lista de clientes do plano.
 - Histórico de ações com **Desfazer**.
 
-Os dados ficam salvos no aparelho (sem servidor). Faça backup em Ferramentas.
+Login por e-mail e senha, com os dados de cada conta salvos no Supabase e uma cópia no aparelho para funcionar sem internet. Configuração: [docs/GESTOR.md](../docs/GESTOR.md).
 
 ## Build
 
