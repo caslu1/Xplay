@@ -1,6 +1,8 @@
 package com.xplay.gestor;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -18,12 +20,17 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
+import java.io.OutputStream;
+import java.nio.charset.Charset;
+
 /** Hosts the manager UI (assets/index.html); data lives in the WebView's localStorage. */
 public class MainActivity extends Activity {
     private static final int PICK_FILE = 1;
+    private static final int SAVE_FILE = 2;
 
     private WebView web;
     private ValueCallback<Uri[]> pendingChooser;
+    private String pendingSave;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -81,6 +88,19 @@ public class MainActivity extends Activity {
             Uri uri = result == RESULT_OK && data != null ? data.getData() : null;
             pendingChooser.onReceiveValue(uri == null ? null : new Uri[]{uri});
             pendingChooser = null;
+        } else if (request == SAVE_FILE) {
+            String text = pendingSave;
+            pendingSave = null;
+            Uri uri = result == RESULT_OK && data != null ? data.getData() : null;
+            if (uri == null || text == null) return;
+            try {
+                OutputStream out = getContentResolver().openOutputStream(uri);
+                out.write(text.getBytes(Charset.forName("UTF-8")));
+                out.close();
+                Toast.makeText(this, "Arquivo salvo", Toast.LENGTH_SHORT).show();
+            } catch (Exception e) {
+                Toast.makeText(this, "Não foi possível salvar: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
         }
     }
 
@@ -138,6 +158,38 @@ public class MainActivity extends Activity {
                     PrintDocumentAdapter adapter = web.createPrintDocumentAdapter(name);
                     pm.print(name, adapter, new PrintAttributes.Builder()
                             .setMediaSize(PrintAttributes.MediaSize.ISO_A4).build());
+                }
+            });
+        }
+
+        /** Lets the user pick where to save (Downloads, Drive...) and writes the text there. */
+        @JavascriptInterface
+        public void saveFile(final String name, final String mime, final String text) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    pendingSave = text;
+                    Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    i.addCategory(Intent.CATEGORY_OPENABLE);
+                    i.setType(mime);
+                    i.putExtra(Intent.EXTRA_TITLE, name);
+                    try {
+                        startActivityForResult(i, SAVE_FILE);
+                    } catch (Exception e) {
+                        pendingSave = null;
+                        Toast.makeText(MainActivity.this, "Não foi possível abrir o seletor de arquivos", Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void copy(final String text) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    cm.setPrimaryClip(ClipData.newPlainText("codigo", text));
                 }
             });
         }

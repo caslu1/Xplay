@@ -50,6 +50,17 @@ const ICONS = {
   db: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/>',
   msg: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
   sparkle: '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
+  arrowL: '<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>',
+  chart: '<path d="M3 3v18h18"/><path d="M8 17v-5"/><path d="M13 17V7"/><path d="M18 17v-8"/>',
+  camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  info: '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
+  drive: '<line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/>',
+  shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  trendDown: '<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
   send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
 };
 const ic = (n, extra) => `<i data-i="${n}"${extra ? ' ' + extra : ''}></i>`;
@@ -129,14 +140,31 @@ function blank() {
       { id: 'p3', name: 'XPRIMETV ANUAL', type: 'anual', price: 349.9, cost: 87 },
     ],
     clients: [], payments: [], history: [], snapshots: {},
-    settings: { brand: 'xplay', template: 'Olá {nome}! Seu plano {plano} vence em {vencimento}. Valor: {valor}. Para renovar é só responder esta mensagem. 😉' },
+    settings: {
+      brand: 'xplay', company: '', owner: '', phone: '', photo: '',
+      msgWhats: 'Bom dia, tudo bem? 😊\n\n🕗 Estou passando para lembrar que seu plano {{plano}} vence em {{vencimento}}.\n\n💰 Valor: {{valor}}\n\nPara renovar é só responder esta mensagem. {empresa} agradece! 🙏',
+      msgCadastro: '🛍️ Seu cadastro foi realizado com sucesso!\n🕒 Vencimento: {{vencimento}}\n📦 Plano: {{plano}}\n📌 Caso tenha alguma dúvida ou problema estamos à disposição.',
+      msgRenovacao: '✅ Renovação confirmada!\n📦 Plano: {{plano}}\n🕒 Novo vencimento: {{vencimento}}\nObrigado pela preferência! 🙏',
+    },
   };
 }
 function load() {
   try { db = JSON.parse(localStorage.getItem(KEY)); } catch (e) { db = null; }
   if (!db || !db.clients) db = blank();
   db.snapshots = db.snapshots || {};
-  db.settings = Object.assign(blank().settings, db.settings || {});
+  migrate();
+}
+function migrate() {
+  db.snapshots = db.snapshots || {}; db.history = db.history || []; db.payments = db.payments || [];
+  const old = db.settings || {};
+  db.settings = Object.assign(blank().settings, old);
+  if (old.template && !old.msgWhats) db.settings.msgWhats = old.template;
+  delete db.settings.template;
+  const used = new Set();
+  db.plans.forEach(p => {
+    if (!p.code || used.has(String(p.code))) { let c; do { c = String(1000 + Math.floor(Math.random() * 9000)); } while (used.has(c)); p.code = c; }
+    used.add(String(p.code)); p.color = p.color || '#E3F2FD';
+  });
 }
 function save() {
   try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { toast('Não foi possível salvar: ' + e.message); }
@@ -171,7 +199,7 @@ const PAGES = {
   dashboard: ['Dashboard', 'Visão geral do seu negócio'],
   clientes: ['Clientes', 'Gerencie seus clientes'],
   financeiro: ['Financeiro', 'Relatórios financeiros'],
-  ferramentas: ['Ferramentas', 'Planos, backup e ajustes'],
+  ferramentas: ['Configurações', 'Configurações do sistema'],
 };
 const state = {
   tab: 'dashboard',
@@ -179,20 +207,23 @@ const state = {
   period: 'hoje', from: '', to: '',
   lucroMonth: monKey(today()), lucroMode: 'mes',
   dayMonth: monKey(today()), renMonth: monKey(today()), newMonth: monKey(today()), avgMonth: monKey(today()),
-  lateType: 'todos',
+  lateType: 'todos', sub: null, planQ: '', fmtClients: 'pdf', fmtFin: 'pdf',
+  finMonth: monKey(today()), anchor: monKey(today()), cmpA: monKey(today()), cmpB: shiftMonth(monKey(today()), -1), cmpDay: '0',
 };
 function go(tab, keepScroll) {
   state.tab = tab;
+  if (tab === 'ferramentas' && state.sub) { document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab)); return setSub(null); }
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   $('#pageTitle').textContent = PAGES[tab][0];
   $('#pageSub').textContent = PAGES[tab][1];
   $('#fab').hidden = !(tab === 'dashboard' || tab === 'clientes');
+  $('#fab').dataset.act = 'new-client';
   render();
   if (!keepScroll) window.scrollTo(0, 0);
 }
 function render() {
   const brand = db.settings.brand || 'xplay';
-  $('#avatar').textContent = brand;
+  $('#avatar').innerHTML = db.settings.photo ? `<img src="${db.settings.photo}" alt="">` : esc(brand);
   const due = live().filter(c => c.due && daysLeft(c) === 0).length;
   const dot = $('#bellDot'); dot.hidden = !due; dot.textContent = due > 99 ? '99+' : due;
   $('#page').innerHTML = VIEWS[state.tab]();
@@ -251,12 +282,7 @@ function waLink(c, text) {
   const d = String(c.phone || '').replace(/\D/g, '');
   return `https://wa.me/${d}${text ? '?text=' + encodeURIComponent(text) : ''}`;
 }
-function waMessage(c) {
-  const p = planOf(c);
-  return db.settings.template
-    .replace(/{nome}/g, c.name).replace(/{plano}/g, p ? p.name : '')
-    .replace(/{vencimento}/g, br(c.due)).replace(/{valor}/g, money(priceOf(c)));
-}
+const waMessage = c => fillMsg(db.settings.msgWhats, c);
 
 /* ---------- Views ---------- */
 const VIEWS = {};
@@ -379,15 +405,23 @@ function periodRange() {
     case 'hoje': return [t, t];
     case 'ontem': { const y = addDays(t, -1); return [y, y]; }
     case 'semana': return [addDays(t, -6), t];
-    case 'mes': return [t.slice(0, 8) + '01', t];
+    case 'mes': { const k = state.finMonth, end = iso(new Date(+k.slice(0, 4), +k.slice(5), 0)); return [k + '-01', end < t ? end : t]; }
     case 'tudo': return ['0000-01-01', '9999-12-31'];
     case 'custom': return [state.from || '0000-01-01', state.to || '9999-12-31'];
   }
 }
 const inRange = (p, r) => p.date.slice(0, 10) >= r[0] && p.date.slice(0, 10) <= r[1];
 function periodShort() {
+  if (state.period === 'mes') return cap(MONTHS[+state.finMonth.slice(5) - 1]) + (state.finMonth.slice(0, 4) !== today().slice(0, 4) ? ' ' + state.finMonth.slice(0, 4) : '');
   if (state.period !== 'custom') return optLabel(PERIODS, state.period);
   return state.from || state.to ? `${state.from ? brShort(state.from) : '…'}–${state.to ? brShort(state.to) : '…'}` : 'Período';
+}
+/* Every month-based card follows the period picked at the top of Financeiro. */
+function syncMonths() {
+  const r = periodRange(), cur = monKey(today());
+  let m = state.period === 'tudo' ? cur : monKey(r[1] > today() ? today() : r[1]);
+  if (m > cur) m = cur;
+  Object.assign(state, { anchor: m, lucroMonth: m, dayMonth: m, renMonth: m, newMonth: m, avgMonth: m, cmpA: m, cmpB: shiftMonth(m, -1) });
 }
 function sumBy(pays) {
   let rev = 0, prof = 0; for (const p of pays) { rev += p.amount; prof += p.amount - (p.cost || 0); }
@@ -404,6 +438,7 @@ VIEWS.financeiro = () => {
   return `
     <div class="card">
       <button class="dd full" data-act="dd" data-k="period"><span>${optLabel(PERIODS, state.period)}</span>${ic('down')}</button>
+      ${state.period === 'mes' ? `<div style="height:12px"></div><button class="dd full alt" data-act="dd" data-k="finMonth"><span>${monLabel(state.finMonth)}</span>${ic('down')}</button>` : ''}
       ${state.period === 'custom' ? `<div class="date-range"><input type="date" id="pFrom" value="${state.from}"><input type="date" id="pTo" value="${state.to}"></div>` : ''}
       <div style="height:14px"></div>
       <button class="btn" data-act="pdf">${ic('download')} PDF</button>
@@ -423,12 +458,13 @@ VIEWS.financeiro = () => {
     ${countCard('newMonth', 'userplus', '#ebf2ff', '#2f5fd0', 'Clientes Novos', 'clientes adicionados', p => p.kind === 'cadastro')}
     ${mediaCard()}
     ${naoRenovaramCard()}
-    ${estadosCard()}`;
+    ${estadosCard()}
+    ${comparadorCard()}`;
 };
 VIEWS.financeiroAfter = () => {
   const f = $('#pFrom'), t = $('#pTo');
-  if (f) f.onchange = () => { state.from = f.value; render(); };
-  if (t) t.onchange = () => { state.to = t.value; render(); };
+  if (f) f.onchange = () => { state.from = f.value; syncMonths(); render(); };
+  if (t) t.onchange = () => { state.to = t.value; syncMonths(); render(); };
 };
 
 function monthOpts() {
@@ -473,7 +509,7 @@ function lucroCard() {
 }
 
 function evolucaoCard() {
-  const keys = []; for (let i = 5; i >= 0; i--) keys.push(shiftMonth(monKey(today()), -i));
+  const keys = []; for (let i = 5; i >= 0; i--) keys.push(shiftMonth(state.anchor, -i));
   const rev = [], prof = [];
   keys.forEach(k => { const s = sumBy(db.payments.filter(p => monKey(p.date) === k)); rev.push(s.rev); prof.push(s.prof); });
   return `<div class="card">
@@ -485,14 +521,14 @@ function evolucaoCard() {
 }
 
 function receitaPlanoCard() {
-  const map = {};
-  live().filter(isActive).forEach(c => { const p = planOf(c); if (!p) return; map[p.id] = map[p.id] || { name: p.name, n: 0, v: 0 }; map[p.id].n++; map[p.id].v += priceOf(c); });
+  const r = periodRange(), map = {};
+  db.payments.forEach(p => { if (!inRange(p, r)) return; const k = p.planName || 'Sem plano'; map[k] = map[k] || { name: k, n: 0, v: 0 }; map[k].n++; map[k].v += p.amount; });
   const rows = Object.values(map).sort((a, b) => b.v - a.v);
-  const max = rows.length ? rows[0].v : 1;
+  const max = rows.length ? rows[0].v || 1 : 1;
   return `<div class="card">
-    <div class="card-head"><div class="ico" style="background:#f5f0ff;color:#7c3aed">${ic('box')}</div><div class="grow"><h3>Receita por Plano</h3><small>Clientes ativos por plano</small></div></div>
-    ${rows.length ? `<div class="bars-h">${rows.map(r => `<div class="bh"><div><span>${esc(r.name)} <small style="color:#9aa0ae">· ${r.n}</small></span><b>${money(r.v)}</b></div>
-      <div class="track"><div class="fill" style="width:${Math.max(3, r.v / max * 100)}%"></div></div></div>`).join('')}</div>`
+    <div class="card-head"><div class="ico" style="background:#f5f0ff;color:#7c3aed">${ic('box')}</div><div class="grow"><h3>Receita por Plano</h3><small>Faturamento por plano · ${esc(periodShort())}</small></div></div>
+    ${rows.length ? `<div class="bars-h">${rows.map(x => `<div class="bh"><div><span>${esc(x.name)} <small style="color:#9aa0ae">· ${x.n}</small></span><b>${money(x.v)}</b></div>
+      <div class="track"><div class="fill" style="width:${Math.max(3, x.v / max * 100)}%"></div></div></div>`).join('')}</div>`
       : `<div class="empty">${ic('box')}<div>Sem dados de faturamento</div></div>`}
   </div>`;
 }
@@ -581,7 +617,7 @@ const UF_GRID = { RR: [1, 0], AP: [3, 0], AM: [1, 1], PA: [2, 1], MA: [3, 1], CE
   MT: [1, 3], GO: [2, 3], BA: [3, 3], SE: [4, 3], AL: [5, 3], MS: [1, 4], DF: [2, 4], MG: [3, 4], ES: [4, 4], SP: [2, 5], RJ: [3, 5], PR: [2, 6], SC: [2, 7], RS: [2, 8] };
 function ufOf(c) {
   const d = String(c.phone || '').replace(/\D/g, '');
-  return d.startsWith('55') && d.length >= 12 ? DDD[d.slice(2, 4)] : null;
+  return d.startsWith('55') && d.length >= 11 ? DDD[d.slice(2, 4)] || null : null;
 }
 function estadosCard() {
   const cnt = {}; let total = 0;
@@ -603,10 +639,36 @@ function estadosCard() {
     tiles += `<div class="tile" style="background:${bg};color:${fg}">${uf}<small>${cnt[uf] || 0}</small></div>`;
   }
   const top = Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const noDdd = db.clients.length - total;
   return `<div class="card dark">
     <div class="card-head"><div class="ico">${ic('pin')}</div><h3>Clientes por Estado</h3><span class="tot">Total: <b>${total}</b></span></div>
     <div class="tilemap">${tiles}</div>
-    <div class="uf-list">${top.map(([uf, n]) => `<div><span>${uf}</span><b>${n} · ${Math.round(n / total * 100)}%</b></div>`).join('') || '<div><span style="color:#9aa0ae">Estado identificado pelo DDD do WhatsApp</span></div>'}</div>
+    <div class="uf-list">${top.map(([uf, n]) => `<div><span>${uf}</span><b>${n} · ${Math.round(n / total * 100)}%</b></div>`).join('') || '<div><span style="color:#9aa0ae">Estado identificado pelo DDD do WhatsApp</span></div>'}
+      ${noDdd ? `<p style="color:#7b8aa0;font-size:13px;margin:10px 0 0">${noDdd} cliente(s) sem DDD brasileiro identificado</p>` : ''}</div>
+  </div>`;
+}
+
+function comparadorCard() {
+  const A = state.cmpA, B = state.cmpB, day = +state.cmpDay;
+  const tally = key => { const m = {}; let tot = 0; db.payments.forEach(p => {
+    if (monKey(p.date) !== key || (day && +p.date.slice(8, 10) > day)) return;
+    const k = p.planName || 'Sem plano'; m[k] = m[k] || { n: 0, v: 0 }; m[k].n++; m[k].v += p.amount; tot++; }); return [m, tot]; };
+  const [ma, ta] = tally(A), [mb, tb] = tally(B);
+  const names = [...new Set(Object.keys(ma).concat(Object.keys(mb)))].sort((x, y) => ((mb[y] || {}).n || 0) + ((ma[y] || {}).n || 0) - ((ma[x] || {}).n || 0) - ((mb[x] || {}).n || 0));
+  const cols = ['#4f86e8', '#43a35a', '#ea7d32', '#9b51e0', '#e0457b', '#0ea5e9', '#d4a017', '#64748b'];
+  const mon = k => MONTHS[+k.slice(5) - 1], diff = ta - tb;
+  return `<div class="card cmp">
+    <div class="card-head"><div class="ico" style="background:#eef4ff;color:#2f6ae0">${ic('box')}</div><h3>Planos Vendidos — Comparador</h3></div>
+    <button class="dd full" data-act="dd" data-k="cmpA"><span>${monLabel(A)}</span>${ic('down')}</button>
+    <div style="height:10px"></div>
+    <button class="dd full alt" data-act="dd" data-k="cmpB"><span>${monLabel(B)}</span>${ic('down')}</button>
+    <div class="cmp-day"><span>Comparar até o dia:</span><button class="dd" data-act="dd" data-k="cmpDay"><span>${day ? 'Até o dia ' + day : 'Mês inteiro'}</span>${ic('down')}</button></div>
+    <p class="cmp-sum"><b style="color:#3b6fe0">${monLabel(A)}:</b> ${ta} planos • <b style="color:#9333ea">${monLabel(B)}:</b> ${tb} planos • <b style="color:${diff >= 0 ? '#2f9c50' : '#d24444'}">${diff >= 0 ? '+' : ''}${diff} planos</b></p>
+    ${names.map((n, i) => { const a = ma[n] || { n: 0, v: 0 }, b = mb[n] || { n: 0, v: 0 }, mx = Math.max(a.n, b.n, 1), d = a.n - b.n;
+      return `<div class="cmp-row"><div class="cr-h"><i class="swc" style="background:${cols[i % cols.length]}"></i><b>${esc(n)}</b>
+        <span class="delta ${d >= 0 ? 'up' : 'down'}">${ic(d >= 0 ? 'trending' : 'trendDown')} ${d >= 0 ? '+' : ''}${d}</span></div>
+        <div class="cr-two"><div><div class="cr-l"><span style="color:#3b6fe0">${mon(A)}</span><b>${a.n}</b></div><div class="tr"><div style="width:${a.n / mx * 100}%;background:#4f86e8"></div></div><small>${money(a.v)}</small></div>
+          <div><div class="cr-l"><span style="color:#9333ea">${mon(B)}</span><b>${b.n}</b></div><div class="tr"><div style="width:${b.n / mx * 100}%;background:#a855f7"></div></div><small>${money(b.v)}</small></div></div></div>`; }).join('') || '<div class="empty">Sem vendas nesses meses</div>'}
   </div>`;
 }
 
@@ -664,22 +726,430 @@ function stackChart(a, b, labels) {
   return `<svg class="chart" viewBox="0 0 ${W} ${H}">${g}</svg>`;
 }
 
-/* ----- Tools ----- */
-VIEWS.ferramentas = () => {
-  const tool = (act, icon, bg, title, sub) => `<button class="card tool" data-act="${act}"><div class="ico" style="background:${bg}">${ic(icon)}</div><div><b>${title}</b><span>${sub}</span></div>${ic('right')}</button>`;
-  return `
-    ${tool('plans', 'layers', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    ${tool('template', 'msg', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Mensagem de cobrança', 'Texto enviado pelo WhatsApp')}
-    ${tool('bulk', 'send', 'linear-gradient(135deg,#ef8a2c,#e0457b)', 'Cobrar vencidos hoje', 'Abre o WhatsApp de cada cliente')}
-    ${tool('export', 'download', 'linear-gradient(135deg,#3b82f6,#4f46e5)', 'Exportar backup', 'Salva todos os dados em JSON')}
-    ${tool('import', 'upload', 'linear-gradient(135deg,#0ea5e9,#10b981)', 'Importar backup / CSV', 'Restaura JSON ou importa planilha CSV')}
-    ${tool('profile', 'user', 'linear-gradient(135deg,#64748b,#334155)', 'Perfil', 'Nome exibido no topo')}
-    ${tool('demo', 'sparkle', 'linear-gradient(135deg,#f6b73c,#ef8a2c)', 'Dados de exemplo', 'Preenche o app para testar')}
-    ${tool('wipe', 'trash', 'linear-gradient(135deg,#ef4444,#b91c1c)', 'Apagar tudo', 'Remove clientes, pagamentos e histórico')}
-    <input type="file" id="fileIn" accept=".json,.csv,text/*,application/json" hidden>
-    <p class="hint" style="text-align:center">Os dados ficam salvos neste aparelho. Faça backup com frequência.</p>`;
+/* ----- Tools (Configurações) ----- */
+const SUBS = {
+  perfil: ['Configurações', 'Configurações do sistema', 'Perfil'],
+  relatorios: ['Configurações', 'Configurações do sistema', 'Exportar Relatórios'],
+  mensagens: ['Configurações', 'Configurações do sistema', 'Mensagem WhatsApp'],
+  atividades: ['Configurações', 'Configurações do sistema', 'Histórico de Atividades'],
+  importar: ['Importar', 'Gestão de mensalidades', 'Importar Clientes'],
+  backup: ['Configurações', 'Configurações do sistema', 'Backup Completo'],
+  planos: ['Planos', 'Configure seus planos'],
 };
-VIEWS.ferramentasAfter = () => { $('#fileIn').onchange = e => importFile(e.target.files[0]); };
+function setSub(sub) {
+  state.sub = sub || null;
+  const h = sub ? SUBS[sub] : PAGES.ferramentas;
+  $('#pageTitle').textContent = h[0];
+  $('#pageSub').textContent = h[1];
+  $('#fab').hidden = sub !== 'planos';
+  $('#fab').dataset.act = sub === 'planos' ? 'plan-new' : 'new-client';
+  render();
+  window.scrollTo(0, 0);
+}
+const subHead = (title, right) => `<div class="sub-head"><button data-act="sub" data-v="">${ic('arrowL')}</button><h2>${title}</h2>${right || ''}</div>`;
+
+VIEWS.ferramentas = () => {
+  if (state.sub) return SUBVIEWS[state.sub]();
+  const tool = (sub, icon, bg, title, desc) => `<button class="card tool" data-act="sub" data-v="${sub}"><div class="ico" style="background:${bg}">${ic(icon)}</div><div><b>${title}</b><span>${desc}</span></div>${ic('right')}</button>`;
+  const blue = 'linear-gradient(135deg,#4f86e8,#46a9d6)';
+  return `
+    <h2 class="sec">Configurações do Sistema</h2>
+    ${tool('perfil', 'user', blue, 'Perfil', 'Gerencie suas informações pessoais e foto de perfil.')}
+    ${tool('relatorios', 'chart', blue, 'Exportar Relatórios', 'Gere relatórios de clientes e financeiros em PDF ou CSV.')}
+    ${tool('mensagens', 'chat', 'linear-gradient(135deg,#5ac35f,#4fb88a)', 'Mensagem WhatsApp', 'Personalize a mensagem enviada aos clientes.')}
+    ${tool('atividades', 'history', 'linear-gradient(135deg,#f0a02c,#ec7a32)', 'Histórico de Atividades', 'Veja tudo que foi feito no sistema.')}
+    <h2 class="sec">Dados e Backups</h2>
+    ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
+    ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
+    ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
+    <button class="card tool" data-act="demo"><div class="ico" style="background:linear-gradient(135deg,#f6b73c,#ef8a2c)">${ic('sparkle')}</div><div><b>Dados de exemplo</b><span>Preenche o app para testar.</span></div>${ic('right')}</button>
+    <button class="card tool" data-act="wipe"><div class="ico" style="background:linear-gradient(135deg,#ef4444,#b91c1c)">${ic('trash')}</div><div><b>Apagar tudo</b><span>Remove clientes, pagamentos e histórico.</span></div>${ic('right')}</button>
+    <p class="hint" style="text-align:center">Xplay Gestor — v1.2 · os dados ficam salvos neste aparelho</p>`;
+};
+VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
+
+const SUBVIEWS = {};
+
+/* Perfil */
+SUBVIEWS.perfil = () => {
+  const st = db.settings;
+  return `${subHead('Perfil')}
+    <div class="card">
+      <div class="profile-pic">${st.photo ? `<img src="${st.photo}" alt="">` : `<span>${esc((st.brand || 'x').slice(0, 2).toUpperCase())}</span>`}</div>
+      <div style="display:flex;gap:10px;justify-content:center;margin:12px 0 18px">
+        <button class="btn light" style="width:auto;padding:0 18px;height:42px" data-act="photo">${ic('camera')} Alterar foto</button>
+        ${st.photo ? `<button class="btn light" style="width:auto;padding:0 18px;height:42px;color:#d24444" data-act="photo-del">${ic('trash')}</button>` : ''}
+      </div>
+      <input type="file" id="photoIn" accept="image/*" hidden>
+      <div class="f"><label>${ic('user', 'style="color:#a855f7"')} Seu nome</label><input id="prName" value="${esc(st.owner || '')}" placeholder="Seu nome"></div>
+      <div class="f"><label>${ic('box', 'style="color:#4f46e5"')} Empresa</label><input id="prCompany" value="${esc(st.company || '')}" placeholder="Nome da revenda (usado em {empresa})"></div>
+      <div class="f"><label>${ic('tag', 'style="color:#3b82f6"')} Texto do círculo do topo</label><input id="prBrand" maxlength="12" value="${esc(st.brand || '')}"></div>
+      <div class="f"><label>${ic('phone', 'style="color:#3fae56"')} WhatsApp</label><input id="prPhone" type="tel" value="${esc(st.phone || '')}"></div>
+      <button class="btn" data-act="save-profile">${ic('save')} Salvar</button>
+    </div>`;
+};
+SUBVIEWS.perfilAfter = () => {
+  $('#photoIn').onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    const img = new Image();
+    img.onload = () => {
+      const S = 160, cv = document.createElement('canvas'); cv.width = cv.height = S;
+      const k = Math.max(S / img.width, S / img.height), w = img.width * k, h = img.height * k;
+      cv.getContext('2d').drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+      db.settings.photo = cv.toDataURL('image/jpeg', .85); URL.revokeObjectURL(img.src); refresh();
+    };
+    img.onerror = () => toast('Imagem inválida');
+    img.src = URL.createObjectURL(f);
+  };
+};
+
+/* Relatórios */
+const FORMATS = [['pdf', 'PDF'], ['csv', 'CSV']];
+SUBVIEWS.relatorios = () => {
+  const box = (k, cls, icon, title, desc, color) => `<div class="rep ${cls}">
+      <div class="rh"><div class="ico" style="background:${color}">${ic(icon)}</div><div><b>${title}</b><span>${desc}</span></div></div>
+      <div class="rr"><button class="dd" data-act="dd" data-k="${k}">${ic('file', 'style="color:#5b6275"')}<span>${optLabel(FORMATS, state[k])}</span>${ic('down')}</button>
+        <button class="gen" style="background:${color}" data-act="report" data-v="${k}">Gerar</button></div></div>`;
+  return `${subHead('Exportar Relatórios')}
+    <div class="card">
+      ${box('fmtClients', 'blue', 'users', 'Relatório de Clientes', 'Lista completa com todos os dados', '#3b6fe0')}
+      ${box('fmtFin', 'green', 'trending', 'Relatório Financeiro', `Faturamento e mensalidades · ${esc(periodShort())}`, '#43a35a')}
+      <p class="hint">O período do relatório financeiro é o mesmo escolhido na aba Financeiro.</p>
+    </div>`;
+};
+
+/* Mensagens */
+const MSG_FIELDS = [
+  ['msgWhats', 'Mensagem botão do WhatsApp', 'Use <code>{empresa}</code> para sua empresa, <code>{{cliente}}</code> para o nome do cliente, <code>{{plano}}</code> para o nome do plano, <code>{{vencimento}}</code> para a data de vencimento e <code>{{valor}}</code> para o valor.'],
+  ['msgCadastro', 'Mensagem de Cadastro', 'Enviada após cadastrar um novo cliente. Use <code>{{vencimento}}</code> para a data e <code>{{plano}}</code> para o nome do plano.'],
+  ['msgRenovacao', 'Mensagem de Renovação', 'Enviada após renovar um plano. Use <code>{{vencimento}}</code> para a nova data e <code>{{plano}}</code> para o nome do plano.'],
+];
+SUBVIEWS.mensagens = () => `${subHead('Mensagem WhatsApp', `<button class="save-btn" data-act="save-msgs">${ic('save')} Salvar</button>`)}
+  ${MSG_FIELDS.map(([k, t, h]) => `<div class="card msg-card"><b>${t}</b><p>${h}</p><textarea id="${k}" rows="6">${esc(db.settings[k] || '')}</textarea></div>`).join('')}`;
+
+/* Atividades */
+function actIcon(h) {
+  const t = h.title.toLowerCase();
+  if (t.includes('cadastr')) return ['👤', 'linear-gradient(135deg,#5ac35f,#3e9156)'];
+  if (t.includes('renov')) return ['🔄', 'linear-gradient(135deg,#a855f7,#db5b97)'];
+  if (t.includes('exclu') || t.includes('limp')) return ['🗑️', 'linear-gradient(135deg,#ef4444,#b91c1c)'];
+  if (t.includes('edit')) return ['✏️', 'linear-gradient(135deg,#4f86e8,#4f46e5)'];
+  return ['📦', 'linear-gradient(135deg,#f0a02c,#ec7a32)'];
+}
+const fmtStamp = s => `${br(s)}, ${s.slice(11, 16)}`;
+SUBVIEWS.atividades = () => `${subHead('Histórico de Atividades')}
+  <div class="card">
+    <div class="act-top"><div><h3>Registro de Atividades</h3><small>${db.history.length} atividades registradas</small></div>
+      <button class="clear" data-act="clear-hist">${ic('trash')} Limpar Histórico</button></div>
+    ${db.history.slice(0, 200).map(h => { const [e, bg] = actIcon(h); return `<div class="act">
+      <div class="ai" style="background:${bg}">${e}</div>
+      <div class="ab"><b>${esc(h.title)}</b><p>${esc(h.desc)}</p><small>${ic('clock')} ${fmtStamp(h.at)}</small>
+        ${h.undone ? `<span class="done">${ic('checkc')} Ação desfeita</span>` : h.undo ? `<button class="undo" data-act="undo" data-v="${h.id}">${ic('undo')} Desfazer</button>` : ''}</div></div>`; }).join('') || '<div class="empty">Nenhuma atividade registrada</div>'}
+  </div>`;
+
+/* Importar clientes */
+SUBVIEWS.importar = () => `${subHead('Importar Clientes')}
+  <div class="card steps">
+    <h3>${ic('info')} Como Importar - Passo a Passo</h3>
+    <div class="step"><span class="n" style="background:#3b6fe0">1</span><div><b>Baixe o Modelo</b><p>Clique no botão abaixo para baixar a planilha modelo.</p>
+      <button class="out-btn" data-act="model-csv">${ic('download')} Baixar Modelo CSV</button></div></div>
+    <div class="step"><span class="n" style="background:#5046d8">2</span><div><b>Copie o Código do Plano</b><p>Vá até a página <b>Planos</b> e copie o código de 4 dígitos do plano.</p>
+      <div class="warn-note">${ic('alert')} Use o CÓDIGO (ex: 1234), não o nome do plano</div></div></div>
+    <div class="step"><span class="n" style="background:#9333ea">3</span><div><b>Preencha a Planilha</b>
+      <p class="ck">${ic('check')} Cole o código de 4 dígitos na coluna plano_id</p><p class="ck">${ic('check')} Data no formato: DD/MM/AAAA (ex: 25/12/2025)</p></div></div>
+    <div class="step"><span class="n" style="background:#43a35a">4</span><div><b>Faça o Upload</b><p>Salve o arquivo e faça o upload abaixo.</p></div></div>
+  </div>
+  <div class="card up-card green">
+    <div class="up-h">${ic('upload')} Fazer Upload do Arquivo</div>
+    <div class="drop">${ic('upload', 'class="big-ic"')}<b>Selecione o arquivo</b><span>Suporta arquivos CSV e Excel (.csv, .xlsx)</span>
+      <button class="pick" data-act="pick" data-v="csvIn">${ic('file')} Selecionar Arquivo</button></div>
+    <input type="file" id="csvIn" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden>
+    <div class="note g">${ic('check')}<div><b>Importação Inteligente</b><span>Aceita CÓDIGO do plano, ID completo ou o nome.</span></div></div>
+    <div class="note b">${ic('info')}<div><b>Mensalidade Automática</b><span>A primeira mensalidade será criada como PAGA.</span></div></div>
+  </div>`;
+SUBVIEWS.importarAfter = () => { $('#csvIn').onchange = e => { importSheet(e.target.files[0]); e.target.value = ''; }; };
+
+/* Backup */
+SUBVIEWS.backup = () => `${subHead('Backup Completo')}
+  <div class="card bk">
+    <div class="bk-h"><div class="ico">${ic('db')}</div><div><b>Backup Completo do Sistema</b><span>Clientes, planos, mensalidades, histórico, mensagens e configurações</span></div></div>
+    <div class="bk-b">
+      <div class="bk-t"><div class="ico" style="background:#e3ecfd;color:#3b6fe0">${ic('drive')}</div><b>Fazer Backup</b></div>
+      <p>Baixe todos os dados do sistema em um único arquivo JSON.</p>
+      <button class="btn blue" data-act="backup-now">${ic('download')} Fazer Backup Agora</button>
+      <div class="tip">💡 <b>Dica:</b> Faça backups regulares para não perder dados.</div>
+      <div class="bk-t"><div class="ico" style="background:#f1e8ff;color:#9333ea">${ic('shield')}</div><b>Restaurar Backup</b></div>
+      <p>Importe um arquivo de backup JSON para restaurar dados. Aceita backups deste app e do Gestor Simples.</p>
+      <div class="drop purple">${ic('upload', 'class="big-ic"')}<b>Selecione um arquivo de backup JSON</b>
+        <button class="pick" data-act="pick" data-v="bkIn">${ic('upload')} Selecionar Arquivo</button></div>
+      <input type="file" id="bkIn" accept=".json,application/json,text/*" hidden>
+      <div class="att">⚠️ <b>Atenção:</b> A importação adiciona dados, não substitui. Para trocar tudo, use "Apagar tudo" antes.</div>
+    </div>
+  </div>`;
+SUBVIEWS.backupAfter = () => { $('#bkIn').onchange = e => { importBackup(e.target.files[0]); e.target.value = ''; }; };
+
+/* Planos */
+SUBVIEWS.planos = () => {
+  const q = (state.planQ || '').trim().toLowerCase();
+  const list = db.plans.filter(p => !q || p.name.toLowerCase().includes(q) || String(p.code).includes(q)).sort((a, b) => a.name.localeCompare(b.name));
+  const counts = {}; db.clients.forEach(c => { if (!c.archived) counts[c.planId] = (counts[c.planId] || 0) + 1; });
+  return `<div class="plans-top">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><button class="back-mini" data-act="sub" data-v="">${ic('arrowL')}</button>
+        <label class="search" style="flex:1">${ic('search')}<input id="planQ" type="search" placeholder="Buscar planos ou códigos..." value="${esc(state.planQ || '')}"></label></div>
+      <div class="plan-count">${ic('box')} <b>${list.length}</b> planos</div></div>
+    ${list.map(p => {
+      const lucro = p.price - p.cost, marg = p.price > 0 ? Math.round(lucro / p.price * 100) : 0;
+      return `<div class="card plan-card" style="--pc:${p.color || '#E3F2FD'}">
+        <div class="pc-h"><div class="ico">${ic('box')}</div><div><b>${esc(p.name)}</b>
+          <div class="pc-tags"><span>${TYPE_NAMES[p.type]}</span><button class="code" data-act="copy" data-v="${esc(p.code)}">#${esc(p.code)} ${ic('copy')}</button></div></div></div>
+        <div class="pc-price"><small>Preço</small><b>${money(p.price)}</b>${p.desc ? `<p>${esc(p.desc)}</p>` : ''}</div>
+        <div class="pc-two">
+          <div class="pc-l"><small>${ic('trending')} Lucro</small><b>${money(lucro)}</b><span>${marg}% margem</span></div>
+          <button class="pc-c" data-act="plan-list" data-id="${p.id}"><small>${ic('users')} Clientes</small><b>${counts[p.id] || 0}</b><span>ver lista →</span></button>
+        </div>
+        ${p.link ? `<button class="pc-link" data-act="open-link" data-v="${esc(p.link)}">${ic('link')} ${esc(p.link)}</button>` : ''}
+        <div class="pc-act"><button class="e" data-act="plan-edit" data-id="${p.id}">${ic('edit')} Editar</button><button class="d" data-act="plan-del" data-id="${p.id}">${ic('trash')} Excluir</button></div>
+      </div>`; }).join('') || '<div class="card empty">Nenhum plano encontrado</div>'}`;
+};
+SUBVIEWS.planosAfter = () => {
+  const q = $('#planQ');
+  q.oninput = () => { state.planQ = q.value; clearTimeout(q.t); q.t = setTimeout(() => { const pos = q.selectionStart; render(); const n = $('#planQ'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { } }, 200); };
+};
+
+const PLAN_COLORS = [['#E3F2FD', 'Azul'], ['#E8F5E9', 'Verde'], ['#FCE4EC', 'Rosa'], ['#F3E5F5', 'Roxo'], ['#FFF3E0', 'Laranja'], ['#FFFDE7', 'Amarelo'],
+  ['#E0F7FA', 'Ciano'], ['#F9FBE7', 'Lima'], ['#FFE0B2', 'Pêssego'], ['#EDE7F6', 'Lavanda'], ['#E0F2F1', 'Turquesa'], ['#FFEBEE', 'Vermelho']];
+function newPlanCode() {
+  const used = new Set(db.plans.map(p => String(p.code)));
+  for (let i = 0; i < 9000; i++) { const c = String(1000 + Math.floor(Math.random() * 9000)); if (!used.has(c)) return c; }
+  return String(Date.now()).slice(-6);
+}
+function planForm(p) {
+  const isNew = !p; p = p || { name: '', type: 'mensal', price: '', cost: '', color: PLAN_COLORS[0][0], link: '', desc: '' };
+  let color = p.color || PLAN_COLORS[0][0];
+  const s = overlay(`<div class="sheet"><form class="form plain">
+    <button type="button" class="x" data-act="close">${ic('x')}</button>
+    <h2 class="center-t">${isNew ? 'Criar Novo Plano' : 'Editar Plano'}</h2>
+    <div class="f"><label>Nome do Plano <em>*</em></label><input id="pName" value="${esc(p.name)}" placeholder="Ex: Plano Premium" required></div>
+    <div class="f2"><div class="f"><label>Preço <em>*</em></label><input id="pPrice" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" value="${p.price}"></div>
+      <div class="f"><label>Custo <em>*</em></label><input id="pCost" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" value="${p.cost}"></div></div>
+    <div class="f"><label>Período <em>*</em></label><select id="pType">${Object.keys(TYPES).map(t => `<option value="${t}" ${t === p.type ? 'selected' : ''}>${TYPE_NAMES[t]}</option>`).join('')}</select></div>
+    <div class="f"><label>Cor do Plano</label><div class="swatches">${PLAN_COLORS.map(([c]) => `<button type="button" data-c="${c}" style="background:${c}" class="${c.toUpperCase() === color.toUpperCase() ? 'on' : ''}"></button>`).join('')}</div>
+      <div class="sel-c"><i style="background:${color}"></i><span>Cor selecionada: ${(PLAN_COLORS.find(x => x[0].toUpperCase() === color.toUpperCase()) || [0, 'Personalizada'])[1]}</span></div></div>
+    <div class="f"><label>Link (Opcional)</label><input id="pLink" type="url" placeholder="https://..." value="${esc(p.link || '')}"></div>
+    <div class="f"><label>Descrição</label><textarea id="pDesc" placeholder="Descreva os benefícios do plano...">${esc(p.desc || '')}</textarea></div>
+    <button class="btn" type="submit">${isNew ? 'Criar Plano' : 'Salvar Alterações'}</button></form></div>`);
+  s.querySelector('.swatches').onclick = e => {
+    const b = e.target.closest('[data-c]'); if (!b) return;
+    color = b.dataset.c;
+    s.querySelectorAll('.swatches button').forEach(x => x.classList.toggle('on', x === b));
+    s.querySelector('.sel-c').innerHTML = `<i style="background:${color}"></i><span>Cor selecionada: ${PLAN_COLORS.find(x => x[0] === color)[1]}</span>`;
+  };
+  s.querySelector('form').onsubmit = e => {
+    e.preventDefault();
+    const data = { name: $('#pName').value.trim().toUpperCase(), type: $('#pType').value, price: parseFloat(String($('#pPrice').value).replace(',', '.')) || 0,
+      cost: parseFloat(String($('#pCost').value).replace(',', '.')) || 0, color, link: $('#pLink').value.trim(), desc: $('#pDesc').value.trim() };
+    if (!data.name) return toast('Informe o nome');
+    if (isNew) db.plans.push(Object.assign({ id: uid(), code: newPlanCode() }, data)); else Object.assign(p, data);
+    closeTop(); refresh(); toast(isNew ? 'Plano criado' : 'Plano atualizado');
+  };
+}
+
+/* Messages */
+function fillMsg(tpl, c) {
+  const p = planOf(c), st = db.settings;
+  return String(tpl || '')
+    .replace(/{{\s*cliente\s*}}|{nome}/g, c.name).replace(/{{\s*plano\s*}}|{plano}/g, p ? p.name : '')
+    .replace(/{{\s*vencimento\s*}}|{vencimento}/g, br(c.due)).replace(/{{\s*valor\s*}}|{valor}/g, money(priceOf(c)))
+    .replace(/{{\s*empresa\s*}}|{empresa}/g, st.company || st.brand || '');
+}
+function askSend(c, key, title) {
+  if (!(db.settings[key] || '').trim() || !c.phone) return;
+  const s = overlay(`<div class="dialog confirm">${ic('wa', 'style="color:#3fae56"')}<h3>${title}</h3><p>Enviar a mensagem para ${esc(c.name)} no WhatsApp?</p>
+    <div class="two"><button class="cancel" data-act="close">Agora não</button><button class="ok" style="background:#3fae56" id="sendOk">Enviar</button></div></div>`, 'center');
+  s.querySelector('#sendOk').onclick = () => { closeTop(); openUrl(waLink(c, fillMsg(db.settings[key], c))); };
+}
+
+/* Files */
+function saveFile(name, mime, text) {
+  if (window.Android && Android.saveFile) { Android.saveFile(name, mime, text); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: mime })); a.download = name; a.click();
+}
+const csvCell = v => { const t = String(v == null ? '' : v); return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+const toCsv = rows => '﻿' + rows.map(r => r.map(csvCell).join(';')).join('\r\n');
+function parseCsv(text) {
+  text = text.replace(/^﻿/, '');
+  const first = text.split(/\r?\n/)[0] || '';
+  const sep = (first.match(/;/g) || []).length >= (first.match(/,/g) || []).length ? ';' : ',';
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === sep) { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += ch;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => String(x).trim()));
+}
+/* Minimal .xlsx reader: first worksheet, shared/inline strings, numbers. */
+async function readXlsx(buf) {
+  if (typeof DecompressionStream === 'undefined') throw new Error('este aparelho não abre .xlsx; salve a planilha como CSV');
+  const dv = new DataView(buf), u8 = new Uint8Array(buf);
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= Math.max(0, u8.length - 66000); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('arquivo .xlsx inválido');
+  const n = dv.getUint16(eocd + 10, true); let off = dv.getUint32(eocd + 16, true);
+  const files = {};
+  for (let k = 0; k < n; k++) {
+    const method = dv.getUint16(off + 10, true), csize = dv.getUint32(off + 20, true), nl = dv.getUint16(off + 28, true), el = dv.getUint16(off + 30, true), cl = dv.getUint16(off + 32, true), lo = dv.getUint32(off + 42, true);
+    const name = new TextDecoder().decode(u8.subarray(off + 46, off + 46 + nl));
+    files[name] = { method, csize, lo };
+    off += 46 + nl + el + cl;
+  }
+  const read = async name => {
+    const f = files[name]; if (!f) return null;
+    const start = f.lo + 30 + dv.getUint16(f.lo + 26, true) + dv.getUint16(f.lo + 28, true);
+    const data = u8.subarray(start, start + f.csize);
+    if (f.method === 0) return new TextDecoder().decode(data);
+    const ds = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return await new Response(ds).text();
+  };
+  const xml = t => new DOMParser().parseFromString(t, 'application/xml');
+  const sst = [];
+  const ss = await read('xl/sharedStrings.xml');
+  if (ss) xml(ss).querySelectorAll('si').forEach(si => sst.push([...si.getElementsByTagName('t')].map(t => t.textContent).join('')));
+  const sheetName = Object.keys(files).filter(f => /^xl\/worksheets\/sheet\d+\.xml$/.test(f)).sort()[0];
+  if (!sheetName) throw new Error('planilha vazia');
+  const doc = xml(await read(sheetName));
+  const colIdx = ref => { let n = 0; for (const ch of ref.replace(/\d+/g, '')) n = n * 26 + ch.charCodeAt(0) - 64; return n - 1; };
+  const rows = [];
+  doc.querySelectorAll('sheetData row').forEach(r => {
+    const out = [];
+    r.querySelectorAll('c').forEach(c => {
+      const t = c.getAttribute('t'), v = c.getElementsByTagName('v')[0];
+      let val = '';
+      if (t === 's') val = sst[+(v ? v.textContent : 0)] || '';
+      else if (t === 'inlineStr') val = [...c.getElementsByTagName('t')].map(x => x.textContent).join('');
+      else val = v ? v.textContent : '';
+      out[colIdx(c.getAttribute('r') || 'A')] = val;
+    });
+    rows.push(Array.from(out, x => x == null ? '' : x));
+  });
+  return rows.filter(r => r.some(x => String(x).trim()));
+}
+function parseDateBR(v) {
+  v = String(v || '').trim();
+  let m = v.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (m) return `${m[3].length === 2 ? '20' + m[3] : m[3]}-${pad(m[2])}-${pad(m[1])}`;
+  m = v.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  if (/^\d{5}(\.\d+)?$/.test(v)) return iso(new Date(Math.round((parseFloat(v) - 25569) * 864e5) + new Date().getTimezoneOffset() * 6e4));
+  return '';
+}
+function findPlan(v) {
+  v = String(v || '').trim(); if (!v) return null;
+  const up = v.toUpperCase();
+  return db.plans.find(p => String(p.code) === v) || db.plans.find(p => p.id === v) || db.plans.find(p => p.name.toUpperCase() === up) || null;
+}
+async function importSheet(f) {
+  if (!f) return;
+  try {
+    let rows;
+    if (/\.xls$/i.test(f.name)) throw new Error('formato .xls antigo; salve como .xlsx ou .csv');
+    if (/\.xlsx$/i.test(f.name)) rows = await readXlsx(await f.arrayBuffer());
+    else rows = parseCsv(await f.text());
+    if (rows.length < 2) throw new Error('a planilha não tem linhas de clientes');
+    const head = rows[0].map(h => String(h).trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''));
+    const col = names => head.findIndex(h => names.some(n => h === n || h.includes(n)));
+    const iN = col(['nome', 'name', 'cliente']), iW = col(['whats', 'telefone', 'phone', 'celular']), iP = col(['plano_id', 'plano', 'codigo']), iD = col(['vencimento', 'data_vencimento', 'venc', 'data']),
+      iQ = col(['quantidade', 'qtd', 'telas']), iDs = col(['desconto']), iNo = col(['notas', 'obs', 'observ']);
+    if (iN < 0) throw new Error('a planilha precisa da coluna "nome"');
+    const errors = []; let ok = 0;
+    rows.slice(1).forEach((r, k) => {
+      const line = k + 2, name = String(r[iN] || '').trim();
+      if (!name) return;
+      const plan = iP >= 0 ? findPlan(r[iP]) : null;
+      if (iP >= 0 && String(r[iP] || '').trim() && !plan) { errors.push(`Linha ${line} (${name}): plano "${r[iP]}" não encontrado`); return; }
+      const due = iD >= 0 ? parseDateBR(r[iD]) : '';
+      const c = { id: uid(), name, phone: normPhone(iW >= 0 ? r[iW] : ''), planId: plan ? plan.id : '', due: due || (plan ? addMonths(today(), TYPES[plan.type]) : ''),
+        qty: Math.max(1, parseInt(iQ >= 0 ? r[iQ] : 1, 10) || 1), discount: Math.max(0, parseFloat(String(iDs >= 0 ? r[iDs] : 0).replace(',', '.')) || 0),
+        notes: iNo >= 0 ? String(r[iNo] || '').trim() : '', essential: false, archived: false, createdAt: today() };
+      db.clients.push(c);
+      if (plan) addPayment(c, 'cadastro', priceOf(c));
+      ok++;
+    });
+    log('Clientes Importados', `${ok} clientes importados de ${f.name}${errors.length ? ` (${errors.length} com erro)` : ''}`);
+    snapshot(); refresh();
+    overlay(`<div class="dialog confirm">${ic('checkc', 'style="color:#3fae56"')}<h3>Importação concluída</h3><p>${ok} clientes importados.${errors.length ? `<br><small style="color:#d24444">${errors.slice(0, 8).map(esc).join('<br>')}${errors.length > 8 ? `<br>… e mais ${errors.length - 8}` : ''}</small>` : ''}</p>
+      <div class="two"><button class="ok" style="background:#4f46e5" data-act="close">OK</button></div></div>`, 'center');
+  } catch (e) { toast('Erro: ' + e.message); }
+}
+function modelCsv() {
+  const p = db.plans[0];
+  saveFile('modelo-importacao-clientes.csv', 'text/csv', toCsv([['nome', 'whatsapp', 'plano_id', 'data_vencimento', 'quantidade', 'desconto', 'notas'],
+    ['Maria Silva', '+55 11 99999-9999', p ? p.code : '1234', '25/12/2026', '1', '0', 'Exemplo']]));
+}
+function importBackup(f) {
+  if (!f) return;
+  f.text().then(txt => {
+    let d = JSON.parse(txt.replace(/^﻿/, '')), label = 'backup';
+    if (d.data && Array.isArray(d.data.clientes)) { d = fromGestorSimples(d); label = 'backup do Gestor Simples'; }
+    if (!d.clients || !d.plans) throw new Error('arquivo não é um backup reconhecido');
+    const known = new Set(db.clients.map(c => c.id));
+    const novos = d.clients.filter(c => !known.has(c.id)).length;
+    confirmDialog('Restaurar backup', `Adicionar dados do ${label}: ${novos} clientes novos (de ${d.clients.length}), ${d.plans.length} planos e ${(d.payments || []).length} pagamentos? Itens que já existem são mantidos.`, () => {
+      const r = mergeData(d); snapshot(); refresh(); toast(`${r.clients} clientes e ${r.payments} pagamentos adicionados`);
+    });
+  }).catch(e => toast('Erro: ' + e.message));
+}
+function mergeData(d) {
+  const planMap = {};
+  d.plans.forEach(p => {
+    const ex = db.plans.find(x => x.id === p.id) || db.plans.find(x => x.name.toUpperCase() === String(p.name).toUpperCase());
+    if (ex) {
+      // Same plan: take the backup's price, cost, period and details; keep the code unless it is free to reuse.
+      ['name', 'type', 'price', 'cost', 'color', 'link', 'desc'].forEach(k => { if (p[k] !== undefined && p[k] !== '') ex[k] = p[k]; });
+      if (p.code && !db.plans.some(x => x !== ex && String(x.code) === String(p.code))) ex.code = String(p.code);
+      planMap[p.id] = ex.id;
+    }
+    else { const np = Object.assign({ color: PLAN_COLORS[0][0], link: '', desc: '' }, p); if (!np.code || db.plans.some(x => String(x.code) === String(np.code))) np.code = newPlanCode(); db.plans.push(np); planMap[p.id] = np.id; }
+  });
+  const cids = new Set(db.clients.map(c => c.id)), pids = new Set(db.payments.map(p => p.id));
+  let nc = 0, np = 0;
+  d.clients.forEach(c => { if (cids.has(c.id)) return; db.clients.push(Object.assign({}, c, { planId: planMap[c.planId] || c.planId || '' })); nc++; });
+  (d.payments || []).forEach(p => { if (pids.has(p.id)) return; db.payments.push(p); np++; });
+  if (d.snapshots) Object.keys(d.snapshots).forEach(k => { if (!(k in db.snapshots)) db.snapshots[k] = d.snapshots[k]; });
+  if (d.settings) ['msgWhats', 'msgCadastro', 'msgRenovacao', 'company', 'owner', 'photo'].forEach(k => { if (!db.settings[k] && d.settings[k]) db.settings[k] = d.settings[k]; });
+  log('Backup Importado', `${nc} clientes, ${np} pagamentos adicionados`);
+  return { clients: nc, payments: np };
+}
+function backupNow() {
+  saveFile(`xplay_gestor_backup_${today()}.json`, 'application/json', JSON.stringify(Object.assign({ app: 'Xplay Gestor', version: 2, exported_at: new Date().toISOString() }, db)));
+}
+
+/* Reports */
+function clientsReport(fmt) {
+  const rows = db.clients.slice().sort((a, b) => a.name.localeCompare(b.name));
+  const stTxt = c => c.archived ? 'Arquivado' : statusOf(c).text;
+  if (fmt === 'csv') {
+    saveFile(`clientes_${today()}.csv`, 'text/csv', toCsv([['nome', 'whatsapp', 'plano', 'plano_codigo', 'vencimento', 'status', 'quantidade', 'desconto', 'valor', 'essencial', 'notas', 'cadastro']]
+      .concat(rows.map(c => { const p = planOf(c); return [c.name, fmtPhone(c.phone), p ? p.name : '', p ? p.code : '', br(c.due), stTxt(c), c.qty, c.discount, priceOf(c).toFixed(2).replace('.', ','), c.essential ? 'sim' : 'não', c.notes, br(c.createdAt)]; }))));
+    return;
+  }
+  $('#print').innerHTML = `<h1>Relatório de Clientes</h1><div>${esc(db.settings.company || db.settings.brand)} · ${rows.length} clientes · gerado em ${br(today())}</div>
+    <table><thead><tr><th>Nome</th><th>WhatsApp</th><th>Plano</th><th>Vencimento</th><th>Status</th><th class="r">Valor</th></tr></thead><tbody>
+    ${rows.map(c => `<tr><td>${esc(c.name)}</td><td>${esc(fmtPhone(c.phone))}</td><td>${esc(planOf(c) ? planOf(c).name : '—')}</td><td>${br(c.due)}</td><td>${stTxt(c)}</td><td class="r">${money(priceOf(c))}</td></tr>`).join('')}</tbody></table>`;
+  if (window.Android) Android.print('Relatorio-Clientes'); else window.print();
+}
+function finReport(fmt) {
+  if (fmt !== 'csv') return pdf();
+  const r = periodRange();
+  const pays = db.payments.filter(p => inRange(p, r)).sort((a, b) => a.date < b.date ? -1 : 1);
+  saveFile(`financeiro_${today()}.csv`, 'text/csv', toCsv([['data', 'cliente', 'plano', 'tipo', 'valor', 'custo', 'lucro']]
+    .concat(pays.map(p => [`${br(p.date)} ${p.date.slice(11, 16)}`, p.clientName, p.planName, p.kind === 'cadastro' ? 'Cadastro' : 'Renovação',
+      p.amount.toFixed(2).replace('.', ','), (p.cost || 0).toFixed(2).replace('.', ','), (p.amount - (p.cost || 0)).toFixed(2).replace('.', ',')]))));
+}
 
 /* ---------- Overlays ---------- */
 const layer = () => $('#layer');
@@ -698,6 +1168,7 @@ function closeMenus() { document.querySelectorAll('.menu,.pop,.pop-scrim').forEa
 window.onBack = () => {
   if (document.querySelector('.menu,.pop')) { closeMenus(); return true; }
   if (layer().children.length) { closeTop(); return true; }
+  if (state.tab === 'ferramentas' && state.sub) { setSub(null); return true; }
   if (state.tab !== 'dashboard') { go('dashboard'); return true; }
   return false;
 };
@@ -813,6 +1284,7 @@ function clientForm(c) {
       log('Novo Cliente Cadastrado', `${nc.name} - Plano: ${p ? p.name : '—'} | Valor: R$ ${priceOf(nc).toFixed(2)}${nc.discount ? ` (Desconto: R$ ${nc.discount.toFixed(2)})` : ''}`,
         { type: 'create', clientId: nc.id, paymentId: pay && pay.id });
       toast('Cliente cadastrado');
+      setTimeout(() => askSend(nc, 'msgCadastro', 'Mensagem de Cadastro'), 50);
     } else {
       const before = JSON.parse(JSON.stringify(c));
       Object.assign(c, data);
@@ -845,6 +1317,7 @@ function renewDialog(c) {
     log('Plano Renovado', `${c.name} - ${p.name} | Valor: R$ ${pay.amount.toFixed(2)} | Novo vencimento: ${br(next)}`, { type: 'renew', clientId: c.id, oldDue: old, paymentId: pay.id });
     snapshot(); closeTop(); refresh(); reopenDetail(c.id);
     toast('Renovado até ' + br(next));
+    askSend(c, 'msgRenovacao', 'Mensagem de Renovação');
   };
 }
 
@@ -895,90 +1368,7 @@ function notificationsPop() {
   document.body.append(back, p); paintIcons(p);
 }
 
-function plansSheet() {
-  const s = overlay(`<div class="sheet"><div class="form">
-    <button type="button" class="x" data-act="close">${ic('x')}</button>
-    <div class="fh"><div class="ico">${ic('layers')}</div><h2>Planos</h2></div>
-    <p class="sub">Valor cobrado do cliente e seu custo por tela</p>
-    <div>${db.plans.map(p => `<div class="plan-item"><div><b>${esc(p.name)}</b><br><small>${TYPE_NAMES[p.type]} · ${money(p.price)} · custo ${money(p.cost)} · ${db.clients.filter(c => c.planId === p.id).length} clientes</small></div>
-      <button class="sq" data-act="plan-edit" data-id="${p.id}">${ic('edit')}</button><button class="sq" style="color:#d24444" data-act="plan-del" data-id="${p.id}">${ic('trash')}</button></div>`).join('') || '<div class="empty">Nenhum plano</div>'}</div>
-    <div style="height:16px"></div><button class="btn" data-act="plan-edit">${ic('plus')} Novo plano</button>
-  </div></div>`);
-  s.dataset.plans = 1;
-}
-function planForm(p) {
-  const isNew = !p; p = p || { name: '', type: 'mensal', price: '', cost: '' };
-  const s = overlay(`<div class="sheet"><form class="form">
-    <button type="button" class="x" data-act="close">${ic('x')}</button>
-    <div class="fh"><div class="ico">${ic('box')}</div><h2>${isNew ? 'Novo Plano' : 'Editar Plano'}</h2></div><p class="sub"></p>
-    <div class="f"><label>Nome <em>*</em></label><input id="pName" value="${esc(p.name)}" required></div>
-    <div class="f"><label>Período</label><select id="pType">${Object.keys(TYPES).map(t => `<option value="${t}" ${t === p.type ? 'selected' : ''}>${TYPE_NAMES[t]}</option>`).join('')}</select></div>
-    <div class="f2"><div class="f"><label>Valor (R$)</label><input id="pPrice" type="number" step="0.01" inputmode="decimal" value="${p.price}"></div>
-      <div class="f"><label>Custo (R$)</label><input id="pCost" type="number" step="0.01" inputmode="decimal" value="${p.cost}"></div></div>
-    <button class="btn" type="submit">Salvar</button></form></div>`);
-  s.querySelector('form').onsubmit = e => {
-    e.preventDefault();
-    const data = { name: $('#pName').value.trim().toUpperCase(), type: $('#pType').value, price: parseFloat($('#pPrice').value) || 0, cost: parseFloat($('#pCost').value) || 0 };
-    if (!data.name) return toast('Informe o nome');
-    if (isNew) db.plans.push(Object.assign({ id: uid() }, data)); else Object.assign(p, data);
-    save(); closeTop(); closeTop(); plansSheet(); render();
-  };
-}
-
-function templateSheet() {
-  const s = overlay(`<div class="sheet"><form class="form">
-    <button type="button" class="x" data-act="close">${ic('x')}</button>
-    <div class="fh"><div class="ico">${ic('msg')}</div><h2>Mensagem</h2></div>
-    <p class="sub">Use {nome}, {plano}, {vencimento} e {valor}.</p>
-    <div class="f"><textarea id="tpl" style="height:160px">${esc(db.settings.template)}</textarea></div>
-    <button class="btn" type="submit">Salvar</button></form></div>`);
-  s.querySelector('form').onsubmit = e => { e.preventDefault(); db.settings.template = $('#tpl').value; save(); closeTop(); toast('Mensagem salva'); };
-}
-function profileSheet() {
-  const s = overlay(`<div class="sheet"><form class="form">
-    <button type="button" class="x" data-act="close">${ic('x')}</button>
-    <div class="fh"><div class="ico">${ic('user')}</div><h2>Perfil</h2></div><p class="sub">Nome da sua revenda, mostrado no círculo do topo.</p>
-    <div class="f"><input id="brand" maxlength="12" value="${esc(db.settings.brand)}"></div>
-    <button class="btn" type="submit">Salvar</button></form></div>`);
-  s.querySelector('form').onsubmit = e => { e.preventDefault(); db.settings.brand = $('#brand').value.trim(); closeTop(); refresh(); };
-}
-function bulkSheet() {
-  const list = live().filter(c => daysLeft(c) === 0);
-  overlay(`<div class="sheet"><div class="form">
-    <button type="button" class="x" data-act="close">${ic('x')}</button>
-    <div class="fh"><div class="ico">${ic('send')}</div><h2>Cobrar hoje</h2></div><p class="sub">Toque em cada cliente para abrir o WhatsApp com a mensagem pronta.</p>
-    ${list.map(c => `<div class="plan-item"><div><b>${esc(c.name)}</b><br><small>${esc(fmtPhone(c.phone))} · ${money(priceOf(c))}</small></div>
-      <button class="wa" data-act="wa-msg" data-id="${c.id}">${ic('wa')}</button></div>`).join('') || '<div class="empty">Nenhum cliente vence hoje</div>'}
-  </div></div>`);
-}
-
 /* ---------- Backup / import ---------- */
-function exportData() {
-  const json = JSON.stringify(db);
-  const name = `gestor-backup-${today()}.json`;
-  if (window.Android) { Android.share(name, json); return; }
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([json], { type: 'application/json' })); a.download = name; a.click();
-}
-function importFile(f) {
-  if (!f) return;
-  const r = new FileReader();
-  r.onload = () => {
-    const txt = String(r.result).replace(/^﻿/, '');
-    try {
-      if (txt.trim().startsWith('{')) {
-        let d = JSON.parse(txt);
-        let label = 'backup';
-        if (d.data && Array.isArray(d.data.clientes)) { d = fromGestorSimples(d); label = 'backup do Gestor Simples'; }
-        if (!d.clients || !d.plans) throw new Error('arquivo não é um backup reconhecido');
-        confirmDialog('Restaurar backup', `Substituir os dados atuais pelo ${label}: ${d.clients.length} clientes, ${d.plans.length} planos e ${d.payments.length} pagamentos?`, () => {
-          db = d; load2(); snapshot(); refresh(); toast(`${d.clients.length} clientes importados`);
-        });
-      } else importCsv(txt);
-    } catch (e) { toast('Erro: ' + e.message); }
-  };
-  r.readAsText(f);
-}
 /* Converts a "Gestor Simples" export (version 2.x: data.clientes / planos / mensalidades). */
 function fromGestorSimples(src) {
   const D = src.data, out = blank();
@@ -986,7 +1376,7 @@ function fromGestorSimples(src) {
   const localTime = s => { if (!s) return '12:00'; const t = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s + 'Z'); return isNaN(t) ? '12:00' : `${pad(t.getHours())}:${pad(t.getMinutes())}`; };
   const num = v => { const n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(n) ? 0 : n; };
   out.plans = (D.planos || []).map(p => ({ id: String(p.id), name: String(p.nome || 'PLANO').trim(), type: TYPES[String(p.periodo).toLowerCase()] ? String(p.periodo).toLowerCase() : 'mensal',
-    price: num(p.preco), cost: num(p.custo) }));
+    price: num(p.preco), cost: num(p.custo), code: String(p.codigo || ''), color: p.cor || '#E3F2FD', link: p.link || '', desc: p.descricao || '' }));
   const planById = {}, planByName = {};
   out.plans.forEach(p => { planById[p.id] = p; planByName[p.name.toUpperCase()] = p; });
   out.clients = (D.clientes || []).map(c => {
@@ -1013,34 +1403,6 @@ function fromGestorSimples(src) {
   if (notes.length) out.settings.stickyNotes = notes;
   return out;
 }
-function load2() { db.snapshots = db.snapshots || {}; db.history = db.history || []; db.payments = db.payments || []; db.settings = Object.assign(blank().settings, db.settings || {}); save(); }
-function importCsv(txt) {
-  const lines = txt.split(/\r?\n/).filter(l => l.trim());
-  const sep = (lines[0].match(/;/g) || []).length >= (lines[0].match(/,/g) || []).length ? ';' : ',';
-  const head = lines[0].toLowerCase().split(sep).map(s => s.trim());
-  const col = names => head.findIndex(h => names.some(n => h.includes(n)));
-  const iN = col(['nome', 'name']), iP = col(['whats', 'telefone', 'phone', 'celular']), iPl = col(['plano', 'plan']), iD = col(['venc', 'due', 'data']);
-  if (iN < 0) return toast('CSV precisa da coluna "nome"');
-  let n = 0;
-  lines.slice(1).forEach(l => {
-    const v = l.split(sep).map(s => s.trim().replace(/^"|"$/g, ''));
-    if (!v[iN]) return;
-    let due = iD >= 0 ? v[iD] : '';
-    const m = due.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-    if (m) due = `${m[3].length === 2 ? '20' + m[3] : m[3]}-${pad(m[2])}-${pad(m[1])}`;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(due)) due = '';
-    let plan = iPl >= 0 && v[iPl] ? db.plans.find(p => p.name.toLowerCase() === v[iPl].toLowerCase()) : null;
-    if (!plan && iPl >= 0 && v[iPl]) {
-      const nm = v[iPl].toUpperCase();
-      const type = /ANU/.test(nm) ? 'anual' : /SEMES/.test(nm) ? 'semestral' : /TRIM/.test(nm) ? 'trimestral' : 'mensal';
-      plan = { id: uid(), name: nm, type, price: 0, cost: 0 }; db.plans.push(plan);
-    }
-    db.clients.push({ id: uid(), name: v[iN], phone: normPhone(iP >= 0 ? v[iP] : ''), planId: plan ? plan.id : '', due, qty: 1, discount: 0, notes: '', essential: false, archived: false, createdAt: today() });
-    n++;
-  });
-  snapshot(); refresh(); toast(`${n} clientes importados`);
-}
-
 function demoData() {
   const names = ['Julio', 'Edo', 'Maria rosa', 'Maria', 'Paulo', 'Débora', 'Wedson', 'Denio', 'Arsênio', 'Valeria', 'Andrr', 'Carlos', 'Fernanda', 'Rafael', 'Juliana', 'Bruno',
     'Patrícia', 'Lucas', 'Camila', 'Rodrigo', 'Aline', 'Marcos', 'Tatiane', 'Felipe', 'Renata', 'Gustavo', 'Simone', 'Diego', 'Larissa', 'Thiago', 'Vanessa', 'André', 'Priscila', 'Leandro'];
@@ -1101,7 +1463,7 @@ document.addEventListener('click', e => {
       Object.assign(state, { fStatus: el.dataset.f, fType: 'todos', fPlan: 'todos', q: '' });
       closeMenus(); go('clientes'); break;
     case 'detail': closeMenus(); if (c) detailSheet(c); break;
-    case 'wa': if (c) openUrl(waLink(c)); break;
+    case 'wa': if (c) openUrl(waLink(c, waMessage(c))); break;
     case 'wa-msg': if (c) openUrl(waLink(c, waMessage(c))); break;
     case 'pays': if (c) paysSheet(c); break;
     case 'edit': if (c) clientForm(c); break;
@@ -1122,8 +1484,14 @@ document.addEventListener('click', e => {
     case 'dd': {
       const k = el.dataset.k;
       const opts = { fStatus: STATUS_OPTS, fType: TYPE_OPTS, fPlan: planOpts(), show: [['20', '20'], ['50', '50'], ['100', '100'], ['0', 'Todos']], period: PERIODS,
-        lucroMonth: monthOpts(), lateType: [['todos', 'Todos os planos']].concat(db.plans.map(p => [p.id, p.name])) }[k];
-      dropdown(el, opts, state[k], v => { state[k] = k === 'show' ? +v : v; render(); });
+        lucroMonth: monthOpts(), finMonth: monthOpts().map(([k]) => [k, monLabel(k)]), cmpA: monthOpts().map(([k]) => [k, monLabel(k)]), cmpB: monthOpts().map(([k]) => [k, monLabel(k)]),
+        cmpDay: [['0', 'Mês inteiro']].concat(Array.from({ length: 31 }, (_, i) => [String(i + 1), `Até o dia ${i + 1}`])),
+        fmtClients: FORMATS, fmtFin: FORMATS, lateType: [['todos', 'Todos os planos']].concat(db.plans.map(p => [p.id, p.name])) }[k];
+      dropdown(el, opts, state[k], v => {
+        state[k] = k === 'show' ? +v : v;
+        if (k === 'period' || k === 'finMonth') syncMonths();
+        render();
+      });
       break;
     }
     case 'set': state[el.dataset.k] = el.dataset.v; render(); break;
@@ -1135,24 +1503,36 @@ document.addEventListener('click', e => {
     case 'pdf': pdf(); break;
     case 'history': historyPop(); break;
     case 'notifications': notificationsPop(); break;
-    case 'profile': profileSheet(); break;
-    case 'plans': plansSheet(); break;
+    case 'profile': state.tab !== 'ferramentas' && go('ferramentas'); setSub('perfil'); break;
+    case 'sub': setSub(el.dataset.v); break;
+    case 'plan-new': planForm(null); break;
     case 'plan-edit': planForm(db.plans.find(p => p.id === id)); break;
     case 'plan-del': {
       const p = db.plans.find(x => x.id === id), n = db.clients.filter(x => x.planId === id).length;
       confirmDialog('Excluir plano', n ? `${n} clientes usam "${esc(p.name)}" e ficarão sem plano. Continuar?` : `Excluir "${esc(p.name)}"?`, () => {
         db.plans = db.plans.filter(x => x.id !== id); db.clients.forEach(x => { if (x.planId === id) x.planId = ''; });
-        save(); closeTop(); plansSheet(); render();
+        log('Plano Excluído', p.name); refresh();
       });
       break;
     }
-    case 'template': templateSheet(); break;
-    case 'bulk': bulkSheet(); break;
-    case 'export': exportData(); break;
-    case 'import': $('#fileIn').click(); break;
+    case 'plan-list': Object.assign(state, { fStatus: 'todos', fType: 'todos', fPlan: id, q: '' }); go('clientes'); break;
+    case 'copy': if (window.Android && Android.copy) Android.copy(el.dataset.v); else if (navigator.clipboard) navigator.clipboard.writeText(el.dataset.v); toast('Código ' + el.dataset.v + ' copiado'); break;
+    case 'open-link': openUrl(el.dataset.v); break;
+    case 'pick': $('#' + el.dataset.v).click(); break;
+    case 'photo': $('#photoIn').click(); break;
+    case 'photo-del': db.settings.photo = ''; refresh(); break;
+    case 'save-profile':
+      Object.assign(db.settings, { owner: $('#prName').value.trim(), company: $('#prCompany').value.trim(), brand: $('#prBrand').value.trim(), phone: $('#prPhone').value.trim() });
+      refresh(); toast('Perfil salvo'); break;
+    case 'save-msgs': MSG_FIELDS.forEach(([k]) => { db.settings[k] = $('#' + k).value; }); save(); toast('Mensagens salvas'); break;
+    case 'clear-hist': confirmDialog('Limpar Histórico', 'Apagar todas as atividades registradas? Os clientes e pagamentos não são afetados.', () => { db.history = []; refresh(); toast('Histórico limpo'); }); break;
+    case 'undo': undo(el.dataset.v); break;
+    case 'report': (el.dataset.v === 'fmtClients' ? clientsReport : finReport)(state[el.dataset.v]); break;
+    case 'model-csv': modelCsv(); break;
+    case 'backup-now': backupNow(); break;
     case 'demo': demoData(); break;
     case 'wipe': confirmDialog('Apagar tudo', 'Todos os clientes, pagamentos e histórico serão removidos deste aparelho.', () => {
-      const keep = { plans: db.plans, settings: db.settings }; db = Object.assign(blank(), keep); refresh(); toast('Dados apagados');
+      const keep = { plans: db.plans, settings: db.settings }; db = Object.assign(blank(), keep); migrate(); refresh(); toast('Dados apagados');
     }); break;
   }
 });
