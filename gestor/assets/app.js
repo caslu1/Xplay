@@ -997,7 +997,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v3.2 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v3.3 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1353,6 +1353,33 @@ function modelCsv() {
   saveFile('modelo-importacao-clientes.csv', 'text/csv', toCsv([['nome', 'whatsapp', 'plano_id', 'data_vencimento', 'quantidade', 'desconto', 'notas'],
     ['Maria Silva', '+55 11 99999-9999', p ? p.code : '1234', '25/12/2026', '1', '0', 'Exemplo']]));
 }
+/* Parses a backup. Files saved by versions before 3.2 over a bigger file have the old file's tail
+   after the JSON; when that tail is a Gestor Simples export, it is rebuilt and used. */
+function parseBackup(txt) {
+  try { return JSON.parse(txt); } catch (err) {
+    const end = jsonEnd(txt);
+    if (end < 0) throw err;
+    const tail = txt.slice(end), m = /\n\s*\},\s*\n\s*\{/.exec(tail);
+    if (m && /"(nome|plano_id|data_vencimento)"\s*:/.test(tail)) {
+      try { const r = JSON.parse('{"version":"2.0","app":"Gestor Simples","data":{"clientes":[' + tail.slice(m.index + m[0].length - 1)); toast('Backup danificado recuperado'); return r; } catch (e) { }
+    }
+    const first = JSON.parse(txt.slice(0, end));
+    if (first.clients && first.clients.length) return first;
+    throw new Error('o arquivo está danificado. Use o arquivo "gestor_simples_backup_recuperado.json"');
+  }
+}
+// Index just after the first complete top-level JSON object.
+function jsonEnd(t) {
+  let depth = 0, str = false;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (str) { if (c === '\\') i++; else if (c === '"') str = false; continue; }
+    if (c === '"') str = true;
+    else if (c === '{' || c === '[') depth++;
+    else if ((c === '}' || c === ']') && --depth === 0) return i + 1;
+  }
+  return -1;
+}
 async function backupText(f) {
   const buf = await f.arrayBuffer();
   if (!isZip(buf)) return new TextDecoder().decode(buf);
@@ -1367,7 +1394,7 @@ function importBackup(f) {
   backupText(f).then(txt => {
     txt = String(txt).replace(/^\uFEFF/, '').trim();
     if (!txt.startsWith('{')) throw new Error('o arquivo escolhido não é um backup .json');
-    let d = JSON.parse(txt), label = 'backup';
+    let d = parseBackup(txt), label = 'backup';
     if (d.data && Array.isArray(d.data.clientes)) { d = fromGestorSimples(d); label = 'backup do Gestor Simples'; }
     if (!d.clients || !d.plans) throw new Error('arquivo não é um backup reconhecido');
     const known = new Set(db.clients.map(c => c.id));
