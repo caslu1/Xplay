@@ -1,0 +1,31 @@
+/* Gestor Simples — tokens da marca */
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root {
+  /* Cores principais */
+  --gs-roxo: #7C3AED;      /* Roxo Gestor: cor primária, botões e links */
+  --gs-roxo-escuro: #5B21B6;
+  --gs-rosa: #EC4899;      /* Rosa Recebido: destaques, celebração de pagamento */
+  --gs-azul: #2F6BFF;      /* Azul Ciclo: informação, datas, calendário */
+  --gs-tinta: #1E1433;     /* Tinta: textos */
+  --gs-nevoa: #F6F3FB;     /* Névoa: fundo de telas */
+  --gs-lilas: #E9E2F8;     /* Lilás: bordas e divisórias */
+
+  /* Status de mensalidade */
+  --gs-pago: #12A150;
+  --gs-pendente: #D98A04;
+  --gs-atrasado: #E0364F;
+
+  /* Gradiente da marca */
+  --gs-gradiente: linear-gradient(135deg, #2F6BFF 0%, #7C3AED 50%, #EC4899 100%);
+
+  /* Tipografia */
+  --gs-fonte-display: "Outfit", "Plus Jakarta Sans", system-ui, sans-serif;
+  --gs-fonte-texto: "DM Sans", system-ui, sans-serif;
+  --gs-fonte-numeros: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Forma */
+  --gs-raio-icone: 28%;
+  --gs-raio: 14px;
+  --gs-raio-pilula: 999px;
+}

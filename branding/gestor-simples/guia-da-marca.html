@@ -1,0 +1,456 @@
+<title>Gestor Simples</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: guia em coluna única, seções separadas por régua; o gradiente da marca aparece só no símbolo e na faixa do topo */
+:root {
+  --roxo: #7C3AED;
+  --rosa: #EC4899;
+  --azul: #2F6BFF;
+  --tinta: #1E1433;
+  --nevoa: #F6F3FB;
+  --lilas: #E9E2F8;
+  --pago: #12A150;
+  --pendente: #D98A04;
+  --atrasado: #E0364F;
+  --grad: linear-gradient(135deg, #2F6BFF 0%, #7C3AED 50%, #EC4899 100%);
+
+  --bg: #FBFAFE;
+  --fg: #1E1433;
+  --muted: #625a78;
+  --line: #E9E2F8;
+  --surface: #FFFFFF;
+  --soft: #F6F3FB;
+  --accent: #7C3AED;
+  --sub: #7C3AED;
+
+  --f-display: "Outfit", "Plus Jakarta Sans", system-ui, sans-serif;
+  --f-text: "DM Sans", system-ui, sans-serif;
+  --f-num: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #120C1F; --fg: #F3EEFC; --muted: #B3A9CB; --line: #2C2342;
+    --surface: #1B1430; --soft: #221A3A; --accent: #B794FF; --sub: #F0ABFC;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #120C1F; --fg: #F3EEFC; --muted: #B3A9CB; --line: #2C2342;
+  --surface: #1B1430; --soft: #221A3A; --accent: #B794FF; --sub: #F0ABFC;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--f-text); font-size: 16px; line-height: 1.6;
+}
+.band { height: 6px; background: var(--grad); }
+.wrap {
+  max-width: 1040px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.1; }
+h2 { font-size: clamp(1.6rem, 3.2vw, 2.2rem); font-weight: 700; letter-spacing: -0.02em; }
+h3 { font-size: 1.1rem; font-weight: 600; }
+p { margin: 0; max-width: 62ch; }
+.eyebrow {
+  font-family: var(--f-num); font-size: .75rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--accent);
+}
+.muted { color: var(--muted); }
+
+/* Hero */
+header.hero { padding-block: 56px 48px; display: grid; gap: 28px; }
+.hero-logo { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.hero-logo svg.mark { width: 88px; height: 88px; flex: none; }
+.wordmark { font-family: var(--f-display); font-size: clamp(2.6rem, 7vw, 4.4rem); letter-spacing: -0.03em; line-height: 1; }
+.wordmark b { font-weight: 700; }
+.wordmark span { font-weight: 400; color: var(--sub); }
+.tagline { font-size: clamp(1.15rem, 2.2vw, 1.4rem); max-width: 40ch; }
+
+section { padding-block: 48px; border-top: 1px solid var(--line); display: grid; gap: 28px; }
+.head { display: grid; gap: 10px; }
+
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+
+/* Logo versions */
+.versions { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); }
+.tile { border-radius: 14px; padding: 32px 24px; display: grid; place-items: center; min-height: 160px; border: 1px solid var(--line); }
+.tile svg { max-width: 100%; height: auto; }
+.t-light { background: #FFFFFF; }
+.t-dark { background: #1E1433; }
+.t-grad { background: var(--grad); }
+.t-nevoa { background: #F6F3FB; }
+.cap { font-size: .875rem; color: var(--muted); margin-top: 8px; }
+
+.rules { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+.dont { position: relative; }
+.dont .tile { min-height: 120px; padding: 20px; background: #fff; }
+.dont .cap::before { content: "✕ "; color: var(--atrasado); font-weight: 700; }
+
+/* Colors */
+.swatches { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 640px) { .swatches { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.sw { border-radius: 14px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); }
+.sw .chip { height: 112px; }
+.sw .info { padding: 14px 16px; display: grid; gap: 2px; }
+.sw .name { font-family: var(--f-display); font-weight: 600; }
+.sw button {
+  font-family: var(--f-num); font-size: .8rem; color: var(--muted);
+  background: none; border: 0; padding: 0; text-align: left; cursor: pointer;
+}
+.sw button:hover, .sw button:focus-visible { color: var(--accent); }
+.sw .use { font-size: .82rem; color: var(--muted); }
+.gradbar { height: 96px; border-radius: 14px; background: var(--grad); display: flex; align-items: flex-end; justify-content: space-between; padding: 12px 16px; color: #fff; font-family: var(--f-num); font-size: .78rem; }
+
+/* Type */
+.type { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.type .box { gap: 12px; }
+.spec-d { font-family: var(--f-display); font-size: 3rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+.spec-t { font-family: var(--f-text); font-size: 3rem; font-weight: 500; line-height: 1; }
+.spec-n { font-family: var(--f-num); font-size: 2.4rem; font-weight: 500; line-height: 1; font-variant-numeric: tabular-nums; }
+.scale { display: grid; gap: 10px; }
+.scale div { display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+.scale code { font-family: var(--f-num); font-size: .75rem; color: var(--muted); min-width: 92px; }
+
+/* Status */
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; font-size: .82rem; font-weight: 600; width: fit-content; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.p-pago { color: var(--pago); background: color-mix(in srgb, var(--pago) 14%, transparent); }
+.p-pend { color: var(--pendente); background: color-mix(in srgb, var(--pendente) 15%, transparent); }
+.p-atr { color: var(--atrasado); background: color-mix(in srgb, var(--atrasado) 14%, transparent); }
+
+/* Application mock */
+.apps { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; min-width: 0; }
+.panel-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+.panel-top .brand { display: flex; align-items: center; gap: 10px; font-family: var(--f-display); font-size: 1.05rem; }
+.panel-top .brand svg { width: 28px; height: 28px; }
+.panel-top .brand b { font-weight: 700; }
+.panel-top .brand span { color: var(--sub); }
+.month { font-family: var(--f-num); font-size: .78rem; color: var(--muted); }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); }
+.kpi { padding: 14px 18px; display: grid; gap: 2px; }
+.kpi + .kpi { border-left: 1px solid var(--line); }
+.kpi small { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.kpi strong { font-family: var(--f-num); font-weight: 500; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px 18px; border-bottom: 1px solid var(--line); align-items: center; }
+.row:last-child { border-bottom: 0; }
+.row .who { font-weight: 500; }
+.row .meta { font-size: .8rem; color: var(--muted); }
+.row .val { font-family: var(--f-num); font-variant-numeric: tabular-nums; text-align: right; }
+.row .pill { justify-self: end; }
+.btn { font-family: var(--f-text); font-weight: 700; font-size: .95rem; border: 0; border-radius: 999px; padding: 12px 20px; cursor: pointer; }
+.btn-p { background: var(--roxo); color: #fff; }
+.btn-p:hover { background: #5B21B6; }
+.btn-s { background: transparent; color: var(--accent); border: 1.5px solid currentColor; }
+.btn:focus-visible, .sw button:focus-visible { outline: 3px solid var(--rosa); outline-offset: 3px; }
+.btns { display: flex; gap: 12px; flex-wrap: wrap; padding: 18px; }
+
+.wa { background: #E7F7EE; border-radius: 18px; padding: 20px; display: grid; gap: 10px; }
+.bubble { background: #fff; color: #1E1433; border-radius: 4px 14px 14px 14px; padding: 12px 14px; max-width: 34ch; font-size: .93rem; box-shadow: 0 1px 1px rgba(30,20,51,.08); }
+.bubble .pix { font-family: var(--f-num); font-size: .78rem; background: #F6F3FB; padding: 6px 8px; border-radius: 6px; margin-top: 8px; word-break: break-all; }
+.bubble time { display: block; text-align: right; font-size: .7rem; color: #7d7590; margin-top: 4px; }
+
+/* Voice */
+.voice { display: grid; gap: 12px; }
+.vrow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.vrow > div { padding: 14px 16px; border-radius: 12px; font-size: .95rem; min-width: 0; }
+.yes { background: color-mix(in srgb, var(--pago) 10%, transparent); }
+.no { background: color-mix(in srgb, var(--atrasado) 9%, transparent); color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--atrasado) 50%, transparent); }
+.vlabel { font-family: var(--f-num); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+
+footer { padding-block: 32px 48px; border-top: 1px solid var(--line); font-size: .85rem; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+.toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 16px; border-radius: 999px; font-size: .85rem; }
+
+@media (max-width: 560px) {
+  .vrow { grid-template-columns: 1fr; }
+  .kpi { padding: 12px; }
+  .kpi strong { font-size: .92rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="gs" x1="0" y1="64" x2="64" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2F6BFF"/>
+      <stop offset=".5" stop-color="#7C3AED"/>
+      <stop offset="1" stop-color="#EC4899"/>
+    </linearGradient>
+    <symbol id="mark" viewBox="0 0 64 64">
+      <rect width="64" height="64" rx="18" fill="url(#gs)"/>
+      <path d="M42.7 21.6A15 15 0 1 0 47 32H33" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="47.5" cy="16.5" r="3.6" fill="#fff"/>
+    </symbol>
+    <symbol id="glyph" viewBox="0 0 64 64">
+      <path d="M42.7 21.6A15 15 0 1 0 47 32H33" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="47.5" cy="16.5" r="3.6" fill="currentColor"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="band"></div>
+<div class="wrap">
+
+<header class="hero">
+  <span class="eyebrow">Guia da marca · v1.0</span>
+  <div class="hero-logo">
+    <svg class="mark" aria-hidden="true"><use href="#mark"/></svg>
+    <div class="wordmark" role="img" aria-label="Gestor Simples"><b>gestor</b><span> simples</span></div>
+  </div>
+  <p class="tagline">Mensalidades em dia, sem planilha.</p>
+  <p class="muted">CRM para quem vive de cobrança recorrente: academias, escolas, cursos, clubes, condomínios e prestadores de serviço. Cadastra o aluno ou cliente, define o vencimento e o Gestor Simples cuida de lembrar, cobrar e mostrar quem pagou.</p>
+</header>
+
+<section>
+  <div class="head">
+    <span class="eyebrow">Essência</span>
+    <h2>O que a marca promete</h2>
+  </div>
+  <div class="grid">
+    <div class="box">
+      <h3>Propósito</h3>
+      <p class="muted">Tirar o peso da cobrança das costas de quem empreende, para sobrar tempo para o negócio.</p>
+    </div>
+    <div class="box">
+      <h3>Personalidade</h3>
+      <p class="muted">Organizada, próxima e leve. Fala como um sócio que entende de finanças, não como um banco.</p>
+    </div>
+    <div class="box">
+      <h3>Público</h3>
+      <p class="muted">Donos de pequenos negócios com 20 a 2.000 clientes recorrentes, que hoje controlam tudo no caderno, no WhatsApp ou numa planilha.</p>
+    </div>
+    <div class="box">
+      <h3>Palavras-chave</h3>
+      <p class="muted">Em dia · Recorrente · Claro · Tranquilo · Brasileiro (Pix, boleto, WhatsApp)</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <span class="eyebrow">Logo</span>
+    <h2>Um G que fecha o ciclo</h2>
+    <p class="muted">O símbolo é um G desenhado como um ciclo mensal: o traço dá a volta e entra para o centro, como a mensalidade que retorna todo mês. O ponto no canto é o dia do vencimento marcado no calendário. O fundo leva o gradiente azul, roxo e rosa da marca.</p>
+  </div>
+  <div class="versions">
+    <div>
+      <div class="tile t-light">
+        <svg viewBox="0 0 300 64" width="300" height="64" role="img" aria-label="Logo horizontal sobre fundo claro">
+          <use href="#mark" width="64" height="64"/>
+          <text x="80" y="42" font-family="Outfit, system-ui, sans-serif" font-size="30" letter-spacing="-0.6" fill="#1E1433"><tspan font-weight="700">gestor</tspan><tspan font-weight="400" fill="#7C3AED"> simples</tspan></text>
+        </svg>
+      </div>
+      <p class="cap">Principal, sobre fundo claro</p>
+    </div>
+    <div>
+      <div class="tile t-dark">
+        <svg viewBox="0 0 300 64" width="300" height="64" role="img" aria-label="Logo horizontal sobre fundo escuro">
+          <use href="#mark" width="64" height="64"/>
+          <text x="80" y="42" font-family="Outfit, system-ui, sans-serif" font-size="30" letter-spacing="-0.6" fill="#FFFFFF"><tspan font-weight="700">gestor</tspan><tspan font-weight="400" fill="#F0ABFC"> simples</tspan></text>
+        </svg>
+      </div>
+      <p class="cap">Sobre fundo escuro (Tinta)</p>
+    </div>
+    <div>
+      <div class="tile t-grad">
+        <svg viewBox="0 0 300 64" width="300" height="64" role="img" aria-label="Logo monocromático branco sobre gradiente" style="color:#fff">
+          <use href="#glyph" width="64" height="64"/>
+          <text x="80" y="42" font-family="Outfit, system-ui, sans-serif" font-size="30" letter-spacing="-0.6" fill="#FFFFFF"><tspan font-weight="700">gestor</tspan><tspan font-weight="400"> simples</tspan></text>
+        </svg>
+      </div>
+      <p class="cap">Monocromático branco, sobre o gradiente ou fotos</p>
+    </div>
+    <div>
+      <div class="tile t-nevoa" style="gap:20px; grid-auto-flow:column; justify-content:center; align-items:end">
+        <svg width="96" height="96" aria-label="Ícone 96px" role="img"><use href="#mark"/></svg>
+        <svg width="48" height="48" aria-label="Ícone 48px" role="img"><use href="#mark"/></svg>
+        <svg width="24" height="24" aria-label="Ícone 24px" role="img"><use href="#mark"/></svg>
+      </div>
+      <p class="cap">Ícone do app e favicon. Tamanho mínimo: 16px no digital, 8mm no impresso</p>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="box">
+      <h3>Área de proteção</h3>
+      <p class="muted">Deixe livre ao redor do logo um espaço igual à metade da altura do símbolo. Nada de texto, borda ou outro logo dentro dessa área.</p>
+    </div>
+    <div class="box">
+      <h3>Escrita do nome</h3>
+      <p class="muted">No logo, sempre em minúsculas: <b>gestor</b> simples. Em texto corrido, escreva “Gestor Simples”, com iniciais maiúsculas e sem abreviar para “GS”.</p>
+    </div>
+  </div>
+
+  <div class="rules">
+    <div class="dont">
+      <div class="tile">
+        <svg viewBox="0 0 64 64" width="72" height="72" style="transform:scaleX(1.5)" aria-hidden="true"><use href="#mark"/></svg>
+      </div>
+      <p class="cap">Não distorça nem estique</p>
+    </div>
+    <div class="dont">
+      <div class="tile">
+        <svg viewBox="0 0 64 64" width="72" height="72" style="filter:hue-rotate(150deg)" aria-hidden="true"><use href="#mark"/></svg>
+      </div>
+      <p class="cap">Não troque as cores do gradiente</p>
+    </div>
+    <div class="dont">
+      <div class="tile">
+        <svg viewBox="0 0 64 64" width="72" height="72" style="transform:rotate(-30deg)" aria-hidden="true"><use href="#mark"/></svg>
+      </div>
+      <p class="cap">Não gire o símbolo</p>
+    </div>
+    <div class="dont">
+      <div class="tile" style="background:#EC4899">
+        <svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><use href="#mark"/></svg>
+      </div>
+      <p class="cap">Não aplique sobre rosa ou roxo puro</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <span class="eyebrow">Cores</span>
+    <h2>Roxo para agir, rosa para celebrar, azul para informar</h2>
+    <p class="muted">O roxo é a cor principal da interface: botões, links e seleção. O rosa aparece quando algo bom acontece, como um pagamento recebido. O azul cuida de datas, calendário e informação. Toque no código para copiar.</p>
+  </div>
+  <div class="swatches" id="swatches">
+    <div class="sw"><div class="chip" style="background:#7C3AED"></div><div class="info"><span class="name">Roxo Gestor</span><button type="button" data-hex="#7C3AED">#7C3AED</button><span class="use">RGB 124 58 237</span><span class="use">Primária · botões, links, foco</span></div></div>
+    <div class="sw"><div class="chip" style="background:#EC4899"></div><div class="info"><span class="name">Rosa Recebido</span><button type="button" data-hex="#EC4899">#EC4899</button><span class="use">RGB 236 72 153</span><span class="use">Destaque · confirmação, conquistas</span></div></div>
+    <div class="sw"><div class="chip" style="background:#2F6BFF"></div><div class="info"><span class="name">Azul Ciclo</span><button type="button" data-hex="#2F6BFF">#2F6BFF</button><span class="use">RGB 47 107 255</span><span class="use">Informação · datas, calendário</span></div></div>
+    <div class="sw"><div class="chip" style="background:#1E1433"></div><div class="info"><span class="name">Tinta</span><button type="button" data-hex="#1E1433">#1E1433</button><span class="use">RGB 30 20 51</span><span class="use">Texto, fundo escuro</span></div></div>
+    <div class="sw"><div class="chip" style="background:#F6F3FB"></div><div class="info"><span class="name">Névoa</span><button type="button" data-hex="#F6F3FB">#F6F3FB</button><span class="use">RGB 246 243 251</span><span class="use">Fundo das telas</span></div></div>
+    <div class="sw"><div class="chip" style="background:#E9E2F8"></div><div class="info"><span class="name">Lilás</span><button type="button" data-hex="#E9E2F8">#E9E2F8</button><span class="use">RGB 233 226 248</span><span class="use">Bordas e divisórias</span></div></div>
+  </div>
+  <div class="gradbar"><span>#2F6BFF</span><span>Gradiente da marca · 135°</span><span>#EC4899</span></div>
+  <p class="muted">Use o gradiente com moderação: no símbolo, em capas, banners e telas de boas-vindas. Na interface do dia a dia, prefira o roxo sólido.</p>
+</section>
+
+<section>
+  <div class="head">
+    <span class="eyebrow">Status de mensalidade</span>
+    <h2>Cores que dizem quem pagou</h2>
+    <p class="muted">O status é a informação mais importante do produto. Essas três cores ficam reservadas para ele e nunca substituem o roxo como cor de ação.</p>
+  </div>
+  <div class="grid">
+    <div class="box"><span class="pill p-pago">Pago</span><p class="muted">#12A150 · mensalidade quitada no mês.</p></div>
+    <div class="box"><span class="pill p-pend">Pendente</span><p class="muted">#D98A04 · dentro do prazo, ainda não pago.</p></div>
+    <div class="box"><span class="pill p-atr">Atrasado</span><p class="muted">#E0364F · passou do vencimento.</p></div>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <span class="eyebrow">Tipografia</span>
+    <h2>Três famílias, três papéis</h2>
+    <p class="muted">Todas gratuitas no Google Fonts.</p>
+  </div>
+  <div class="type">
+    <div class="box">
+      <span class="eyebrow">Títulos e logo</span>
+      <div class="spec-d">Outfit</div>
+      <p class="muted">Geométrica e arredondada, combina com o círculo do símbolo. Pesos 600 e 700.</p>
+    </div>
+    <div class="box">
+      <span class="eyebrow">Textos e interface</span>
+      <div class="spec-t">DM Sans</div>
+      <p class="muted">Legível em tamanhos pequenos, boa para tabelas e formulários. Pesos 400, 500 e 700.</p>
+    </div>
+    <div class="box">
+      <span class="eyebrow">Valores e datas</span>
+      <div class="spec-n">R$ 149,90</div>
+      <p class="muted">IBM Plex Mono, com algarismos de largura fixa para valores alinharem na coluna.</p>
+    </div>
+  </div>
+  <div class="box scale">
+    <div><code>Título 40/44</code><span style="font-family:var(--f-display);font-size:2.5rem;font-weight:700;letter-spacing:-.02em;line-height:1.1">Março fechado</span></div>
+    <div><code>Subtítulo 24/30</code><span style="font-family:var(--f-display);font-size:1.5rem;font-weight:600">38 de 42 alunos em dia</span></div>
+    <div><code>Texto 16/26</code><span>Cobrança enviada para 4 clientes pelo WhatsApp.</span></div>
+    <div><code>Legenda 13/18</code><span class="muted" style="font-size:.8125rem">Vence todo dia 10 · Plano mensal</span></div>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <span class="eyebrow">Aplicações</span>
+    <h2>A marca no produto</h2>
+  </div>
+  <div class="apps">
+    <div class="panel">
+      <div class="panel-top">
+        <div class="brand"><svg aria-hidden="true"><use href="#mark"/></svg><b>gestor</b><span>simples</span></div>
+        <span class="month">MAR/2026</span>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><small>Recebido</small><strong>R$ 5.696</strong></div>
+        <div class="kpi"><small>A receber</small><strong>R$ 449</strong></div>
+        <div class="kpi"><small>Atrasado</small><strong>R$ 299</strong></div>
+      </div>
+      <div class="row"><div><div class="who">Mariana Costa</div><div class="meta">Musculação · vence dia 05</div></div><div><div class="val">R$ 149,90</div></div><span></span><span class="pill p-pago">Pago</span></div>
+      <div class="row"><div><div class="who">Rafael Nunes</div><div class="meta">Funcional · vence dia 10</div></div><div><div class="val">R$ 179,90</div></div><span></span><span class="pill p-pend">Pendente</span></div>
+      <div class="row"><div><div class="who">Juliana Prado</div><div class="meta">Musculação · vence dia 02</div></div><div><div class="val">R$ 149,90</div></div><span></span><span class="pill p-atr">Atrasado</span></div>
+      <div class="btns"><button class="btn btn-p" type="button">Cobrar atrasados</button><button class="btn btn-s" type="button">Novo cliente</button></div>
+    </div>
+
+    <div class="wa">
+      <span class="vlabel" style="color:#3b5b47">Lembrete no WhatsApp</span>
+      <div class="bubble">
+        Oi, Rafael! 👋 Sua mensalidade do <b>Studio Movimento</b> vence dia <b>10/03</b>.<br>
+        Valor: <b>R$ 179,90</b>. É só pagar pelo Pix abaixo:
+        <div class="pix">00020126580014br.gov.bcb.pix0136…</div>
+        <time>09:12</time>
+      </div>
+      <div class="bubble">
+        Pagamento recebido! Obrigado, Rafael. Até o mês que vem 💜
+        <time>14:47</time>
+      </div>
+      <p style="font-size:.8rem;color:#3b5b47">Exemplo de mensagem. A cobrança sai no nome do cliente do Gestor Simples, com a marca dele em destaque.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <span class="eyebrow">Tom de voz</span>
+    <h2>Fale como gente, cobre com gentileza</h2>
+    <p class="muted">Frases curtas, verbo na frente, sem juridiquês. Cobrança nunca soa como ameaça: lembramos, não constrangemos.</p>
+  </div>
+  <div class="voice">
+    <div class="vrow"><span class="vlabel">Assim</span><span class="vlabel">Não assim</span></div>
+    <div class="vrow"><div class="yes">4 clientes estão com a mensalidade atrasada. Quer enviar um lembrete?</div><div class="no">Atenção: foram identificadas inadimplências na base de clientes.</div></div>
+    <div class="vrow"><div class="yes">Pagamento da Mariana confirmado.</div><div class="no">A transação foi processada com sucesso pelo sistema.</div></div>
+    <div class="vrow"><div class="yes">Oi, Juliana! Sua mensalidade venceu dia 02. Se já pagou, pode ignorar.</div><div class="no">Prezada cliente, consta em aberto débito vencido. Regularize sua situação.</div></div>
+  </div>
+</section>
+
+<footer>
+  <span>Gestor Simples · Guia da marca v1.0 · 2026</span>
+  <span>Arquivos: icon.svg, logo-horizontal-light.svg, logo-horizontal-dark.svg, tokens.css</span>
+</footer>
+
+</div>
+<div class="toast" id="toast" hidden>Copiado</div>
+
+<script>
+document.getElementById('swatches').addEventListener('click', function (e) {
+  var b = e.target.closest('button[data-hex]');
+  if (!b) return;
+  var hex = b.getAttribute('data-hex');
+  var t = document.getElementById('toast');
+  function show(msg) { t.textContent = msg; t.hidden = false; clearTimeout(show.id); show.id = setTimeout(function () { t.hidden = true; }, 1400); }
+  try {
+    navigator.clipboard.writeText(hex).then(function () { show(hex + ' copiado'); }, function () { select(); });
+  } catch (err) { select(); }
+  function select() { var r = document.createRange(); r.selectNodeContents(b); var s = getSelection(); s.removeAllRanges(); s.addRange(r); show('Selecionado: copie com Ctrl+C'); }
+});
+</script>
