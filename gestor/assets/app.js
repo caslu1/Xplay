@@ -712,8 +712,8 @@ function naoRenovaramCard() {
   return `<div class="card">
     <div class="card-head"><div class="ico" style="background:#fdecec;color:#d24444">${ic('refresh')}</div><div class="grow"><h3>Clientes que Não Renovaram</h3><small>${late.length} clientes em atraso</small></div></div>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">${ic('filter', 'style="color:#9aa0ae"')}<button class="dd" style="flex:1" data-act="dd" data-k="lateType"><span>${esc(optLabel(opts, state.lateType))}</span>${ic('down')}</button></div>
-    <div class="types">${Object.keys(by).map(t => `<div class="type ${by[t] ? '' : 'zero'}"><div class="h"><i class="swc" style="background:${colors[t][0]}"></i>${TYPE_NAMES[t]}</div>
-      <b style="${by[t] ? `color:${colors[t][1]}` : ''}">${by[t]}</b><small>${by[t] ? 'não renovaram' : 'em dia'}</small></div>`).join('')}</div>
+    <div class="types">${Object.keys(by).map(t => `<button class="type ${by[t] ? '' : 'zero'}" data-act="late-type" data-v="${t}"><div class="h"><i class="swc" style="background:${colors[t][0]}"></i>${TYPE_NAMES[t]}</div>
+      <b style="${by[t] ? `color:${colors[t][1]}` : ''}">${by[t]}</b><small>${by[t] ? 'não renovaram' : 'em dia'}</small></button>`).join('')}</div>
   </div>`;
 }
 
@@ -959,7 +959,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v2.1 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v2.2 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1782,6 +1782,9 @@ document.addEventListener('click', e => {
     case 'save-msgs': MSG_FIELDS.forEach(([k]) => { db.settings[k] = $('#' + k).value; }); save(); toast('Mensagens salvas'); break;
     case 'clear-hist': confirmDialog('Limpar Histórico', 'Apagar todas as atividades registradas? Os clientes e pagamentos não são afetados.', () => { db.history = []; refresh(); toast('Histórico limpo'); }); break;
     case 'undo': confirmUndo(el.dataset.v); break;
+    case 'late-type':
+      Object.assign(state, { fStatus: 'vencidos', fType: el.dataset.v, fPlan: state.lateType === 'todos' ? 'todos' : state.lateType, q: '' });
+      go('clientes'); break;
     case 'report': (el.dataset.v === 'fmtClients' ? clientsReport : finReport)(state[el.dataset.v]); break;
     case 'model-csv': modelCsv(); break;
     case 'backup-now': backupNow(); break;
