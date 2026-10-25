@@ -9,8 +9,8 @@ const cloud = {
 // Same Supabase project as the Xplay panel (table gestor_data, see supabase/gestor.sql).
 const DEFAULT_SERVER = { url: 'https://xgubfucijtaazvuzcluw.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhndWJmdWNpanRhYXp2dXpjbHV3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3MzcxMDIsImV4cCI6MjEwODMxMzEwMn0.Bjd6ZmbeGBc6_nxjVD8F0rtamnOKKHLQ-uMpCTjnCNI' };
 function loadCfg() {
-  try { cloud.cfg = JSON.parse(localStorage.getItem(CFG_KEY)) || DEFAULT_SERVER; } catch (e) { cloud.cfg = DEFAULT_SERVER; }
-  return cloud.cfg && cloud.cfg.url && cloud.cfg.key ? cloud.cfg : null;
+  localStorage.removeItem(CFG_KEY);   // a server typed in older builds is no longer used
+  return (cloud.cfg = DEFAULT_SERVER);
 }
 function loadSession() { try { cloud.session = JSON.parse(localStorage.getItem(SES_KEY)); } catch (e) { cloud.session = null; } return cloud.session; }
 function storeSession(s) { cloud.session = s; if (s) localStorage.setItem(SES_KEY, JSON.stringify(s)); else localStorage.removeItem(SES_KEY); }
@@ -147,20 +147,6 @@ function authShell(inner) {
   paintIcons(el);
   return el;
 }
-function showServer() {
-  const c = loadCfg() || {};
-  const el = authShell(`<p class="au-txt">Informe o servidor (Supabase) onde suas contas e dados ficam guardados. Isso é feito uma vez só.</p>
-    <form id="srvForm" novalidate><label>Project URL<input id="srvUrl" placeholder="https://xxxx.supabase.co" value="${esc(c.url || '')}" autocomplete="off" autocapitalize="off"></label>
-    <label>Chave anon public<textarea id="srvKey" rows="3" placeholder="eyJhbGciOi..." autocapitalize="off">${esc(c.key || '')}</textarea></label>
-    <button class="btn" type="submit">Salvar e continuar</button></form>`);
-  el.querySelector('#srvForm').onsubmit = e => {
-    e.preventDefault();
-    const url = el.querySelector('#srvUrl').value.trim(), key = el.querySelector('#srvKey').value.trim();
-    if (!/^https:\/\/.+/.test(url)) return toast('Informe a Project URL (começa com https://)');
-    if (key.length < 30) return toast('Cole a chave anon public');
-    localStorage.setItem(CFG_KEY, JSON.stringify({ url, key })); loadCfg(); showLogin();
-  };
-}
 function showLogin(mode) {
   mode = mode || 'login';
   const signup = mode === 'signup';
@@ -173,10 +159,8 @@ function showLogin(mode) {
       <p class="au-err" id="auErr" hidden></p>
       <button class="btn" type="submit" id="auGo">${signup ? 'Criar conta' : 'Entrar'}</button>
     </form>
-    ${signup ? '' : '<button class="au-link" id="auForgot">Esqueci minha senha</button>'}
-    <button class="au-link small" id="auSrv">${ic('settings')} Servidor</button>`);
+    ${signup ? '' : '<button class="au-link" id="auForgot">Esqueci minha senha</button>'}`);
   el.querySelectorAll('.au-tabs button').forEach(b => b.onclick = () => showLogin(b.dataset.m));
-  el.querySelector('#auSrv').onclick = showServer;
   el.querySelector('#auEye').onclick = () => { const i = el.querySelector('#auPass'); i.type = i.type === 'password' ? 'text' : 'password'; };
   const err = m => { const p = el.querySelector('#auErr'); p.textContent = m; p.hidden = !m; };
   const f = el.querySelector('#auForgot');
@@ -253,7 +237,7 @@ window.cloudSyncNow = () => { setSyncMeta({}); sync(); };
 window.cloudInfo = () => ({ email: cloud.session && cloud.session.user.email, text: syncText(), status: cloud.status });
 
 (function boot() {
-  if (!loadCfg()) return showServer();
+  loadCfg();
   if (!loadSession()) return showLogin('login');
   enterApp('');
 })();
