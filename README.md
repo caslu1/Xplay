@@ -1,4 +1,17 @@
-# Xplay
+# Xplay e Gestor Simples
+
+Este repositório tem dois apps Android que usam o mesmo projeto Supabase:
+
+| App | Pasta | Para que serve | Guia |
+|---|---|---|---|
+| **Xplay** (IPTV) | `app/`, `admin/` | Player IPTV para os clientes; o painel `admin/index.html` cadastra clientes, códigos e recargas | [docs/PAINEL.md](docs/PAINEL.md) |
+| **Gestor Simples** | `gestor/` | Gestão de clientes, planos, vencimentos e financeiro da revenda, com login e dados na nuvem | [docs/GESTOR.md](docs/GESTOR.md) |
+
+No Supabase, o Xplay usa as tabelas `clients`, `recharges`, `devices` e `config` (só administradores em `panel_admins`); o Gestor usa `gestor_data` (cada conta vê só a própria linha).
+
+---
+
+## Xplay
 
 Player IPTV simples para Android (celular e Android TV). Você entra com login Xtream (DNS, usuário e senha) ou com o link de uma lista M3U, e o app mostra os canais por grupo.
 
