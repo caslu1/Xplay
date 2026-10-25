@@ -910,7 +910,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v1.8 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v1.9 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1736,7 +1736,14 @@ function showClipCard(c, phone) {
   document.body.appendChild(el);
   const close = () => { el.classList.add('out'); setTimeout(() => el.remove(), 180); };
   el.querySelector('[data-x]').onclick = close;
-  el.querySelector('[data-go]').onclick = () => { close(); if (c) detailSheet(c); else clientForm(null, { phone }); };
+  el.querySelector('[data-go]').onclick = () => {
+    close();
+    if (!c) return clientForm(null, { phone });
+    // Open the client list already searched by this client's number.
+    layer().innerHTML = ''; closeMenus();
+    Object.assign(state, { q: fmtPhone(c.phone), fStatus: c.archived ? 'arquivados' : 'todos', fType: 'todos', fPlan: 'todos' });
+    go('clientes');
+  };
   setTimeout(() => { if (el.isConnected) close(); }, 15000);
 }
 
