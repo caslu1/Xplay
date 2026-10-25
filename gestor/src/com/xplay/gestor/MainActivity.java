@@ -232,6 +232,19 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void setTheme(final boolean dark) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Window w = getWindow();
+                    w.setStatusBarColor(dark ? 0xFF15102A : 0xFF140F14);
+                    w.setNavigationBarColor(dark ? 0xFF1A1B2E : 0xFFFFFFFF);
+                    web.setBackgroundColor(dark ? 0xFF0F1020 : 0xFFF4F6FB);
+                }
+            });
+        }
+
+        @JavascriptInterface
         public void toast(final String msg) {
             runOnUiThread(new Runnable() {
                 @Override

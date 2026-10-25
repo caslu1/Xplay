@@ -62,6 +62,7 @@ const ICONS = {
   link: '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   trendDown: '<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
   clipboard: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
   send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
 };
 const ic = (n, extra) => {
@@ -955,11 +956,12 @@ VIEWS.ferramentas = () => {
     ${tool('relatorios', 'chart', blue, 'Exportar Relatórios', 'Gere relatórios de clientes e financeiros em PDF ou CSV.')}
     ${tool('mensagens', 'chat', 'linear-gradient(135deg,#5ac35f,#4fb88a)', 'Mensagem WhatsApp', 'Personalize a mensagem enviada aos clientes.')}
     ${tool('atividades', 'history', 'linear-gradient(135deg,#f0a02c,#ec7a32)', 'Histórico de Atividades', 'Veja tudo que foi feito no sistema.')}
+    <button class="card tool" data-act="dark"><div class="ico" style="background:linear-gradient(135deg,#334155,#0f172a)">${ic('moon')}</div><div><b>Modo escuro</b><span>Tema escuro em todo o app.</span></div><i class="sw ${db.settings.dark ? 'on' : ''}"></i></button>
     <h2 class="sec">Dados e Backups</h2>
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v2.2 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v2.3 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1782,6 +1784,7 @@ document.addEventListener('click', e => {
     case 'save-msgs': MSG_FIELDS.forEach(([k]) => { db.settings[k] = $('#' + k).value; }); save(); toast('Mensagens salvas'); break;
     case 'clear-hist': confirmDialog('Limpar Histórico', 'Apagar todas as atividades registradas? Os clientes e pagamentos não são afetados.', () => { db.history = []; refresh(); toast('Histórico limpo'); }); break;
     case 'undo': confirmUndo(el.dataset.v); break;
+    case 'dark': db.settings.dark = !db.settings.dark; applyTheme(); refresh(); break;
     case 'late-type':
       Object.assign(state, { fStatus: 'vencidos', fType: el.dataset.v, fPlan: state.lateType === 'todos' ? 'todos' : state.lateType, q: '' });
       go('clientes'); break;
@@ -1825,8 +1828,14 @@ function showClipCard(c, phone) {
   setTimeout(() => { if (el.isConnected) close(); }, 15000);
 }
 
+function applyTheme() {
+  document.body.classList.toggle('theme-dark', !!db.settings.dark);
+  if (window.Android && Android.setTheme) Android.setTheme(!!db.settings.dark);
+}
+
 /* ---------- Start ---------- */
 load();
+applyTheme();
 snapshot(); save();
 paintIcons();
 go('dashboard');
