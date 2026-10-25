@@ -106,6 +106,7 @@ const monLabel = (key, short) => {
   const [y, m] = key.split('-').map(Number);
   return short ? `${MONTHS[m - 1].slice(0, 3)}/${String(y).slice(2)}` : `${MONTHS[m - 1]} de ${y}`;
 };
+const capFirst = s => s.charAt(0).toUpperCase() + s.slice(1);
 const cap = s => s.replace(/(^|\s)\S/g, c => c.toUpperCase());
 const shiftMonth = (key, n) => addMonths(key + '-01', n).slice(0, 7);
 const nowStamp = () => { const d = new Date(); return `${iso(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
@@ -254,6 +255,8 @@ function updateHeader() {
   const dot = $('#bellDot'); dot.hidden = !due; dot.textContent = due > 99 ? '99+' : due;
 }
 function render() {
+  for (const k in CH) delete CH[k];
+  const tip = $('#ctip'); if (tip) tip.hidden = true;
   updateHeader();
   const page = $('#page');
   page.innerHTML = VIEWS[state.tab]();
@@ -310,6 +313,15 @@ const gradFor = name => {
   let h = 0; for (const ch of name || '') h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return g[h % g.length];
 };
+// "Lucas De Oliveira Santos" -> "Lucas O." (skips de/da/do/dos/das/e).
+function shortName(n) {
+  const w = String(n || '').trim().split(/\s+/).filter(Boolean);
+  if (w.length < 2) return w[0] || '';
+  const sur = w.slice(1).find(x => !/^(d[aeo]s?|e)$/i.test(x)) || w[1];
+  const first = w[0].charAt(0).toUpperCase() + w[0].slice(1).toLowerCase();
+  return `${first} ${sur.charAt(0).toUpperCase()}.`;
+}
+const initials = n => { const w = String(n || '?').trim().split(/\s+/).filter(x => !/^(d[aeo]s?|e)$/i.test(x)); return esc(((w[0] || '?')[0] + (w.length > 1 ? w[w.length - 1][0] : '')).toUpperCase()); };
 const initial = n => esc((n || '?').trim().charAt(0).toUpperCase());
 function waLink(c, text) {
   const d = String(c.phone || '').replace(/\D/g, '');
@@ -327,39 +339,37 @@ VIEWS.dashboard = () => {
   const todayN = L.filter(c => c.due && daysLeft(c) === 0).length;
   const next5 = L.filter(c => { const d = daysLeft(c); return d !== null && d >= 1 && d <= 5; }).length;
   const stat = (f, color, icon, title, n) => `
-    <button class="card stat" data-act="filter" data-f="${f}" style="width:100%;text-align:left">
-      <div class="st"><div class="ic" style="background:${color}">${ic(icon)}</div>
-        <div class="num"><b>${n}</b><span>clientes</span></div></div>
-      <b>${title}</b><span>Toque para ver detalhes</span>
+    <button class="stat" data-act="filter" data-f="${f}">
+      <div class="ic" style="background:${color}">${ic(icon)}</div>
+      <b>${n}</b><span>${title}</span>${ic('right', 'class="go"')}
     </button>`;
   const ess = L.filter(c => c.essential).sort((a, b) => (a.due || '9') < (b.due || '9') ? -1 : 1);
   const upcoming = L.filter(c => { const d = daysLeft(c); return d !== null && d >= 0 && d <= 5; })
     .sort((a, b) => a.due < b.due ? -1 : a.due > b.due ? 1 : a.name.localeCompare(b.name));
-  const row = (c, date, grad) => {
-    const d = daysLeft(c);
-    return `<div class="row ${d !== null && d <= 0 ? 'late' : d !== null && d <= 5 ? 'warn' : ''}" data-act="detail" data-id="${c.id}">
-      <div class="ini" style="background:linear-gradient(135deg,${grad[0]},${grad[1]})">${initial(c.name)}</div>
-      <div class="nm"><b>${esc(c.name)}</b><span>${date}</span></div>
+  const row = (c, grad) => {
+    const p = planOf(c);
+    return `<div class="row" data-act="detail" data-id="${c.id}">
+      <div class="ini" style="background:linear-gradient(135deg,${grad[0]},${grad[1]})">${initials(c.name)}</div>
+      <div class="nm"><b>${esc(shortName(c.name))}</b><span>${br(c.due)}${p ? ` · ${esc(p.name)}` : ''}</span></div>
       ${pillOf(c)}
       <button class="wa" data-act="wa" data-id="${c.id}">${ic('wa')}</button></div>`;
   };
-  return `
-    ${stat('ativos', 'linear-gradient(135deg,#3b82f6,#4f46e5)', 'users', 'Clientes Ativos', active)}
-    ${stat('vencidos', 'linear-gradient(135deg,#e0457b,#c0303a)', 'alert', 'Vencidos', late)}
-    ${stat('hoje', 'linear-gradient(135deg,#ea7c2c,#b8742a)', 'calcheck', 'Vencem Hoje', todayN)}
-    ${stat('p5', 'linear-gradient(135deg,#a855f7,#7c3aed)', 'dollar', 'Próximos 5 Dias', next5)}
-    <div class="card list-card ess">
-      <div class="lc-head"><div class="ico" style="background:linear-gradient(135deg,#f6b73c,#ef8a2c)">${ic('star', 'class="fill"')}</div>
-        <div><b>Essenciais</b><small>${ess.length} ${ess.length === 1 ? 'cliente' : 'clientes'}</small></div>
-        <button class="see" style="color:#c96f19" data-act="filter" data-f="essenciais">Ver Todos ${ic('arrowR')}</button></div>
-      ${ess.slice(0, 10).map(c => row(c, br(c.due), ['#f6b73c', '#ef8a2c'])).join('') || '<div class="empty" style="padding:20px">Marque clientes com a ⭐ para vê-los aqui</div>'}
-    </div>
-    <div class="card list-card" style="background:linear-gradient(180deg,#f5f5ff,#fff 70px)">
-      <div class="lc-head"><div class="ico" style="background:linear-gradient(135deg,#6366f1,#9333ea)">${ic('calendar')}</div>
-        <div><b>Próx. Vencimentos</b><small>${upcoming.length} em 5 dias</small></div>
-        <button class="see" style="color:#4f46e5" data-act="filter" data-f="p5h">Ver Todos ${ic('arrowR')}</button></div>
-      ${upcoming.slice(0, 15).map(c => row(c, brShort(c.due), ['#6366f1', '#9333ea'])).join('') || '<div class="empty" style="padding:20px">Nenhum vencimento nos próximos 5 dias</div>'}
+  const section = (cls, grad, icon, title, sub, f, seeColor, list, empty) => `
+    <div class="card list-card ${cls}">
+      <div class="lc-head"><div class="ico" style="background:linear-gradient(135deg,${grad[0]},${grad[1]})">${icon}</div>
+        <div><b>${title}</b><small>${sub}</small></div>
+        <button class="see" style="color:${seeColor}" data-act="filter" data-f="${f}">Ver Todos ${ic('arrowR')}</button></div>
+      ${list.slice(0, 3).map(c => row(c, grad)).join('') || `<div class="empty" style="padding:18px">${empty}</div>`}
     </div>`;
+  return `
+    <div class="stats">
+      ${stat('ativos', 'linear-gradient(135deg,#3b82f6,#4f46e5)', 'users', 'Clientes Ativos', active)}
+      ${stat('vencidos', 'linear-gradient(135deg,#e0457b,#c0303a)', 'alert', 'Vencidos', late)}
+      ${stat('hoje', 'linear-gradient(135deg,#f59e0b,#ea580c)', 'calcheck', 'Vencem Hoje', todayN)}
+      ${stat('p5', 'linear-gradient(135deg,#a855f7,#7c3aed)', 'calendar', 'Próximos 5 Dias', next5)}
+    </div>
+    ${section('ess', ['#f6b73c', '#ef8a2c'], ic('star', 'class="fill"'), 'Essenciais', `${ess.length} ${ess.length === 1 ? 'cliente' : 'clientes'}`, 'essenciais', '#c96f19', ess, 'Marque clientes com a ⭐ para vê-los aqui')}
+    ${section('next', ['#6366f1', '#9333ea'], ic('calendar'), 'Próx. Vencimentos', `${upcoming.length} em 5 dias`, 'p5h', '#4f46e5', upcoming, 'Nenhum vencimento nos próximos 5 dias')}`;
 };
 
 function filteredClients() {
@@ -401,18 +411,20 @@ VIEWS.clientes = () => {
 function clientCard(c) {
   const p = planOf(c), st = statusOf(c);
   const hasPays = idx().paid.has(c.id);
-  return `<div class="card client" data-act="detail" data-id="${c.id}">
-    <div class="head"><div class="ini">${initial(c.name)}</div>
-      <div class="who"><b>${hasPays ? `<button data-act="pays" data-id="${c.id}">${ic('history')}</button>` : ''}<span class="n">${esc(c.name)}</span></b>
+  return `<div class="card client st-${c.archived ? 'n' : st.cls}" data-act="detail" data-id="${c.id}">
+    <div class="head">
+      <div class="ini">${initials(c.name)}</div>
+      <div class="who"><b><span class="n">${esc(shortName(c.name))}</span>${hasPays ? `<button class="hist" data-act="pays" data-id="${c.id}" aria-label="Pagamentos">${ic('history')}</button>` : ''}</b>
         <span>${p ? esc(p.name) : 'Sem plano'}${c.qty > 1 ? ` · ${c.qty} telas` : ''}</span></div>
-      <span class="badge ${st.cls}">${c.archived ? '📦 ' : ''}${st.text}</span></div>
-    <div class="due">${ic('calendar')} Vencimento <b>${br(c.due)}</b></div>
+      <span class="badge">${c.archived ? '📦 Arquivado' : st.text}</span>
+    </div>
+    <div class="meta"><span>${ic('calendar')} ${br(c.due)}</span><b>${p ? money(priceOf(c)) : '—'}</b></div>
     <div class="actions">
       <button class="btn-wa" data-act="wa" data-id="${c.id}">${ic('wa')} WhatsApp</button>
       ${starBtn(c)}
-      <button class="sq" data-act="edit" data-id="${c.id}">${ic('edit')}</button>
-      <button class="sq renew" data-act="renew" data-id="${c.id}">${ic('renew')}</button>
-      <button class="sq del" data-act="del" data-id="${c.id}">${ic('trash')}</button>
+      <button class="sq" data-act="edit" data-id="${c.id}" aria-label="Editar">${ic('edit')}</button>
+      <button class="sq renew" data-act="renew" data-id="${c.id}" aria-label="Renovar">${ic('renew')}</button>
+      <button class="sq del" data-act="del" data-id="${c.id}" aria-label="Excluir">${ic('trash')}</button>
     </div></div>`;
 }
 const starBtn = c => `<button class="sq star ${c.essential ? 'on' : ''}" data-act="star" data-id="${c.id}">${ic('star', c.essential ? 'class="fill"' : '')}</button>`;
@@ -544,15 +556,22 @@ function lucroCard() {
       vals.push(sumBy(paysIn(k)).prof);
     }
   }
-  const step = mode === 'mes' ? 5 : 1;
-  const xl = labels.map((l, i) => (mode !== 'mes' || i % step === 0 || i === labels.length - 1) ? l : '');
+  let slots = labels.length, tips = labels.slice();
+  if (mode === 'mes') {
+    tips = labels.map(d => `${pad(d)}/${key.slice(5)}`);
+    if (key === monKey(today())) vals = vals.slice(0, +today().slice(8));   // no flat line for days still ahead
+  }
+  if (mode === 'ano') tips = labels.map(l => `${cap(l)} ${key.slice(0, 4)}`);
+  const xl = labels.map((l, i) => mode !== 'mes' || i === 0 || ((i + 1) % 5 === 0 && i < labels.length - 3) || i === labels.length - 1 ? l : '');
+  const tot = vals.reduce((a, b) => a + b, 0);
   return `<div class="card">
     <div class="card-head"><div class="ico" style="background:#f5f0ff;color:#7c3aed">${ic('dollar')}</div><h3>Análise de Lucro</h3></div>
     <div class="chart-ctl">
       <button class="dd" data-act="dd" data-k="lucroMonth"><span>${optLabel(monthOpts(), key)}</span>${ic('down')}</button>
       <div class="seg">${[['sem', 'Sem.'], ['mes', 'Mês'], ['ano', 'Ano']].map(([k, l]) => `<button class="${mode === k ? 'on' : ''}" data-act="set" data-k="lucroMode" data-v="${k}">${l}</button>`).join('')}</div>
     </div>
-    ${lineChart([{ vals, color: '#7c3aed', fill: 'rgba(124,58,237,.10)' }], xl, { dots: true, fmt: kFmt })}
+    <div class="chart-sum"><span>Lucro no ${mode === 'sem' ? 'período' : mode === 'mes' ? 'mês' : 'ano'}</span><b>${money(tot)}</b></div>
+    ${lineChart([{ name: 'Lucro', vals, color: '#7c3aed' }], xl, { fmt: kFmt, vfmt: money, tips, slots, peak: true })}
   </div>`;
 }
 
@@ -561,22 +580,27 @@ function evolucaoCard() {
   const rev = [], prof = [];
   keys.forEach(k => { const s = sumBy(paysIn(k)); rev.push(s.rev); prof.push(s.prof); });
   return `<div class="card">
-    <div class="card-head"><div class="ico" style="background:#eef4ff;color:#2f6ae0">${ic('trending')}</div><h3>Evolução Financeira</h3></div>
-    ${lineChart([{ vals: rev, color: '#4f86e8', fill: 'rgba(79,134,232,.16)' }, { vals: prof, color: '#43a35a', fill: 'rgba(67,163,90,.16)' }],
-      keys.map(k => monLabel(k, true)), { fmt: v => 'R$' + kFmt(v), left: 54 })}
-    <div class="legend"><span><i class="swc" style="background:#4f86e8"></i>Faturamento</span><span><i class="swc" style="background:#43a35a"></i>Lucro</span></div>
+    <div class="card-head"><div class="ico" style="background:#eef4ff;color:#2f6ae0">${ic('trending')}</div><div class="grow"><h3>Evolução Financeira</h3><small>Últimos 6 meses</small></div></div>
+    <div class="legend line"><span><i class="swc" style="background:#3b82f6"></i>Faturamento</span><span><i class="swc" style="background:#16a34a"></i>Lucro</span></div>
+    ${lineChart([{ name: 'Faturamento', vals: rev, color: '#3b82f6' }, { name: 'Lucro', vals: prof, color: '#16a34a' }],
+      keys.map(k => monLabel(k, true)), { fmt: v => kFmt(v), vfmt: money, tips: keys.map(k => capFirst(monLabel(k))), left: 36 })}
   </div>`;
 }
 
 function receitaPlanoCard() {
   const r = periodRange(), map = {};
   db.payments.forEach(p => { if (!inRange(p, r)) return; const k = p.planName || 'Sem plano'; map[k] = map[k] || { name: k, n: 0, v: 0 }; map[k].n++; map[k].v += p.amount; });
-  const rows = Object.values(map).sort((a, b) => b.v - a.v);
-  const max = rows.length ? rows[0].v || 1 : 1;
+  let rows = Object.values(map).sort((a, b) => b.v - a.v);
+  const total = rows.reduce((a, x) => a + x.v, 0);
+  if (rows.length > 8) {
+    const rest = rows.slice(7);
+    rows = rows.slice(0, 7).concat([{ name: `Outros (${rest.length} planos)`, n: rest.reduce((a, x) => a + x.n, 0), v: rest.reduce((a, x) => a + x.v, 0), other: true }]);
+  }
+  const max = Math.max(1, ...rows.map(x => x.v));
   return `<div class="card">
     <div class="card-head"><div class="ico" style="background:#f5f0ff;color:#7c3aed">${ic('box')}</div><div class="grow"><h3>Receita por Plano</h3><small>Faturamento por plano · ${esc(periodShort())}</small></div></div>
-    ${rows.length ? `<div class="bars-h">${rows.map(x => `<div class="bh"><div><span>${esc(x.name)} <small style="color:#9aa0ae">· ${x.n}</small></span><b>${money(x.v)}</b></div>
-      <div class="track"><div class="fill" style="width:${Math.max(3, x.v / max * 100)}%"></div></div></div>`).join('')}</div>`
+    ${rows.length ? `<div class="chart-sum"><span>Total</span><b>${money(total)}</b></div><div class="bars-h">${rows.map(x => `<div class="bh${x.other ? ' other' : ''}"><div><span>${esc(x.name)}</span><b>${money(x.v)}</b></div>
+      <div class="track"><div class="fill" style="width:${Math.max(2, x.v / max * 100)}%"></div></div><small>${x.n} ${x.n === 1 ? 'venda' : 'vendas'} · ${Math.round(x.v / total * 100)}%</small></div>`).join('')}</div>`
       : `<div class="empty">${ic('box')}<div>Sem dados de faturamento</div></div>`}
   </div>`;
 }
@@ -588,17 +612,8 @@ function historicoAtivosCard() {
   if (!keys.length) body = `<div class="empty">${ic('users')}<div>O histórico começa a ser registrado hoje</div></div>`;
   else {
     const vals = keys.map(k => db.snapshots[k]);
-    const max = Math.max(...vals, 1), W = 340, H = 230, n = keys.length, bw = Math.min(30, (W - 10) / n - 6), gap = (W - n * bw) / (n + 1);
-    let s = '';
-    keys.forEach((k, i) => {
-      const v = vals[i], h = Math.max(4, v / max * 140), x = gap + i * (bw + gap), y = 180 - h;
-      const prev = i ? vals[i - 1] : (() => { const all = Object.keys(db.snapshots).sort(); const j = all.indexOf(k); return j > 0 ? db.snapshots[all[j - 1]] : v; })();
-      s += `<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="5" fill="#ebe8fd" stroke="#a49be8" stroke-width=".8"/>`;
-      s += `<text x="${x + bw / 2}" y="${y - 22}" text-anchor="middle" style="fill:#3b3f4c;font-weight:700;font-size:${n > 8 ? 10.5 : 12}px">${v}</text>`;
-      if (v !== prev) s += `<path d="${v > prev ? `M${x + bw / 2 - 4} ${y - 8} l4 -6 l4 6z` : `M${x + bw / 2 - 4} ${y - 14} l4 6 l4 -6z`}" fill="${v > prev ? '#4cb782' : '#e05252'}"/>`;
-      s += `<text x="${x + bw / 2}" y="200" text-anchor="end" transform="rotate(-35 ${x + bw / 2} 200)" style="font-size:10.5px">${brShort(k)}</text>`;
-    });
-    body = `<svg class="chart" viewBox="0 0 ${W} ${H}">${s}</svg>`;
+    const all = Object.keys(db.snapshots).sort(), j = all.indexOf(keys[0]);
+    body = columnChart(vals, keys.map(brShort), { color: '#6d5dfc', soft: '#d9d5fd', tips: keys.map(k => br(k)), before: j > 0 ? db.snapshots[all[j - 1]] : null });
   }
   return `<div class="card">
     <div class="card-head"><div class="ico" style="background:#f5f0ff;color:#7c3aed">${ic('users')}</div><div class="grow"><h3>Histórico de Clientes Ativos</h3><small>Últimos 30 dias</small></div></div>
@@ -623,8 +638,8 @@ function porDiaCard() {
       ${mini('usercheck', '#eeeefe', '#5b5bd6', R, 'Renovados')}${mini('userplus', '#e8f7ec', '#3fae56', C, 'Cadastrados')}
       ${mini('users', '#fff4e0', '#e0a526', R + C, 'Total no mês')}${mini('calendar', '#fde9d9', '#e07a2c', peak >= 0 ? `${pad(peak + 1)}/${pad(m)}` : '—', 'Pico do mês', true)}
     </div>
-    <div class="legend sq" style="margin:0 0 6px"><span><i class="swc" style="background:#6366f1"></i>Renovados</span><span><i class="swc" style="background:#5cc46e"></i>Cadastrados</span></div>
-    ${stackChart(ren, cad, ren.map((_, i) => i % 5 === 0 ? `${pad(i + 1)}/${pad(m)}` : ''))}
+    <div class="legend sq" style="margin:0 0 6px"><span><i class="swc" style="background:#6366f1"></i>Renovados</span><span><i class="swc" style="background:#16a34a"></i>Cadastrados</span></div>
+    ${stackChart(ren, cad, ren.map((_, i) => i % 5 === 0 ? `${pad(i + 1)}/${pad(m)}` : ''), { colors: ['#6366f1', '#16a34a'], names: ['Renovados', 'Cadastrados'], tips: ren.map((_, i) => `${pad(i + 1)}/${pad(m)}/${y}`) })}
   </div>`;
 }
 function countCard(k, icon, bg, col, title, sub, pred) {
@@ -711,68 +726,147 @@ function comparadorCard() {
     <div style="height:10px"></div>
     <button class="dd full alt" data-act="dd" data-k="cmpB"><span>${monLabel(B)}</span>${ic('down')}</button>
     <div class="cmp-day"><span>Comparar até o dia:</span><button class="dd" data-act="dd" data-k="cmpDay"><span>${day ? 'Até o dia ' + day : 'Mês inteiro'}</span>${ic('down')}</button></div>
-    <p class="cmp-sum"><b style="color:#3b6fe0">${monLabel(A)}:</b> ${ta} planos • <b style="color:#9333ea">${monLabel(B)}:</b> ${tb} planos • <b style="color:${diff >= 0 ? '#2f9c50' : '#d24444'}">${diff >= 0 ? '+' : ''}${diff} planos</b></p>
+    <p class="cmp-sum"><span><i class="swc" style="background:#3b82f6"></i>${capFirst(monLabel(A))}: <b>${ta}</b></span> <span><i class="swc" style="background:#e8833a"></i>${capFirst(monLabel(B))}: <b>${tb}</b></span> <span class="delta ${diff >= 0 ? 'up' : 'down'}">${ic(diff >= 0 ? 'trending' : 'trendDown')} ${diff >= 0 ? '+' : ''}${diff} planos</span></p>
     ${names.map((n, i) => { const a = ma[n] || { n: 0, v: 0 }, b = mb[n] || { n: 0, v: 0 }, mx = Math.max(a.n, b.n, 1), d = b.n - a.n;
       return `<div class="cmp-row"><div class="cr-h"><i class="swc" style="background:${cols[i % cols.length]}"></i><b>${esc(n)}</b>
         <span class="delta ${d >= 0 ? 'up' : 'down'}">${ic(d >= 0 ? 'trending' : 'trendDown')} ${d >= 0 ? '+' : ''}${d}</span></div>
-        <div class="cr-two"><div><div class="cr-l"><span style="color:#3b6fe0">${mon(A)}</span><b>${a.n}</b></div><div class="tr"><div style="width:${a.n / mx * 100}%;background:#4f86e8"></div></div><small>${money(a.v)}</small></div>
-          <div><div class="cr-l"><span style="color:#9333ea">${mon(B)}</span><b>${b.n}</b></div><div class="tr"><div style="width:${b.n / mx * 100}%;background:#a855f7"></div></div><small>${money(b.v)}</small></div></div></div>`; }).join('') || '<div class="empty">Sem vendas nesses meses</div>'}
+        <div class="cr-two"><div><div class="cr-l"><span>${cap(mon(A))}</span><b>${a.n}</b></div><div class="tr"><div style="width:${a.n / mx * 100}%;background:#3b82f6"></div></div><small>${money(a.v)}</small></div>
+          <div><div class="cr-l"><span>${cap(mon(B))}</span><b>${b.n}</b></div><div class="tr"><div style="width:${b.n / mx * 100}%;background:#e8833a"></div></div><small>${money(b.v)}</small></div></div></div>`; }).join('') || '<div class="empty">Sem vendas nesses meses</div>'}
   </div>`;
 }
 
 /* ----- Charts ----- */
-function smoothPath(pts) {
-  if (pts.length < 2) return pts.length ? `M${pts[0][0]},${pts[0][1]}` : '';
-  let d = `M${pts[0][0]},${pts[0][1]}`;
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
-    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
-    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
-    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
-  }
-  return d;
-}
+/* Shared look: hairline solid grid, 2px lines, ~10% area wash, bars ≤24px with 4px rounded tops,
+   2px white gap between stacked parts. Tap/drag on any chart shows a crosshair + tooltip. */
+const CH = {}; let chSeq = 0;
+const GRID = '#eef0f4', AXIS = '#9aa0ae';
 function niceMax(v) {
   if (v <= 0) return 4;
   const e = Math.pow(10, Math.floor(Math.log10(v))), f = v / e;
-  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 4 ? 4 : f <= 5 ? 5 : f <= 8 ? 8 : 10) * e;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 4 ? 4 : f <= 5 ? 5 : f <= 8 ? 8 : 10) * e;
 }
-function lineChart(series, labels, o) {
-  const W = 340, H = 220, L = o.left || 40, R = 8, T = 12, B = 30;
-  const max = niceMax(Math.max(0, ...series.flatMap(s => s.vals)));
-  const n = labels.length, x = i => L + (n === 1 ? 0 : i * (W - L - R) / (n - 1)), y = v => T + (1 - v / max) * (H - T - B);
-  let g = '';
-  for (let i = 0; i <= 4; i++) {
-    const v = max * i / 4, yy = y(v);
-    g += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="#e8eaf0" stroke-dasharray="4 4"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end">${o.fmt(v)}</text>`;
+// Monotone cubic (no overshoot below zero or above the peak).
+function monoPath(pts) {
+  const n = pts.length;
+  if (n < 2) return n ? `M${pts[0][0]},${pts[0][1]}` : '';
+  const dx = [], m = [], t = [];
+  for (let i = 0; i < n - 1; i++) { dx[i] = pts[i + 1][0] - pts[i][0]; m[i] = (pts[i + 1][1] - pts[i][1]) / dx[i]; }
+  t[0] = m[0]; t[n - 1] = m[n - 2];
+  for (let i = 1; i < n - 1; i++) t[i] = m[i - 1] * m[i] <= 0 ? 0 : 3 * (dx[i - 1] + dx[i]) / ((2 * dx[i] + dx[i - 1]) / m[i - 1] + (dx[i] + 2 * dx[i - 1]) / m[i]);
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const h = dx[i] / 3;
+    d += ` C${(pts[i][0] + h).toFixed(1)},${(pts[i][1] + t[i] * h).toFixed(1)} ${(pts[i + 1][0] - h).toFixed(1)},${(pts[i + 1][1] - t[i + 1] * h).toFixed(1)} ${pts[i + 1][0].toFixed(1)},${pts[i + 1][1].toFixed(1)}`;
   }
-  labels.forEach((l, i) => { if (l !== '') g += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${l}</text>`; });
-  series.forEach((s, si) => {
-    const pts = s.vals.map((v, i) => [x(i), y(v)]);
-    const path = smoothPath(pts);
-    const gid = 'g' + Math.random().toString(36).slice(2, 7);
-    g += `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.fill}"/><stop offset="1" stop-color="${s.fill}" stop-opacity="0"/></linearGradient></defs>`;
-    g += `<path d="${path} L${x(n - 1)},${y(0)} L${x(0)},${y(0)}Z" fill="url(#${gid})"/>`;
-    g += `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="${o.dots ? 2.6 : 3}" stroke-linecap="round"/>`;
-    if (o.dots) pts.forEach(p => g += `<circle cx="${p[0]}" cy="${p[1]}" r="3.2" fill="${s.color}" fill-opacity=".75"/>`);
-  });
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}">${g}</svg>`;
+  return d;
 }
-function stackChart(a, b, labels) {
-  const W = 340, H = 240, L = 30, R = 4, T = 10, B = 26;
-  const max = niceMax(Math.max(1, ...a.map((v, i) => v + b[i])));
-  const n = a.length, slot = (W - L - R) / Math.max(n, 1), bw = Math.max(3, slot * .72), y = v => T + (1 - v / max) * (H - T - B);
+const topRound = (x, y, w, h, r) => {
+  r = Math.min(r, w / 2, h);
+  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+};
+function yGrid(max, L, W, R, y, fmt) {
   let g = '';
-  for (let i = 0; i <= 4; i++) { const v = max * i / 4; g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#e8eaf0" stroke-dasharray="4 4"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${Math.round(v)}</text>`; }
-  a.forEach((v, i) => {
-    const x0 = L + i * slot + (slot - bw) / 2;
-    if (v) g += `<rect x="${x0}" y="${y(v)}" width="${bw}" height="${y(0) - y(v)}" fill="#6366f1"/>`;
-    if (b[i]) g += `<rect x="${x0}" y="${y(v + b[i])}" width="${bw}" height="${y(v) - y(v + b[i])}" fill="#6fd17f" rx="1.5"/>`;
-    if (labels[i]) g += `<text x="${x0 + bw / 2}" y="${H - 6}" text-anchor="middle">${labels[i]}</text>`;
-  });
-  g += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="#cfd3dc"/>`;
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}">${g}</svg>`;
+  for (let i = 0; i <= 4; i++) { const v = max * i / 4, yy = y(v).toFixed(1); g += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="${i ? GRID : '#dfe2e8'}"/><text x="${L - 8}" y="${+yy + 4}" text-anchor="end">${fmt(v)}</text>`; }
+  return g;
 }
+/* series: [{ name, color, vals }]; labels: axis text per slot ('' = none); o: { tips, fmt (axis), vfmt (tooltip), left, slots, peak } */
+function lineChart(series, labels, o) {
+  const id = 'ch' + (++chSeq), W = 340, H = 210, L = o.left || 40, R = 14, T = 18, B = 28;
+  const slots = o.slots || labels.length;
+  const max = niceMax(Math.max(0, ...series.flatMap(s => s.vals)));
+  const x = i => L + (slots === 1 ? (W - L - R) / 2 : i * (W - L - R) / (slots - 1)), y = v => T + (1 - v / max) * (H - T - B);
+  let g = yGrid(max, L, W, R, y, o.fmt);
+  labels.forEach((l, i) => { if (l !== '') g += `<text x="${x(i)}" y="${H - 6}" text-anchor="${slots > 8 && i === 0 ? 'start' : slots > 8 && i === slots - 1 ? 'end' : 'middle'}">${l}</text>`; });
+  series.forEach(s => {
+    const pts = s.vals.map((v, i) => [x(i), y(v)]);
+    if (!pts.length) return;
+    const path = monoPath(pts), gid = id + 'g' + s.color.slice(1);
+    g += `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.color}" stop-opacity=".16"/><stop offset="1" stop-color="${s.color}" stop-opacity=".01"/></linearGradient></defs>`;
+    g += `<path d="${path} L${pts[pts.length - 1][0]},${y(0)} L${pts[0][0]},${y(0)}Z" fill="url(#${gid})"/>`;
+    g += `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    const lp = pts[pts.length - 1];
+    g += `<circle cx="${lp[0]}" cy="${lp[1]}" r="4.5" fill="${s.color}" stroke="#fff" stroke-width="2"/>`;
+  });
+  // Selective labels: the peak of the first series.
+  if (o.peak && series[0].vals.length) {
+    const v = series[0].vals, i = v.indexOf(Math.max(...v));
+    if (v[i] > 0) {
+      const px = Math.min(Math.max(x(i), L + 26), W - R - 26);
+      g += `<g class="peak"><rect x="${px - 26}" y="${y(v[i]) - 25}" width="52" height="17" rx="8.5" fill="#1f2433"/><text x="${px}" y="${y(v[i]) - 13}" text-anchor="middle">${o.fmt(v[i])}</text></g>`;
+    }
+  }
+  CH[id] = { kind: 'line', series, tips: o.tips || labels, vfmt: o.vfmt || o.fmt, x, y, slots, W, H, T, B, L, R };
+  return `<svg class="chart" data-ch="${id}" viewBox="0 0 ${W} ${H}">${g}<g class="hover" visibility="hidden"><line class="xh" y1="${T - 6}" y2="${H - B}" stroke="#c5c9d3" stroke-width="1"/>${series.map(s => `<circle r="5" fill="${s.color}" stroke="#fff" stroke-width="2"/>`).join('')}</g></svg>`;
+}
+/* Stacked columns: a (bottom) + b (top). */
+function stackChart(a, b, labels, o) {
+  const id = 'ch' + (++chSeq), W = 340, H = 220, L = 30, R = 6, T = 22, B = 26;
+  const tot = a.map((v, i) => v + b[i]), max = niceMax(Math.max(1, ...tot));
+  const n = a.length, slot = (W - L - R) / Math.max(n, 1), bw = Math.min(24, Math.max(3, slot - 3)), y = v => T + (1 - v / max) * (H - T - B);
+  let g = `<rect class="band" y="${T - 6}" height="${H - B - T + 6}" width="${slot}" rx="4" fill="#6366f1" fill-opacity=".07" visibility="hidden"/>`;
+  g += yGrid(max, L, W, R, y, v => String(Math.round(v)));
+  const peak = tot.indexOf(Math.max(...tot));
+  a.forEach((v, i) => {
+    const x0 = L + i * slot + (slot - bw) / 2, base = y(0);
+    const hA = base - y(v), hB = y(v) - y(v + b[i]);
+    if (v) g += b[i] ? `<rect x="${x0}" y="${y(v)}" width="${bw}" height="${hA}" fill="${o.colors[0]}"/>` : `<path d="${topRound(x0, y(v), bw, hA, 3)}" fill="${o.colors[0]}"/>`;
+    if (b[i]) g += `<path d="${topRound(x0, y(v + b[i]), bw, Math.max(0, hB - (v ? 2 : 0)), 3)}" fill="${o.colors[1]}"/>`;
+    if (labels[i]) g += `<text x="${x0 + bw / 2}" y="${H - 6}" text-anchor="middle">${labels[i]}</text>`;
+    if (i === peak && tot[i]) g += `<text class="val" x="${x0 + bw / 2}" y="${y(tot[i]) - 6}" text-anchor="middle">${tot[i]}</text>`;
+  });
+  CH[id] = { kind: 'bars', slot, L, n, W, T, H, B, rows: i => [[o.names[0], o.colors[0], a[i]], [o.names[1], o.colors[1], b[i]], ['Total', '', tot[i]]], tips: o.tips, vfmt: v => String(v) };
+  return `<svg class="chart" data-ch="${id}" viewBox="0 0 ${W} ${H}">${g}</svg>`;
+}
+/* Simple columns with every value on its cap (≤ 10 columns). */
+function columnChart(vals, labels, o) {
+  const id = 'ch' + (++chSeq), W = 340, H = 200, L = 6, R = 6, T = 34, B = 26;
+  const n = vals.length, max = Math.max(...vals, 1), min = Math.min(...vals);
+  const lo = Math.max(0, min - (max - min) * 1.2 - 1);   // zoom so changes are visible
+  const slot = (W - L - R) / n, bw = Math.min(24, slot - 8), y = v => T + (1 - (v - lo) / (max - lo)) * (H - T - B);
+  let g = `<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" stroke="#dfe2e8"/>`;
+  vals.forEach((v, i) => {
+    const cx = L + i * slot + slot / 2, x0 = cx - bw / 2, yy = y(v), last = i === n - 1;
+    g += `<path d="${topRound(x0, yy, bw, H - B - yy, 4)}" fill="${last ? o.color : o.soft}"/>`;
+    g += `<text class="val" x="${cx}" y="${yy - 8}" text-anchor="middle"${n > 8 ? ' style="font-size:10px"' : ''}>${v}</text>`;
+    const prev = i ? vals[i - 1] : o.before;
+    if (prev != null && v !== prev) g += `<path d="${v > prev ? `M${cx - 3.5} ${yy - 21} l3.5 -5 l3.5 5z` : `M${cx - 3.5} ${yy - 26} l3.5 5 l3.5 -5z`}" fill="${v > prev ? '#16a34a' : '#dc2626'}"/>`;
+    g += `<text x="${cx}" y="${H - 8}" text-anchor="middle" style="font-size:10px">${labels[i]}</text>`;
+  });
+  CH[id] = { kind: 'bars', slot, L, n, W, T, H, B, rows: i => [['Clientes ativos', o.color, vals[i]]], tips: o.tips, vfmt: v => String(v) };
+  return `<svg class="chart" data-ch="${id}" viewBox="0 0 ${W} ${H}"><rect class="band" y="${T - 30}" height="${H - B - T + 30}" width="${slot}" rx="6" fill="#6366f1" fill-opacity=".07" visibility="hidden"/>${g}</svg>`;
+}
+/* Tooltip: one floating box for every chart. */
+function chartHover(e) {
+  const svg = e.target.closest && e.target.closest('svg[data-ch]');
+  const tip = $('#ctip');
+  if (!svg) { tip.hidden = true; document.querySelectorAll('svg[data-ch] .hover, svg[data-ch] .band').forEach(h => h.setAttribute('visibility', 'hidden')); return; }
+  const c = CH[svg.dataset.ch]; if (!c) return;
+  const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * c.W;
+  let i, cx, rows;
+  if (c.kind === 'line') {
+    const span = (c.W - c.L - c.R) / Math.max(1, c.slots - 1);
+    const len = Math.max(...c.series.map(s => s.vals.length));
+    i = Math.max(0, Math.min(len - 1, Math.round((px - c.L) / span)));
+    cx = c.x(i);
+    const hov = svg.querySelector('.hover'); hov.setAttribute('visibility', 'visible');
+    const xh = hov.querySelector('.xh'); xh.setAttribute('x1', cx); xh.setAttribute('x2', cx);
+    hov.querySelectorAll('circle').forEach((dot, k) => { const v = c.series[k].vals[i]; dot.setAttribute('visibility', v == null ? 'hidden' : 'visible'); if (v != null) { dot.setAttribute('cx', cx); dot.setAttribute('cy', c.y(v)); } });
+    rows = c.series.map(s => [s.name, s.color, s.vals[i]]).filter(x => x[2] != null);
+  } else {
+    i = Math.max(0, Math.min(c.n - 1, Math.floor((px - c.L) / c.slot)));
+    cx = c.L + i * c.slot + c.slot / 2;
+    const band = svg.querySelector('.band'); band.setAttribute('x', c.L + i * c.slot); band.setAttribute('visibility', 'visible');
+    rows = c.rows(i);
+  }
+  tip.innerHTML = `<small>${esc(c.tips[i])}</small>${rows.map(([n, col, v]) => `<div><span>${col ? `<i style="background:${col}"></i>` : ''}${esc(n)}</span><b>${c.vfmt(v)}</b></div>`).join('')}`;
+  tip.hidden = false;
+  const sx = r.left + cx / c.W * r.width, tw = tip.offsetWidth, th = tip.offsetHeight;
+  tip.style.left = Math.max(8, Math.min(innerWidth - tw - 8, sx - tw / 2)) + 'px';
+  tip.style.top = Math.max(84, r.top + 4 - th) + 'px';
+}
+document.addEventListener('pointerdown', chartHover);
+document.addEventListener('pointermove', e => { if (e.pointerType === 'mouse' || e.buttons) chartHover(e); });
+addEventListener('scroll', () => { const t = $('#ctip'); if (t && !t.hidden) chartHover({ target: document.body }); }, { passive: true });
 
 /* ----- Tools (Configurações) ----- */
 const SUBS = {
@@ -810,7 +904,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Xplay Gestor — v1.3 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Xplay Gestor — v1.4 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1251,7 +1345,7 @@ function detailSheet(c) {
   const p = planOf(c), st = statusOf(c), price = priceOf(c), base = p ? p.price * (c.qty || 1) : 0, cost = costOf(c);
   const s = overlay(`<div class="sheet">
     <div class="sheet-hero"><button class="x" data-act="close">${ic('x')}</button>
-      <div class="det-top"><div class="ini">${initial(c.name)}</div><div><b>${esc(c.name)}</b><br><span class="status" style="--c:${st.color}">${st.short || st.text}</span></div></div></div>
+      <div class="det-top"><div class="ini">${initials(c.name)}</div><div><b>${esc(c.name)}</b><br><span class="status" style="--c:${st.color}">${st.short || st.text}</span></div></div></div>
     <div class="sheet-body">
       <div class="toggles">
         <button class="tg" data-act="t-ess" data-id="${c.id}">${ic('star')}<span>Essencial</span><i class="sw ${c.essential ? 'on' : ''}"></i></button>
