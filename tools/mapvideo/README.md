@@ -26,3 +26,13 @@ python3 make_antipode_video.py --captions legendas.json
 
 `legendas.json` is a list of `[start_s, end_s, "text"]`; `*words*` show up in
 yellow, `{place}` and `{ocean}` are replaced.
+
+## Brazil's highest peaks
+
+```
+python3 make_peaks_video.py                       # brasil_montanhas.mp4, 50 s
+python3 make_peaks_video.py --preview 20 34 44    # PNGs at those seconds
+```
+
+Satellite shaded with real elevation (AWS Terrain Tiles); renders on all CPU
+cores (`--jobs`).
