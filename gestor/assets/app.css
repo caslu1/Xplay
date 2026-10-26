@@ -1014,3 +1014,28 @@ body.theme-dark .acct .ac-h > i { background: #262748; color: #c9c7ff; }
   .clip { max-width: 496px; left: 0; right: 0; margin: 0 auto; }
   body.theme-dark, html:has(body.theme-dark) { background: #08081a; }
 }
+
+/* ===== Bulk selection ===== */
+.count-row { flex-wrap: nowrap; }
+.sel-btn { display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 12px; border-radius: 12px; background: #eef0ff; color: #4338ca; font-weight: 600; font-size: 14px; white-space: nowrap; }
+.sel-btn i { width: 17px; height: 17px; }
+.client .pick { display: none; position: absolute; top: 12px; right: 12px; z-index: 2; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #c3c7d4; background: #fff; place-items: center; color: transparent; }
+.client .pick i { width: 16px; height: 16px; }
+body.selecting .client .pick { display: grid; }
+body.selecting .client .badge { margin-right: 34px; }
+body.selecting .client .actions { pointer-events: none; opacity: .45; }
+.client.picked { box-shadow: 0 0 0 2.5px #6366f1, 0 6px 18px rgba(99,102,241,.2); }
+.client.picked .pick { background: #6366f1; border-color: #6366f1; color: #fff; }
+body.selecting #fab { display: none; }
+#selBar { position: fixed; z-index: 30; left: 10px; right: 10px; bottom: 82px; background: #fff; border-radius: 20px; padding: 10px 12px 12px; box-shadow: 0 -4px 30px rgba(20,30,70,.25); animation: up .2s; }
+.sb-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.sb-top > button:first-child { width: 34px; height: 34px; border-radius: 10px; background: #f1f2f6; display: grid; place-items: center; }
+.sb-top > button:first-child i { width: 18px; height: 18px; }
+.sb-top b { flex: 1; font-size: 16px; }
+.sb-all { color: #4338ca; font-weight: 600; font-size: 14px; padding: 6px 8px; }
+#selBar .btn { height: 48px; background: linear-gradient(90deg, #64748b, #334155); box-shadow: none; }
+#selBar .btn.blue { background: linear-gradient(90deg, #4f8cf0, #4f46e5); }
+#selBar .btn:disabled { opacity: .45; }
+body.selecting #page { padding-bottom: 130px; }
+body.theme-dark #selBar { background: #1a1b2e; } body.theme-dark .sb-top > button:first-child { background: #2a2c44; }
+body.theme-dark .sel-btn { background: #262748; color: #c9c7ff; } body.theme-dark .client .pick { background: #23243a; border-color: #4a4c6a; }

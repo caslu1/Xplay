@@ -253,6 +253,7 @@ const state = {
   finMonth: monKey(today()), anchor: monKey(today()), cmpA: monKey(today()), cmpB: shiftMonth(monKey(today()), -1), cmpDay: '0',
 };
 function go(tab, keepScroll) {
+  if (state.sel) selEnd();
   state.tab = tab;
   if (tab === 'ferramentas' && state.sub) { document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab)); return setSub(null); }
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
@@ -420,7 +421,7 @@ VIEWS.clientes = () => {
     </div>
     <div class="count-row">
       <span class="chip">${ic('users')} <span id="cnum"></span></span>
-      <label>Mostrar:</label>
+      <button class="sel-btn" data-act="sel-start">${ic('checkc')} Selecionar</button>
       <button class="dd" data-act="dd" data-k="show"><span>${state.show || 'Todos'}</span>${ic('down')}</button>
     </div>
     <div id="clist"></div><div id="cmore"></div>`;
@@ -428,7 +429,7 @@ VIEWS.clientes = () => {
 function clientCard(c) {
   const p = planOf(c), st = statusOf(c);
   const hasPays = idx().paid.has(c.id);
-  return `<div class="card client st-${c.archived ? 'n' : st.cls}" data-act="detail" data-id="${c.id}">
+  return `<div class="card client st-${c.archived ? 'n' : st.cls}${state.sel && state.sel.has(c.id) ? ' picked' : ''}" data-act="detail" data-id="${c.id}"><i class="pick">${ic('check')}</i>
     <div class="head">
       <div class="ini">${initials(c.name)}</div>
       <div class="who"><b><span class="n">${esc(shortName(c.name))}</span>${hasPays ? `<button class="hist" data-act="pays" data-id="${c.id}" aria-label="Pagamentos">${ic('history')}</button>` : ''}</b>
@@ -461,7 +462,7 @@ function appendCards(upto, tok, want) {
   const box = $('#clist'), list = state.list;
   if (!box || tok !== renderList.tok) return;
   const from = +box.dataset.n || 0, to = Math.min(upto, list.length);
-  if (to > from) { box.insertAdjacentHTML('beforeend', list.slice(from, to).map(clientCard).join('')); box.dataset.n = to; }
+  if (to > from) { box.insertAdjacentHTML('beforeend', list.slice(from, to).map(clientCard).join('')); box.dataset.n = to; if (state.sel) selPaint(); }
   if (to < want) requestAnimationFrame(() => appendCards(to + 60, tok, want));
   else {
     const rest = list.length - to;
@@ -999,7 +1000,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v3.8 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v3.9 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1479,6 +1480,7 @@ function closeTop() {
 }
 function closeMenus() { document.querySelectorAll('.menu,.pop,.pop-scrim').forEach(m => m.remove()); }
 window.onBack = () => {
+  if (state.sel) { selEnd(); return true; }
   if (document.querySelector('.menu,.pop')) { closeMenus(); return true; }
   if (openLayers().length) { closeTop(); return true; }
   if (state.tab === 'ferramentas' && state.sub) { setSub(null); return true; }
@@ -1754,6 +1756,7 @@ function undo(id) {
   if (u.type === 'create') { db.clients = db.clients.filter(c => c.id !== u.clientId); if (u.paymentId) dropPay(u.paymentId); }
   else if (u.type === 'renew') { const c = db.clients.find(x => x.id === u.clientId); if (c) { c.due = u.oldDue; if (u.wasArchived) c.archived = true; } dropPay(u.paymentId); }
   else if (u.type === 'delete') { db.clients.push(u.client); }
+  else if (u.type === 'bulk-archive') { const m = new Map(u.before); db.clients.forEach(c => { if (m.has(c.id)) c.archived = m.get(c.id); }); }
   else if (u.type === 'edit') { const i = db.clients.findIndex(x => x.id === u.before.id); if (i >= 0) db.clients[i] = u.before; }
   h.undone = true;
   snapshot(); refresh(); toast('Ação desfeita');
@@ -1825,6 +1828,64 @@ function pdf() {
   const name = `Relatorio-Financeiro-${r[0] === '0000-01-01' ? 'completo' : r[0]}`;
   if (window.Android) Android.print(name); else window.print();
 }
+
+/* ---------- Bulk selection (Clientes) ---------- */
+function selStart(firstId) {
+  state.sel = new Set(firstId ? [firstId] : []);
+  document.body.classList.add('selecting');
+  let bar = document.getElementById('selBar');
+  if (!bar) { bar = document.createElement('div'); bar.id = 'selBar'; document.body.appendChild(bar); }
+  selPaint();
+}
+function selEnd() {
+  state.sel = null; document.body.classList.remove('selecting');
+  const bar = document.getElementById('selBar'); if (bar) bar.remove();
+  document.querySelectorAll('#clist .client.picked').forEach(c => c.classList.remove('picked'));
+}
+function selPaint() {
+  const bar = document.getElementById('selBar'); if (!bar || !state.sel) return;
+  const n = state.sel.size, list = state.list || [];
+  const picked = list.filter(c => state.sel.has(c.id)), allArch = picked.length && picked.every(c => c.archived);
+  const all = list.length && list.every(c => state.sel.has(c.id));
+  bar.innerHTML = `<div class="sb-top"><button data-act="sel-end" aria-label="Cancelar">${ic('x')}</button><b>${n} selecionado${n === 1 ? '' : 's'}</b>
+      <button class="sb-all" data-act="sel-all">${all ? 'Limpar' : `Todos (${list.length})`}</button></div>
+    <button class="btn ${allArch ? 'blue' : ''}" data-act="sel-archive" ${n ? '' : 'disabled'}>${ic('archive')} ${allArch ? 'Desarquivar' : 'Arquivar'} ${n || ''}</button>`;
+  document.querySelectorAll('#clist .client').forEach(c => c.classList.toggle('picked', state.sel.has(c.dataset.id)));
+}
+function selArchive() {
+  const ids = [...state.sel], picked = db.clients.filter(c => state.sel.has(c.id));
+  const archive = !picked.every(c => c.archived), n = picked.length;
+  confirmDialog(archive ? 'Arquivar clientes' : 'Desarquivar clientes',
+    `${archive ? 'Arquivar' : 'Desarquivar'} <b>${n}</b> cliente${n === 1 ? '' : 's'}? ${archive ? 'Eles saem da lista e dos números do Dashboard, e podem ser vistos no filtro 📦 Arquivados.' : 'Eles voltam para a lista normal.'}`, () => {
+      const before = picked.map(c => [c.id, !!c.archived]);
+      picked.forEach(c => { c.archived = archive; });
+      log(archive ? 'Clientes Arquivados' : 'Clientes Desarquivados', `${n} cliente${n === 1 ? '' : 's'}: ${picked.slice(0, 5).map(c => c.name).join(', ')}${n > 5 ? '…' : ''}`, { type: 'bulk-archive', before });
+      selEnd(); snapshot(); refresh();
+      toast(`${n} cliente${n === 1 ? '' : 's'} ${archive ? 'arquivado' : 'desarquivado'}${n === 1 ? '' : 's'}`);
+    });
+}
+// Long press on a client card starts selecting.
+(() => {
+  let t = 0, x = 0, y = 0;
+  document.addEventListener('pointerdown', e => {
+    const card = e.target.closest('#clist .client'); if (!card || state.sel) return;
+    x = e.clientX; y = e.clientY;
+    t = setTimeout(() => { t = 0; selStart(card.dataset.id); selPaint.long = Date.now(); if (navigator.vibrate) navigator.vibrate(20); }, 500);
+  });
+  const cancel = e => { if (t && (e.type !== 'pointermove' || Math.abs(e.clientX - x) + Math.abs(e.clientY - y) > 10)) { clearTimeout(t); t = 0; } };
+  ['pointerup', 'pointercancel', 'pointermove'].forEach(k => document.addEventListener(k, cancel));
+})();
+// While selecting, a tap on a card (anywhere on it) toggles it.
+document.addEventListener('click', e => {
+  if (!state.sel) return;
+  const card = e.target.closest('#clist .client');
+  if (!card) return;
+  e.stopPropagation(); e.preventDefault();
+  if (selPaint.long && Date.now() - selPaint.long < 600) return;   // the click that ends the long press
+  const id = card.dataset.id;
+  if (state.sel.has(id)) state.sel.delete(id); else state.sel.add(id);
+  selPaint();
+}, true);
 
 /* ---------- Events ---------- */
 document.addEventListener('click', e => {
@@ -1908,6 +1969,10 @@ document.addEventListener('click', e => {
     case 'save-msgs': MSG_FIELDS.forEach(([k]) => { db.settings[k] = $('#' + k).value; }); save(); toast('Mensagens salvas'); break;
     case 'clear-hist': confirmDialog('Limpar Histórico', 'Apagar todas as atividades registradas? Os clientes e pagamentos não são afetados.', () => { db.history = []; refresh(); toast('Histórico limpo'); }); break;
     case 'undo': confirmUndo(el.dataset.v); break;
+    case 'sel-start': selStart(); break;
+    case 'sel-end': selEnd(); break;
+    case 'sel-all': { const list = state.list || [], all = list.every(c => state.sel.has(c.id)); state.sel = new Set(all ? [] : list.map(c => c.id)); if (!all) { const box = $('#clist'); appendCards(list.length, renderList.tok, list.length); } selPaint(); break; }
+    case 'sel-archive': selArchive(); break;
     case 'fp-all': {
       const open = el.dataset.v === '1', closed = db.settings.finClosed || (db.settings.finClosed = {});
       document.querySelectorAll('#fpanels > .card.panel').forEach(c => { c.classList.toggle('closed', !open); const k = panelKey(c); if (open) delete closed[k]; else closed[k] = 1; });
