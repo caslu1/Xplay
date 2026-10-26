@@ -3,6 +3,7 @@
    The phone keeps a full local copy per account, so the app works offline and uploads when it can. */
 
 const CFG_KEY = 'gs-server', SES_KEY = 'gs-session', SYNC_PREFIX = 'gs-sync:';
+const DEVICE = localStorage.getItem('gs-device') || (() => { const d = Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem('gs-device', d); return d; })();
 const cloud = {
   cfg: null, session: null, timer: 0, busy: false, status: 'idle', error: '',
 };
@@ -85,7 +86,8 @@ async function pullData() {
 async function pushData() {
   const r = await authed('/rest/v1/gestor_data?on_conflict=user_id', {
     method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
-    body: { user_id: cloud.session.user.id, data: db },
+    // _sync marks which phone wrote this copy, so a write whose answer got lost is not taken for another phone's.
+    body: { user_id: cloud.session.user.id, data: Object.assign({}, db, { _sync: { device: DEVICE, at: new Date().toISOString() } }) },
   });
   return r && r[0] ? r[0].updated_at : new Date().toISOString();
 }
@@ -104,8 +106,11 @@ async function sync(opts = {}) {
     const meta = syncMeta(), stamp = await remoteStamp();
     const remoteNewer = stamp && (!meta.lastSync || new Date(stamp) > new Date(meta.lastSync));
     if (remoteNewer && meta.dirty && !opts.force) {
-      cloud.busy = false; setStatus('ok');
-      return conflict(stamp);
+      const row = await pullData();
+      const verdict = row ? compareCopies(row.data) : 'local';
+      if (verdict === 'same') { setSyncMeta({ lastSync: row.updated_at, dirty: false }); setStatus('ok'); return; }
+      if (verdict === 'conflict') { cloud.busy = false; setStatus('ok'); return conflict(row); }
+      opts = Object.assign({}, opts, { force: true });   // this phone's copy already contains the cloud's
     }
     if (remoteNewer && !opts.force) {
       const row = await pullData();
@@ -153,19 +158,34 @@ async function cloudCheck() {
   } catch (e) { toast('Não foi possível conferir: ' + e.message); }
 }
 window.cloudCheck = cloudCheck;
+const stripSync = d => { if (!d) return d; const x = Object.assign({}, d); delete x._sync; return x; };
+/* 'same': nothing to do; 'local': safe to upload this phone's copy; 'conflict': another phone changed things this one lacks. */
+function compareCopies(remote) {
+  if (!remote || !remote.clients) return 'local';
+  if (canon(stripSync(remote)) === canon(stripSync(db))) return 'same';
+  if (remote._sync && remote._sync.device === DEVICE) return 'local';   // last cloud write came from this phone
+  const has = (mine, theirs) => { const ids = new Set((mine || []).map(x => x.id)); return (theirs || []).every(x => ids.has(x.id)); };
+  // Everything in the cloud also exists here (only additions/edits on this phone): keep this phone.
+  if (has(db.clients, remote.clients) && has(db.payments, remote.payments) && has(db.plans, remote.plans)) return 'local';
+  return 'conflict';
+}
 function flushLocal() { if (window.flushSave) flushSave(); }
 function applyRemote(data) {
   if (!data || !data.clients) return;
-  db = data; migrate(); invalidate();
+  db = stripSync(data); migrate(); invalidate();
   try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { }
   applyTheme(); render();
 }
-function conflict(stamp) {
-  const when = new Date(stamp).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-  const s = overlay(`<div class="dialog confirm">${ic('alert')}<h3>Dados diferentes</h3>
-    <p>A nuvem tem alterações feitas em outro aparelho (${when}), e este aparelho também tem alterações não enviadas. Qual cópia manter?</p>
-    <div class="two" style="flex-direction:column;gap:10px"><button class="ok" style="background:#4f46e5" id="useCloud">Usar a da nuvem</button><button class="cancel" id="useLocal">Manter a deste aparelho</button></div></div>`, 'center');
-  s.querySelector('#useCloud').onclick = async () => { closeTop(); setSyncMeta({ dirty: false, lastSync: null }); sync(); };
+function conflict(row) {
+  if (document.getElementById('cfDlg')) return;
+  const r = row.data || {}, when = new Date(row.updated_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  const n = (d, k) => (d[k] || []).length;
+  const line = (t, k) => `<tr><td>${t}</td><td>${n(db, k)}</td><td>${n(r, k)}</td></tr>`;
+  const s = overlay(`<div class="dialog confirm chk" id="cfDlg">${ic('alert')}<h3>Dados diferentes</h3>
+    <p>Esta conta foi alterada em outro aparelho (${when}) e este aparelho também tem alterações. Compare e escolha qual cópia manter:</p>
+    <table><tr><th></th><th>Este aparelho</th><th>Nuvem</th></tr>${line('Clientes', 'clients')}${line('Planos', 'plans')}${line('Pagamentos', 'payments')}</table>
+    <div class="two" style="flex-direction:column;gap:10px"><button class="ok" style="background:#4f46e5" id="useLocal">Manter a deste aparelho</button><button class="cancel" id="useCloud">Usar a da nuvem</button></div></div>`, 'center');
+  s.querySelector('#useCloud').onclick = () => { closeTop(); applyRemote(row.data); setSyncMeta({ dirty: false, lastSync: row.updated_at }); setStatus('ok'); };
   s.querySelector('#useLocal').onclick = () => { closeTop(); sync({ force: true }); };
 }
 addEventListener('online', () => sync());
@@ -248,7 +268,11 @@ async function enterApp(name) {
     const localHas = db.clients.length > 0, remoteHas = row && row.data && row.data.clients && row.data.clients.length > 0;
     if (!row) setSyncMeta({ dirty: true });
     else if (m.lastSync) { /* known device: regular sync below */ }
-    else if (localHas && remoteHas) { setStatus('ok'); return conflict(row.updated_at); }
+    else if (localHas && remoteHas) {
+      const v = compareCopies(row.data);
+      if (v === 'conflict') { setStatus('ok'); return conflict(row); }
+      setSyncMeta({ lastSync: row.updated_at, dirty: v !== 'same' });
+    }
     else if (remoteHas || !localHas) { applyRemote(row.data); setSyncMeta({ lastSync: row.updated_at, dirty: false }); }
     else setSyncMeta({ dirty: true, lastSync: row.updated_at });
     setStatus('ok');
