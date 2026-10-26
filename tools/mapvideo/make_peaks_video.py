@@ -18,7 +18,7 @@ from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from make_antipode_video import FPS, H, W, YELLOW, caption, draw_glow_lines, draw_pin, shadow_text
 from make_map_video import (COUNTRIES_URL, FONT, FONT_LABEL, NE, TILE, TILE_URL, ease_out, fetch,
@@ -26,6 +26,10 @@ from make_map_video import (COUNTRIES_URL, FONT, FONT_LABEL, NE, TILE, TILE_URL,
 
 STATES_URL = NE + "ne_50m_admin_1_states_provinces.geojson"
 TERRAIN_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+# ESA WorldCover Sentinel-2 cloud-free composites, 10 m, 1x1 degree COGs.
+S2_URL = ("/vsicurl/https://esa-worldcover-s2.s3.eu-central-1.amazonaws.com/rgbnir/{year}/{ns}/"
+          "ESA_WorldCover_10m_{year}_{ver}_{tile}_S2RGBNIR.tif")
+S2_YEARS = ((2020, "v100"), (2021, "v200"))
 
 # Summits located on the elevation model; heights are the official IBGE values.
 NEBLINA = (-66.0041, 0.8076)
@@ -175,8 +179,114 @@ class Tiles:
         return np.asarray(im)
 
 
-def shade(sat, elev, zc, lat):
-    """Hillshade from the elevation, plus forest/rock colours when close in."""
+class Sentinel:
+    """Sentinel-2 imagery around one point, as a few pre-cut resolution levels."""
+
+    LEVELS = ((1.5, 2.7, 0.0014), (0.3, 0.5, 0.00025), (0.04, 0.07, 1 / 12000))
+
+    def __init__(self, name, lon, lat, cache):
+        self.name, self.lon, self.lat = name, lon, lat
+        self.folder = os.path.join(cache, "sentinel2")
+        self.levels = []
+
+    def build(self):
+        if self.levels:
+            return
+        os.makedirs(self.folder, exist_ok=True)
+        for i, (hw, hh, res) in enumerate(self.LEVELS):
+            path = os.path.join(self.folder, "%s_%d.npz" % (self.name, i))
+            box = (self.lon - hw, self.lat - hh, self.lon + hw, self.lat + hh)
+            if not os.path.exists(path):
+                rgb, ok = self.cut(box, res)
+                np.savez(path, rgb=rgb, ok=ok)
+            d = np.load(path)
+            self.levels.append((box, res, d["rgb"], d["ok"]))
+
+    @staticmethod
+    def cut(box, res):
+        import rasterio
+        from rasterio.enums import Resampling
+        from rasterio.windows import from_bounds
+        x0, y0, x1, y1 = box
+        cols, rows = int(round((x1 - x0) / res)), int(round((y1 - y0) / res))
+        print("sentinel-2: %dx%d px at %.0f m" % (cols, rows, res * 111320))
+        out = {y: np.zeros((3, rows, cols), np.uint16) for y, _ in S2_YEARS}
+        jobs = []
+        for la in range(math.floor(y0), math.ceil(y1)):
+            for lo in range(math.floor(x0), math.ceil(x1)):
+                for year, ver in S2_YEARS:
+                    jobs.append((la, lo, year, ver))
+
+        def read(job):
+            la, lo, year, ver = job
+            ns = "%s%02d" % ("N" if la >= 0 else "S", abs(la))
+            tile = "%s%s%03d" % (ns, "E" if lo >= 0 else "W", abs(lo))
+            ib = (max(x0, lo), max(y0, la), min(x1, lo + 1), min(y1, la + 1))
+            c0, c1 = int(round((ib[0] - x0) / res)), int(round((ib[2] - x0) / res))
+            r0, r1 = int(round((y1 - ib[3]) / res)), int(round((y1 - ib[1]) / res))
+            if c1 <= c0 or r1 <= r0:
+                return
+            try:
+                with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR", GDAL_HTTP_MAX_RETRY="3"):
+                    with rasterio.open(S2_URL.format(year=year, ns=ns, ver=ver, tile=tile)) as src:
+                        a = src.read([1, 2, 3], window=from_bounds(*ib, src.transform), out_shape=(3, r1 - r0, c1 - c0),
+                                     resampling=Resampling.bilinear)
+                out[year][:, r0:r1, c0:c1] = a
+            except Exception as e:  # ocean or missing tile
+                print("sentinel-2 %s %d: %s" % (tile, year, str(e)[:80]), file=sys.stderr)
+        with ThreadPoolExecutor(8) as ex:
+            list(ex.map(read, jobs))
+
+        # Merge the two years: keep the clearer (less bright blue) valid pixel.
+        a, b = (out[y].astype(np.float32) for y, _ in S2_YEARS)
+        va, vb = a.min(axis=0) > 0, b.min(axis=0) > 0
+        pick_b = vb & (~va | (b[2] < a[2]))
+        v = np.where(pick_b, b, a)
+        ok = (va | vb) & (v[2] < 1500)  # bright blue = cloud, filled with relief instead
+        x = np.clip((v - 180) / 2300, 0, 1) ** 0.8
+        lum = x.mean(axis=0, keepdims=True)
+        x = np.clip(lum + (x - lum) * 1.35, 0, 1)
+        ok_f = np.asarray(Image.fromarray((ok * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(3)))
+        return (x.transpose(1, 2, 0) * 255).astype(np.uint8), ok_f
+
+    def view(self, cx, cy, zc):
+        """(rgb, alpha) for the screen, alpha 0 where there is no imagery."""
+        scale = TILE * 2 ** zc
+        lon = ((cx + (np.arange(W) + 0.5 - W / 2) / scale) * 360 - 180).astype(np.float64)
+        my = cy + (np.arange(H) + 0.5 - H / 2) / scale
+        lat = np.degrees(np.arctan(np.sinh(math.pi * (1 - 2 * my))))
+        hw, hh = (lon[-1] - lon[0]) / 2, (lat[0] - lat[-1]) / 2
+        level = self.levels[0]
+        for lv in self.levels:
+            b = lv[0]
+            if b[0] <= lon[0] and lon[-1] <= b[2] and b[1] <= lat[-1] and lat[0] <= b[3]:
+                level = lv
+        (x0, y0, x1, y1), res, rgb, ok = level
+        rows, cols = ok.shape
+        fc = (lon - x0) / res - 0.5
+        fr = (y1 - lat) / res - 0.5
+        c0 = np.clip(np.floor(fc).astype(int), 0, cols - 2)
+        r0 = np.clip(np.floor(fr).astype(int), 0, rows - 2)
+        wc = np.clip(fc - c0, 0, 1)[None, :, None]
+        wr = np.clip(fr - r0, 0, 1)[:, None, None]
+        img = rgb.astype(np.float32) / 255
+        okf = ok.astype(np.float32)[..., None] / 255
+        out = np.zeros((H, W, 4), np.float32)
+        for src, sl in ((img, slice(0, 3)), (okf, slice(3, 4))):
+            top = src[r0][:, c0] * (1 - wc) + src[r0][:, c0 + 1] * wc
+            bot = src[r0 + 1][:, c0] * (1 - wc) + src[r0 + 1][:, c0 + 1] * wc
+            out[..., sl] = top * (1 - wr) + bot * wr
+        # fade out at the edge of the cut and outside it
+        ex = np.clip(np.minimum(fc, cols - 1 - fc) / (cols * 0.04), 0, 1)[None, :]
+        ey = np.clip(np.minimum(fr, rows - 1 - fr) / (rows * 0.04), 0, 1)[:, None]
+        alpha = out[..., 3:] * (ex * ey)[..., None]
+        return out[..., :3], alpha
+
+
+def shade(sat, elev, zc, lat, hi=None):
+    """Hillshade from the elevation, plus forest/rock colours when close in.
+    hi: optional (rgb, alpha) high-resolution imagery to put on top."""
+    sat = np.clip(sat * 1.3 + 0.015, 0, 1) ** 0.9
     e = np.maximum(elev, 0)
     m_px = 40075016 * math.cos(math.radians(lat)) / (TILE * 2 ** zc)
     ex = float(np.clip((m_px / 8) ** 0.5, 1.6, 22))
@@ -195,9 +305,15 @@ def shade(sat, elev, zc, lat):
         ramp_c = np.array([[0.10, 0.22, 0.08], [0.11, 0.25, 0.09], [0.14, 0.28, 0.11], [0.20, 0.30, 0.13],
                            [0.30, 0.31, 0.20], [0.42, 0.40, 0.34], [0.55, 0.53, 0.50]], np.float32)
         col = np.stack([np.interp(e, ramp_e, ramp_c[:, i]) for i in range(3)], axis=-1)
+        col = np.clip(col * 1.35, 0, 1)
         img = img * (1 - close) + col * close
-        img = img * (1 + 0.35 * float(np.clip((zc - 6) / 2, 0, 1)) * (1 - close))  # Amazon imagery is very dark
-    img = np.where(land, img * (0.25 + 0.85 * k), img)
+    relief = 1.0
+    if hi is not None:
+        rgb, a = hi
+        img = img * (1 - a) + rgb * a
+        relief = 1 - 0.35 * a  # real imagery has its own shadows
+    shaded = img * (0.3 + 0.8 * k)
+    img = np.where(land, img * (1 - relief) + shaded * relief, img)
     return np.clip(img, 0, 1)
 
 
@@ -205,6 +321,7 @@ class Scene:
     def __init__(self, cache):
         self.sat = Tiles(TILE_URL, os.path.join(cache, "bluemarble", "tiles"), 8, "sat")
         self.dem = Tiles(TERRAIN_URL, os.path.join(cache, "terrarium"), 13, "dem")
+        self.hires = [Sentinel("neblina", -66.0066, 0.8038, cache), Sentinel("bandeira", *BANDEIRA, cache)]
         countries = load_json(COUNTRIES_URL, cache)["features"]
         states = load_json(STATES_URL, cache)["features"]
 
@@ -235,13 +352,24 @@ class Scene:
             need |= {("dem",) + k for k in self.dem.needed(cx, cy, zc)}
         todo = [k for k in need if not os.path.exists((self.sat if k[0] == "sat" else self.dem).path(*k[1:]))]
         print("tiles: %d needed, %d to download" % (len(need), len(todo)))
+        for h in self.hires:
+            h.build()
         with ThreadPoolExecutor(24) as ex:
             list(ex.map(lambda k: (self.sat if k[0] == "sat" else self.dem).download(*k[1:]), todo))
 
     def frame(self, T):
         cx, cy, zc = camera(T)
         lat = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * cy))))
-        img = shade(self.sat.view(cx, cy, zc), self.dem.view(cx, cy, zc), zc, lat)
+        hi = None
+        a_hi = smooth(phase(zc, 8.9, 9.6))
+        if a_hi > 0:
+            lon = cx * 360 - 180
+            h = min(self.hires, key=lambda h: abs(h.lon - lon) + abs(h.lat - lat))
+            rgb, a = h.view(cx, cy, zc)
+            hi = (rgb, a * a_hi)
+        img = shade(self.sat.view(cx, cy, zc), self.dem.view(cx, cy, zc), zc, lat, hi)
+        img = np.asarray(Image.fromarray((img * 255).astype(np.uint8)).filter(
+            ImageFilter.UnsharpMask(radius=2, percent=70, threshold=2))).astype(np.float32) / 255
         scale = TILE * 2 ** zc
 
         def P(lon, lat_):
@@ -262,8 +390,6 @@ class Scene:
             k = np.asarray(m).astype(np.float32)[..., None] / 255 * a
             return img * (1 - k) + np.array(col, np.float32) * k
 
-        # Darken a little everywhere except during the summit close-ups.
-        img = img * (1 - 0.18 * (1 - float(np.clip((zc - 6) / 1.5, 0, 1))))
 
         # --- Brazil outline: drawn in the hook, kept while the map is wide.
         wide = 1 - float(np.clip((zc - 6.8) / 0.8, 0, 1))

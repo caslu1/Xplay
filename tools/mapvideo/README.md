@@ -34,5 +34,7 @@ python3 make_peaks_video.py                       # brasil_montanhas.mp4, 50 s
 python3 make_peaks_video.py --preview 20 34 44    # PNGs at those seconds
 ```
 
-Satellite shaded with real elevation (AWS Terrain Tiles); renders on all CPU
+Blue Marble for the wide shots, Sentinel-2 at 10 m (ESA WorldCover composites,
+read with `rasterio`) for the close-ups, shaded with real elevation (AWS
+Terrain Tiles); renders on all CPU
 cores (`--jobs`).
