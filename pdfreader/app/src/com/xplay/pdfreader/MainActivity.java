@@ -92,9 +92,11 @@ public class MainActivity extends Activity implements ZoomFrame.Listener {
         if (u != null) open(u, true);
     }
 
+    /** Back leaves the app right away, even with a document open. */
     @Override public void onBackPressed() {
-        if (doc != null) closeDocument();
-        else super.onBackPressed();
+        savePage();
+        prefs.edit().remove("last").apply();
+        finishAndRemoveTask();
     }
 
     @Override protected void onPause() {
@@ -431,18 +433,6 @@ public class MainActivity extends Activity implements ZoomFrame.Listener {
                 if (doc != null) showIndicator();
             }
         });
-    }
-
-    /** Back from a document returns to the home screen instead of leaving the app. */
-    private void closeDocument() {
-        savePage();
-        opening++;
-        doc.close();
-        doc = null;
-        uri = null;
-        adapter.notifyDataSetChanged();
-        prefs.edit().remove("last").apply();
-        showEmpty();
     }
 
     // ---- Recent files ----

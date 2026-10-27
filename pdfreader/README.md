@@ -7,7 +7,8 @@ Leitor de PDF nativo para Android, simples e somente leitura. Não tem dependên
 - Zoom com pinça (1× a 4×) ou toque duplo; arraste para os lados com o zoom ativo
 - Toque simples esconde/mostra a barra superior
 - Indicador "página / total"; toque nele para ir a uma página
-- Voltar fecha o documento e mostra a tela inicial com os arquivos recentes (toque longo remove da lista); Voltar na tela inicial sai do app
+- Voltar sai do app na hora
+- Ao abrir o app sem um arquivo, a tela inicial mostra os arquivos recentes (toque longo remove da lista)
 - Lembra a página em que você parou em cada arquivo
 - Fecha sozinho ao sair dele (Início, apps recentes ou outro app como o WhatsApp); apagar a tela não fecha
 - PDFs protegidos por senha não são suportados (o `PdfRenderer` não abre)
@@ -21,4 +22,4 @@ sudo apt-get install android-sdk-platform-23 aapt apksigner zipalign dalvik-exch
 
 O APK é assinado com `tools/pdfreader.keystore` (senha `pdfreader123`). Use sempre a mesma chave para que as atualizações instalem por cima.
 
-O APK pronto da versão atual está em `releases/LeitorPDF-1.2.apk`.
+O APK pronto da versão atual está em `releases/LeitorPDF-1.3.apk`.
