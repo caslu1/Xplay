@@ -29,6 +29,7 @@ import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -45,7 +46,8 @@ public class MainActivity extends Activity implements ZoomFrame.Listener {
     private View topBar;
     private TextView title;
     private TextView indicator;
-    private LinearLayout empty;
+    private View home;
+    private LinearLayout recents;
     private ZoomFrame frame;
     private HorizontalScrollView hscroll;
     private PageList list;
@@ -85,6 +87,11 @@ public class MainActivity extends Activity implements ZoomFrame.Listener {
         super.onNewIntent(intent);
         Uri u = viewUri(intent);
         if (u != null) open(u, true);
+    }
+
+    @Override public void onBackPressed() {
+        if (doc != null) closeDocument();
+        else super.onBackPressed();
     }
 
     @Override protected void onPause() {
@@ -216,10 +223,10 @@ public class MainActivity extends Activity implements ZoomFrame.Listener {
         ip.bottomMargin = dp(20);
         body.addView(indicator, ip);
 
-        empty = new LinearLayout(this);
+        LinearLayout empty = new LinearLayout(this);
         empty.setOrientation(LinearLayout.VERTICAL);
         empty.setGravity(Gravity.CENTER);
-        empty.setBackgroundColor(0xFF525659);
+        empty.setPadding(dp(16), dp(32), dp(16), dp(32));
         TextView msg = new TextView(this);
         msg.setText("Nenhum PDF aberto");
         msg.setTextColor(0xFFE0E0E0);
@@ -247,7 +254,20 @@ public class MainActivity extends Activity implements ZoomFrame.Listener {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         bp.topMargin = dp(20);
         empty.addView(btn, bp);
-        body.addView(empty);
+
+        recents = new LinearLayout(this);
+        recents.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams rp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rp.topMargin = dp(32);
+        empty.addView(recents, rp);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(0xFF525659);
+        scroll.addView(empty);
+        home = scroll;
+        body.addView(home);
 
         setContentView(root);
     }
@@ -260,8 +280,9 @@ public class MainActivity extends Activity implements ZoomFrame.Listener {
 
     private void showEmpty() {
         title.setText(R.string.app_name);
-        empty.setVisibility(View.VISIBLE);
+        home.setVisibility(View.VISIBLE);
         topBar.setVisibility(View.VISIBLE);
+        fillRecents();
         indicator.removeCallbacks(hideIndicator);
         indicator.setVisibility(View.GONE);
     }
@@ -358,6 +379,7 @@ public class MainActivity extends Activity implements ZoomFrame.Listener {
                         if (result == null) {
                             if (userAction) Toast.makeText(MainActivity.this, err, Toast.LENGTH_LONG).show();
                             else prefs.edit().remove("last").apply();
+                            removeRecent(u);
                             if (doc == null) showEmpty();
                             else title.setText(displayName(uri));
                             return;
@@ -379,7 +401,8 @@ public class MainActivity extends Activity implements ZoomFrame.Listener {
         doc = d;
         uri = u;
         prefs.edit().putString("last", u.toString()).apply();
-        empty.setVisibility(View.GONE);
+        addRecent(u, displayName(u));
+        home.setVisibility(View.GONE);
         title.setText(displayName(u));
         zoom = 1f;
         list.setFixedWidth(frame.getWidth());
@@ -392,6 +415,108 @@ public class MainActivity extends Activity implements ZoomFrame.Listener {
                 if (doc != null) showIndicator();
             }
         });
+    }
+
+    /** Back from a document returns to the home screen instead of leaving the app. */
+    private void closeDocument() {
+        savePage();
+        opening++;
+        doc.close();
+        doc = null;
+        uri = null;
+        adapter.notifyDataSetChanged();
+        prefs.edit().remove("last").apply();
+        showEmpty();
+    }
+
+    // ---- Recent files ----
+
+    private static final int MAX_RECENTS = 10;
+
+    /** Recent files as "uri\tname" lines, newest first. */
+    private java.util.List<String[]> loadRecents() {
+        java.util.List<String[]> out = new java.util.ArrayList<>();
+        for (String line : prefs.getString("recent", "").split("\n")) {
+            int tab = line.indexOf('\t');
+            if (tab > 0) out.add(new String[] {line.substring(0, tab), line.substring(tab + 1)});
+        }
+        return out;
+    }
+
+    private void saveRecents(java.util.List<String[]> items) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < items.size() && i < MAX_RECENTS; i++) {
+            if (sb.length() > 0) sb.append('\n');
+            sb.append(items.get(i)[0]).append('\t').append(items.get(i)[1].replace('\n', ' ').replace('\t', ' '));
+        }
+        prefs.edit().putString("recent", sb.toString()).apply();
+    }
+
+    private void addRecent(Uri u, String name) {
+        java.util.List<String[]> items = loadRecents();
+        String key = u.toString();
+        for (int i = items.size() - 1; i >= 0; i--) {
+            if (items.get(i)[0].equals(key)) items.remove(i);
+        }
+        items.add(0, new String[] {key, name});
+        saveRecents(items);
+    }
+
+    private void removeRecent(Uri u) {
+        java.util.List<String[]> items = loadRecents();
+        String key = u.toString();
+        for (int i = items.size() - 1; i >= 0; i--) {
+            if (items.get(i)[0].equals(key)) items.remove(i);
+        }
+        saveRecents(items);
+        if (doc == null) fillRecents();
+    }
+
+    private void fillRecents() {
+        recents.removeAllViews();
+        java.util.List<String[]> items = loadRecents();
+        if (items.isEmpty()) return;
+        TextView header = new TextView(this);
+        header.setText("Recentes");
+        header.setTextColor(0xFFBDBDBD);
+        header.setTextSize(14);
+        header.setTypeface(Typeface.DEFAULT_BOLD);
+        header.setPadding(dp(12), 0, dp(12), dp(8));
+        recents.addView(header);
+        for (String[] item : items) {
+            final Uri u = Uri.parse(item[0]);
+            TextView row = new TextView(this);
+            row.setText(item[1]);
+            row.setTextColor(Color.WHITE);
+            row.setTextSize(16);
+            row.setSingleLine(true);
+            row.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
+            row.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_file, 0, 0, 0);
+            row.setCompoundDrawablePadding(dp(14));
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(12), 0, dp(12), 0);
+            row.setMinHeight(dp(52));
+            row.setFocusable(true);
+            row.setBackgroundResource(selectableItemBackground());
+            row.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    open(u, true);
+                }
+            });
+            row.setOnLongClickListener(new View.OnLongClickListener() {
+                @Override public boolean onLongClick(View v) {
+                    removeRecent(u);
+                    return true;
+                }
+            });
+            recents.addView(row);
+        }
+    }
+
+    private int selectableItemBackground() {
+        TypedValue v = new TypedValue();
+        getTheme().resolveAttribute(android.R.attr.selectableItemBackground, v, true);
+        return v.resourceId;
     }
 
     private void savePage() {
