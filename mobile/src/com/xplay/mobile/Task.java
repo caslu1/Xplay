@@ -49,6 +49,7 @@ public final class Task {
         if (e instanceof java.net.UnknownHostException) return "Servidor não encontrado (confira o DNS)";
         if (e instanceof java.net.SocketTimeoutException) return "O servidor demorou para responder";
         if (e instanceof java.net.ConnectException) return "Não foi possível conectar ao servidor";
+        if (e instanceof java.net.MalformedURLException) return "Link inválido: confira se começa com http://";
         if (e instanceof javax.net.ssl.SSLException) return "Falha na conexão segura (tente http://)";
         return m == null ? e.getClass().getSimpleName() : m;
     }

@@ -32,8 +32,7 @@ public final class Xtream {
     private Xtream() {}
 
     public static String normalizeServer(String dns) {
-        String s = dns.trim();
-        if (!s.contains("://")) s = "http://" + s;
+        String s = Http.extractUrl(dns);
         // Some people paste the whole player_api / get.php address.
         int php = s.indexOf(".php");
         if (php > 0) s = s.substring(0, s.lastIndexOf('/', php));

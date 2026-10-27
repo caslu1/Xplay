@@ -13,7 +13,22 @@ public final class Http {
 
     public static final String AGENT = "XplayMobile/1.0";
 
+    private static final java.util.regex.Pattern URL = java.util.regex.Pattern.compile("(?i)https?://[^\\s\"'<>]+");
+
     private Http() {}
+
+    /**
+     * The address inside pasted text: people often copy a name or label with the link
+     * ("nuvio http://host/get.php?…"). Without a scheme, the last word gets http://.
+     */
+    public static String extractUrl(String text) {
+        String t = text == null ? "" : text.trim();
+        java.util.regex.Matcher m = URL.matcher(t);
+        if (m.find()) return m.group().replaceAll("[),.;]+$", "");
+        String[] words = t.split("\\s+");
+        String last = words[words.length - 1];
+        return last.isEmpty() ? "" : "http://" + last;
+    }
 
     public static InputStream open(String address, int readTimeout) throws IOException {
         URL url = new URL(address);

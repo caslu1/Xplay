@@ -190,14 +190,16 @@ public class LoginActivity extends Activity {
                 showError("Preencha servidor, usuário e senha");
                 return;
             }
-            Repo.saveXtream(Xtream.normalizeServer(s), u, p);
+            String server = Xtream.normalizeServer(s);
+            dns.setText(server);
+            Repo.saveXtream(server, u, p);
         } else {
-            String url = m3u.getText().toString().trim();
+            String url = Http.extractUrl(m3u.getText().toString());
             if (url.isEmpty()) {
                 showError("Informe o link da lista");
                 return;
             }
-            if (!url.contains("://")) url = "http://" + url;
+            m3u.setText(url);
             Repo.saveM3u(url);
         }
         Repo.prefs().edit().putString("last_mode", Repo.mode).apply();
