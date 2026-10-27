@@ -15,6 +15,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.provider.OpenableColumns;
 import android.text.InputType;
 import android.util.TypedValue;
@@ -58,6 +59,8 @@ public class MainActivity extends Activity implements ZoomFrame.Listener {
     private float zoom = 1f;
     private int opening;
     private int pendingScrollX = -1;
+    /** True while our own file picker is on screen, so leaving for it doesn't close the app. */
+    private boolean picking;
 
     private final Runnable hideIndicator = new Runnable() {
         @Override public void run() {
@@ -97,6 +100,16 @@ public class MainActivity extends Activity implements ZoomFrame.Listener {
     @Override protected void onPause() {
         super.onPause();
         savePage();
+    }
+
+    /** Leaving the app (Home, recents, another app) closes it; the next launch starts on the home screen. */
+    @Override protected void onStop() {
+        super.onStop();
+        if (picking || isChangingConfigurations() || isFinishing()) return;
+        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+        if (pm != null && !pm.isInteractive()) return; // just the screen turning off
+        prefs.edit().remove("last").apply();
+        finishAndRemoveTask();
     }
 
     @Override protected void onDestroy() {
@@ -334,14 +347,17 @@ public class MainActivity extends Activity implements ZoomFrame.Listener {
         i.addCategory(Intent.CATEGORY_OPENABLE);
         i.setType("application/pdf");
         try {
+            picking = true;
             startActivityForResult(i, REQ_OPEN);
         } catch (ActivityNotFoundException e) {
+            picking = false;
             Toast.makeText(this, "Nenhum gerenciador de arquivos encontrado", Toast.LENGTH_LONG).show();
         }
     }
 
     @Override protected void onActivityResult(int req, int result, Intent data) {
         super.onActivityResult(req, result, data);
+        if (req == REQ_OPEN) picking = false;
         if (req != REQ_OPEN || result != RESULT_OK || data == null || data.getData() == null) return;
         Uri u = data.getData();
         try {
