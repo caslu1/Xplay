@@ -101,7 +101,7 @@ public final class Cards {
         int m = Ui.dp(a, 8);
         top.setPadding(m, m, m, 0);
         if (e.has("episode")) top.addView(Ui.badge(a, String.valueOf(e.optInt("episode"))));
-        top.addView(new View(a), Ui.weight(1));
+        top.addView(new View(a), Ui.spacer());
         if (dur > 0) top.addView(Ui.badge(a, Ui.remaining(dur - pos)));
         frame.addView(top, Ui.frame(-1, -2, Gravity.TOP));
 

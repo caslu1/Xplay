@@ -44,7 +44,8 @@ public final class Carousel extends LinearLayout {
         setOrientation(VERTICAL);
         int screen = Ui.screenWidth(a);
         boolean land = Ui.landscape(a);
-        itemWidth = land ? Math.min(Ui.dp(a, 280), (int) (screen * 0.3f)) : (int) (screen * 0.665f);
+        int screenH = a.getResources().getDisplayMetrics().heightPixels;
+        itemWidth = land ? Math.min((int) (screen * 0.3f), (int) (screenH * 0.62f / 1.42f)) : (int) (screen * 0.665f);
         gap = Ui.dp(a, 14);
         int itemHeight = (int) (itemWidth * 1.42f);
 

@@ -269,7 +269,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
             public void onClick(View v) { setLocked(true); }
         });
         top.addView(lockButton, Ui.lp(Ui.dp(this, 48), Ui.dp(this, 48), Ui.dp(this, 44), 0, 0, 0));
-        top.addView(new View(this), Ui.weight(1));
+        top.addView(new View(this), Ui.spacer());
         topRight = Ui.row(this);
         top.addView(topRight);
         ImageView moreButton = round(R.drawable.ic_more, 48, 11);
@@ -376,7 +376,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
         aspectPill.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { pickAspect(); }
         });
-        pills.addView(new View(this), Ui.weight(1));
+        pills.addView(new View(this), Ui.spacer());
         nextPill = pill(R.drawable.ic_skip_next, "Próximo episódio");
         nextPill.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { playNext(); }
@@ -471,7 +471,7 @@ public class PlayerActivity extends Activity implements SurfaceHolder.Callback {
             l.rightMargin = Ui.dp(this, 12);
             pills.addView(t, l);
         }
-        pills.addView(new View(this), Ui.weight(1));
+        pills.addView(new View(this), Ui.spacer());
         if (!live && hasNext()) pills.addView(nextPill);
     }
 

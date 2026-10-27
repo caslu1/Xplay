@@ -93,7 +93,7 @@ public final class HomePage extends FrameLayout {
             public void onClick(View v) { a.switchProfile(); }
         });
         bar.addView(avatar, Ui.lp(s, s));
-        bar.addView(new View(a), Ui.weight(1));
+        bar.addView(new View(a), Ui.spacer());
         ImageView search = Ui.iconButton(a, R.drawable.ic_search, Theme.TEXT, 10);
         search.setContentDescription("Buscar");
         search.setOnClickListener(new OnClickListener() {

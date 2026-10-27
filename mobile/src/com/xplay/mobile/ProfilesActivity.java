@@ -238,7 +238,7 @@ public class ProfilesActivity extends Activity {
             buttons.addView(del);
         }
         View gap = new View(this);
-        buttons.addView(gap, Ui.weight(1));
+        buttons.addView(gap, Ui.spacer());
         TextView cancel = Sheet.button(this, "Cancelar", false);
         TextView save = Sheet.button(this, "Salvar", true);
         buttons.addView(cancel);

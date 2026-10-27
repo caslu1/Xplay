@@ -141,6 +141,11 @@ public final class Ui {
         return new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, w);
     }
 
+    /** Flexible gap for rows; zero height so it never stretches the row vertically. */
+    public static LinearLayout.LayoutParams spacer() {
+        return new LinearLayout.LayoutParams(0, 0, 1f);
+    }
+
     public static FrameLayout.LayoutParams frame(int w, int h, int gravity) {
         return new FrameLayout.LayoutParams(w, h, gravity);
     }
