@@ -35,17 +35,17 @@
         <activity
             android:name=".MainActivity"
             android:windowSoftInputMode="adjustPan"
-            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
+            android:configChanges="keyboardHidden" />
 
         <activity
             android:name=".SearchActivity"
             android:windowSoftInputMode="stateVisible|adjustResize"
-            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
+            android:configChanges="keyboardHidden" />
 
         <activity
             android:name=".DetailActivity"
             android:theme="@style/DetailTheme"
-            android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout" />
+            android:configChanges="keyboardHidden" />
 
         <activity
             android:name=".PlayerActivity"
