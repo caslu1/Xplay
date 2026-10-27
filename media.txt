@@ -1,0 +1,29 @@
+--------- beginning of main
+--------- beginning of system
+--------- beginning of kernel
+10-27 22:03:11.038  2477  2477 W MediaPlayer: Use of stream types is deprecated for operations other than volume control
+10-27 22:03:11.038  2477  2477 W MediaPlayer: See the documentation of setAudioStreamType() for what to use instead with android.media.AudioAttributes to qualify your playback use case
+10-27 22:03:11.039  2477  2477 W MediaPlayer: setScreenOnWhilePlaying(true) is ineffective without a SurfaceHolder
+10-27 22:03:11.076   438  6372 D NuPlayer: onSetVideoSurface(0xed401940, no video decoder)
+10-27 22:03:39.660  2477  2477 V MediaPlayer: resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+10-27 22:03:39.660  2477  2477 V MediaPlayer: cleanDrmObj: mDrmObj=null mDrmSessionId=null
+10-27 22:03:39.660  2477  2477 V MediaPlayer: resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+10-27 22:03:39.660  2477  2477 V MediaPlayer: cleanDrmObj: mDrmObj=null mDrmSessionId=null
+10-27 22:04:16.517  2477  2477 W MediaPlayer: Use of stream types is deprecated for operations other than volume control
+10-27 22:04:16.517  2477  2477 W MediaPlayer: See the documentation of setAudioStreamType() for what to use instead with android.media.AudioAttributes to qualify your playback use case
+10-27 22:04:16.517  2477  2477 W MediaPlayer: setScreenOnWhilePlaying(true) is ineffective without a SurfaceHolder
+10-27 22:04:16.517   438  6627 D NuPlayer: onSetVideoSurface(0xed400010, no video decoder)
+10-27 22:04:43.993  2477  2477 V MediaPlayer: resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+10-27 22:04:43.993  2477  2477 V MediaPlayer: cleanDrmObj: mDrmObj=null mDrmSessionId=null
+10-27 22:04:43.994  2477  2477 V MediaPlayer: resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+10-27 22:04:43.994  2477  2477 V MediaPlayer: cleanDrmObj: mDrmObj=null mDrmSessionId=null
+10-27 22:04:59.517  2477  2477 W MediaPlayer: Use of stream types is deprecated for operations other than volume control
+10-27 22:04:59.517  2477  2477 W MediaPlayer: See the documentation of setAudioStreamType() for what to use instead with android.media.AudioAttributes to qualify your playback use case
+10-27 22:04:59.517  2477  2477 W MediaPlayer: setScreenOnWhilePlaying(true) is ineffective without a SurfaceHolder
+10-27 22:04:59.518   438  6779 D NuPlayer: onSetVideoSurface(0xed404ba0, no video decoder)
+10-27 22:05:02.052   438  6779 W NuPlayer: source has video meta but not file meta
+10-27 22:05:02.052   438  6779 W NuPlayer: source has video meta but not file meta
+10-27 22:05:12.614  2477  2477 V MediaPlayer: resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+10-27 22:05:12.614  2477  2477 V MediaPlayer: cleanDrmObj: mDrmObj=null mDrmSessionId=null
+10-27 22:05:12.614  2477  2477 V MediaPlayer: resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+10-27 22:05:12.614  2477  2477 V MediaPlayer: cleanDrmObj: mDrmObj=null mDrmSessionId=null
