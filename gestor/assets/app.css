@@ -1039,3 +1039,6 @@ body.selecting #fab { display: none; }
 body.selecting #page { padding-bottom: 130px; }
 body.theme-dark #selBar { background: #1a1b2e; } body.theme-dark .sb-top > button:first-child { background: #2a2c44; }
 body.theme-dark .sel-btn { background: #262748; color: #c9c7ff; } body.theme-dark .client .pick { background: #23243a; border-color: #4a4c6a; }
+/* Dark mode: pressed state of tabs and lists must stay dark */
+body.theme-dark .tabs button:active, body.theme-dark .menu button:active, body.theme-dark .pp-list button:active, body.theme-dark .ps-list button:active { background: #2a2c44; }
+body.theme-dark button, body.theme-dark .card[data-act], body.theme-dark .row[data-act] { -webkit-tap-highlight-color: transparent; }
