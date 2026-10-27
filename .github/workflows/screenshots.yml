@@ -2,6 +2,11 @@ name: Screenshots
 
 on:
   workflow_dispatch:
+    inputs:
+      app:
+        description: "App to capture: tv (Xplay) or mobile (Xplay Mobile)"
+        required: false
+        default: tv
 
 permissions:
   contents: write
@@ -19,7 +24,8 @@ jobs:
           sudo apt-get install -y -qq android-sdk-platform-23 aapt apksigner zipalign dalvik-exchange ffmpeg python3-pil
 
       - name: Build APK
-        run: ./build.sh
+        run: |
+          if [ "${{ inputs.app }}" = "mobile" ]; then ./mobile/build.sh; else ./build.sh; fi
 
       - name: Start mock Xtream server
         run: |
@@ -48,15 +54,17 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: bash tools/screenshots/capture.sh
+          script: if [ "${{ inputs.app }}" = "mobile" ]; then bash mobile/tools/capture.sh; else bash tools/screenshots/capture.sh; fi
 
       - name: Publish to the screenshots branch
         if: always()
         run: |
           [ -d shots ] || exit 0
           cp mock.log shots/ 2>/dev/null || true
+          BRANCH=screenshots
+          [ "${{ inputs.app }}" = "mobile" ] && BRANCH=screenshots-mobile
           cd shots
-          git init -q -b screenshots
+          git init -q -b "$BRANCH"
           git add .
           git -c user.name="github-actions" -c user.email="actions@github.com" commit -qm "Screenshots for ${GITHUB_SHA}"
-          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" screenshots
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:$BRANCH"

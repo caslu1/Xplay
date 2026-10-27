@@ -1,0 +1,217 @@
+package com.xplay.mobile;
+
+import android.util.Base64;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+
+/** Client for Xtream Codes compatible servers (player_api.php), using the credentials in Repo. */
+public final class Xtream {
+
+    public static final class Program {
+        public final String title;
+        public final String description;
+        public final long start;
+        public final long end;
+
+        Program(String title, String description, long start, long end) {
+            this.title = title;
+            this.description = description;
+            this.start = start;
+            this.end = end;
+        }
+    }
+
+    private Xtream() {}
+
+    public static String normalizeServer(String dns) {
+        String s = dns.trim();
+        if (!s.contains("://")) s = "http://" + s;
+        // Some people paste the whole player_api / get.php address.
+        int php = s.indexOf(".php");
+        if (php > 0) s = s.substring(0, s.lastIndexOf('/', php));
+        while (s.endsWith("/")) s = s.substring(0, s.length() - 1);
+        return s;
+    }
+
+    /** Validates the credentials (sets Repo.account). */
+    public static void login() throws IOException {
+        try {
+            Object info = new JSONObject(Http.get(api())).opt("user_info");
+            if (!(info instanceof JSONObject) || ((JSONObject) info).optInt("auth", 0) != 1) {
+                throw new IOException("Usuário ou senha inválidos");
+            }
+            String status = ((JSONObject) info).optString("status", "Active");
+            if (!status.equalsIgnoreCase("Active")) throw new IOException("Conta " + status);
+            Repo.account = (JSONObject) info;
+        } catch (JSONException e) {
+            throw new IOException("Resposta inválida do servidor (confira o DNS)");
+        }
+    }
+
+    public static void loadLive() throws IOException {
+        try {
+            LinkedHashMap<String, String> cats = categories("get_live_categories");
+            JSONArray streams = new JSONArray(Http.get(api() + "&action=get_live_streams"));
+            List<Channel> list = new ArrayList<Channel>(streams.length());
+            for (int i = 0; i < streams.length(); i++) {
+                JSONObject s = streams.getJSONObject(i);
+                String group = cats.get(s.optString("category_id"));
+                if (group == null || group.isEmpty()) group = "Sem grupo";
+                String id = s.optString("stream_id");
+                String url = Repo.server + "/live/" + enc(Repo.user) + "/" + enc(Repo.pass) + "/" + id + ".m3u8";
+                list.add(new Channel(s.optString("name", "Canal").trim(), url, group,
+                        httpOrNull(s.optString("stream_icon", "")), id, s.optInt("num", i + 1)));
+            }
+            List<String> groups = new ArrayList<String>();
+            for (String name : cats.values()) {
+                for (Channel c : list) {
+                    if (c.group.equals(name)) {
+                        groups.add(name);
+                        break;
+                    }
+                }
+            }
+            for (Channel c : list) if (!groups.contains(c.group)) groups.add(c.group);
+            Repo.liveGroups = groups;
+            Repo.channels = list;
+        } catch (JSONException e) {
+            throw new IOException("Não foi possível ler os canais");
+        }
+    }
+
+    public static void loadMovies() throws IOException {
+        try {
+            LinkedHashMap<String, String> cats = categories("get_vod_categories");
+            JSONArray arr = new JSONArray(Http.get(api() + "&action=get_vod_streams"));
+            List<VodItem> list = new ArrayList<VodItem>(arr.length());
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject s = arr.getJSONObject(i);
+                list.add(new VodItem(false, s.optString("stream_id"), s.optString("name", "Filme").trim(),
+                        httpOrNull(s.optString("stream_icon", "")), rating(s), s.optString("category_id"),
+                        s.optString("container_extension", "mp4"), s.optLong("added", 0), null));
+            }
+            Repo.movieCategories = cats;
+            Repo.movies = list;
+        } catch (JSONException e) {
+            throw new IOException("Não foi possível ler os filmes");
+        }
+    }
+
+    public static void loadSeries() throws IOException {
+        try {
+            LinkedHashMap<String, String> cats = categories("get_series_categories");
+            JSONArray arr = new JSONArray(Http.get(api() + "&action=get_series"));
+            List<VodItem> list = new ArrayList<VodItem>(arr.length());
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject s = arr.getJSONObject(i);
+                list.add(new VodItem(true, s.optString("series_id"), s.optString("name", "Série").trim(),
+                        httpOrNull(s.optString("cover", "")), rating(s), s.optString("category_id"),
+                        null, s.optLong("last_modified", 0), null));
+            }
+            Repo.seriesCategories = cats;
+            Repo.series = list;
+        } catch (JSONException e) {
+            throw new IOException("Não foi possível ler as séries");
+        }
+    }
+
+    /** Current and next programs for a channel (may be empty). */
+    public static List<Program> shortEpg(String streamId) throws IOException {
+        List<Program> out = new ArrayList<Program>();
+        try {
+            JSONObject o = new JSONObject(Http.get(api() + "&action=get_short_epg&limit=4&stream_id=" + streamId));
+            JSONArray arr = o.optJSONArray("epg_listings");
+            long now = System.currentTimeMillis();
+            for (int i = 0; arr != null && i < arr.length(); i++) {
+                JSONObject p = arr.getJSONObject(i);
+                long start = p.optLong("start_timestamp") * 1000L;
+                long end = p.optLong("stop_timestamp") * 1000L;
+                if (end < now) continue;
+                out.add(new Program(b64(p.optString("title")), b64(p.optString("description")), start, end));
+            }
+        } catch (JSONException ignored) {
+            // Many servers return an empty or malformed EPG; treat it as no data.
+        }
+        return out;
+    }
+
+    public static JSONObject vodInfo(String id) throws IOException {
+        return object(api() + "&action=get_vod_info&vod_id=" + id);
+    }
+
+    public static JSONObject seriesInfo(String id) throws IOException {
+        return object(api() + "&action=get_series_info&series_id=" + id);
+    }
+
+    public static String movieUrl(String id, String ext) {
+        return Repo.server + "/movie/" + enc(Repo.user) + "/" + enc(Repo.pass) + "/" + id + "." + ext(ext);
+    }
+
+    public static String episodeUrl(String id, String ext) {
+        return Repo.server + "/series/" + enc(Repo.user) + "/" + enc(Repo.pass) + "/" + id + "." + ext(ext);
+    }
+
+    public static String httpOrNull(String s) {
+        return s != null && s.startsWith("http") ? s.trim() : null;
+    }
+
+    private static String ext(String e) {
+        return e == null || e.isEmpty() ? "mp4" : e;
+    }
+
+    private static double rating(JSONObject s) {
+        double r = s.optDouble("rating", 0);
+        if (Double.isNaN(r) || r <= 0) {
+            double five = s.optDouble("rating_5based", 0);
+            r = Double.isNaN(five) ? 0 : five * 2;
+        }
+        return r > 10 ? 10 : r;
+    }
+
+    private static LinkedHashMap<String, String> categories(String action) throws IOException, JSONException {
+        LinkedHashMap<String, String> map = new LinkedHashMap<String, String>();
+        JSONArray cats = new JSONArray(Http.get(api() + "&action=" + action));
+        for (int i = 0; i < cats.length(); i++) {
+            JSONObject c = cats.getJSONObject(i);
+            map.put(c.optString("category_id"), c.optString("category_name").trim());
+        }
+        return map;
+    }
+
+    private static JSONObject object(String url) throws IOException {
+        try {
+            return new JSONObject(Http.get(url));
+        } catch (JSONException e) {
+            throw new IOException("Resposta inválida do servidor");
+        }
+    }
+
+    private static String b64(String s) {
+        if (s == null || s.isEmpty()) return "";
+        try {
+            return new String(Base64.decode(s, Base64.DEFAULT), "UTF-8").trim();
+        } catch (Exception e) {
+            return s;
+        }
+    }
+
+    private static String api() {
+        return Repo.server + "/player_api.php?username=" + enc(Repo.user) + "&password=" + enc(Repo.pass);
+    }
+
+    private static String enc(String s) {
+        try {
+            return URLEncoder.encode(s, "UTF-8").replace("+", "%20");
+        } catch (java.io.UnsupportedEncodingException e) {
+            return s;
+        }
+    }
+}
