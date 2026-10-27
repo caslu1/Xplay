@@ -261,6 +261,7 @@ async function enterApp(name) {
   startApp();
   if (name && !db.settings.owner) { db.settings.owner = name; save(); }
   hideAuth();
+  if (window.Android && Android.checkClip) setTimeout(() => Android.checkClip(), 300);
   // Bring the cloud copy (another phone) or upload this one.
   try {
     setStatus('busy');

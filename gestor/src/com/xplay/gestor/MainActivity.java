@@ -97,13 +97,27 @@ public class MainActivity extends Activity {
         try {
             ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
             if (cm == null || !cm.hasPrimaryClip() || cm.getPrimaryClip().getItemCount() == 0) return;
-            CharSequence t = cm.getPrimaryClip().getItemAt(0).coerceToText(this);
+            android.content.ClipData clip = cm.getPrimaryClip();
+            CharSequence t = clip.getItemAt(0).coerceToText(this);
             if (t == null) return;
-            String text = t.toString().trim();
-            if (text.length() == 0 || text.length() > 40 || text.equals(lastClip)) return;
-            lastClip = text;
-            String js = "window.onClipboard && window.onClipboard(" + org.json.JSONObject.quote(text) + ")";
-            web.evaluateJavascript(js, null);
+            final String text = t.toString().trim();
+            if (text.length() == 0 || text.length() > 40) return;
+            // Each copy has its own timestamp, so copying the same number again shows the card again.
+            long stamp = 0;
+            try {   // ClipDescription.getTimestamp() exists from Android 8; built against an older SDK, so call it by name.
+                stamp = (Long) clip.getDescription().getClass().getMethod("getTimestamp").invoke(clip.getDescription());
+            } catch (Exception ignored) {
+            }
+            final String key = text + "#" + stamp;
+            if (key.equals(lastClip)) return;
+            String js = "window.onClipboard ? window.onClipboard(" + org.json.JSONObject.quote(text) + ") : false";
+            web.evaluateJavascript(js, new ValueCallback<String>() {
+                @Override
+                public void onReceiveValue(String handled) {
+                    // Only remember it once the page took it (at a cold start the page may not be ready yet).
+                    if ("true".equals(handled)) lastClip = key;
+                }
+            });
         } catch (Exception ignored) {
         }
     }
@@ -242,6 +256,17 @@ public class MainActivity extends Activity {
             } catch (Exception e) {
                 return null;
             }
+        }
+
+        /** Called by the page right after login, when it can show the copied-number card. */
+        @JavascriptInterface
+        public void checkClip() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    checkClipboard();
+                }
+            });
         }
 
         @JavascriptInterface

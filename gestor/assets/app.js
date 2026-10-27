@@ -1000,7 +1000,7 @@ VIEWS.ferramentas = () => {
     ${tool('importar', 'upload', 'linear-gradient(135deg,#5ac35f,#2f9c50)', 'Importar Clientes', 'Importe clientes em massa via planilha CSV ou Excel.')}
     ${tool('backup', 'db', 'linear-gradient(135deg,#6366f1,#9333ea)', 'Backup Completo', 'Faça backup ou restaure todos os dados do sistema.')}
     ${tool('planos', 'box', 'linear-gradient(135deg,#a855f7,#6366f1)', 'Planos', `${db.plans.length} planos cadastrados`)}
-    <p class="hint" style="text-align:center">Gestor Simples — v3.10 · os dados ficam salvos neste aparelho</p>`;
+    <p class="hint" style="text-align:center">Gestor Simples — v3.11 · os dados ficam salvos neste aparelho</p>`;
 };
 VIEWS.ferramentasAfter = () => { if (state.sub && SUBVIEWS[state.sub + 'After']) SUBVIEWS[state.sub + 'After'](); };
 
@@ -1993,17 +1993,18 @@ document.addEventListener('click', e => {
 
 /* ---------- Copied phone number ---------- */
 // Called by the Android app when it regains focus with text on the clipboard.
+// Returns true once the copied text was looked at (shown or ignored), false while the app isn't ready.
 window.onClipboard = text => {
-  if (!db || document.body.classList.contains('locked')) return;
+  if (!db || document.body.classList.contains('locked')) return false;
   text = String(text || '').trim();
-  if (!text || text.length > 40 || text === onClipboard.last) return;
+  if (!text || text.length > 40) return true;
   const digits = text.replace(/\D/g, '');
-  if (digits.length < 10 || digits.length > 13 || /[a-zA-Z]{3,}/.test(text)) return;
-  onClipboard.last = text;
+  if (digits.length < 10 || digits.length > 13 || /[a-zA-Z]{3,}/.test(text)) return true;
   const phone = normPhone(text), tail = phone.slice(-8);
   const found = db.clients.filter(c => String(c.phone).slice(-8) === tail);
   const c = found.find(x => x.phone === phone) || found[0];
   showClipCard(c, phone);
+  return true;
 };
 function showClipCard(c, phone) {
   document.querySelectorAll('.clip').forEach(x => x.remove());
