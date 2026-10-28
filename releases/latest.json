@@ -1,6 +1,6 @@
 {
-  "versionCode": 26,
-  "versionName": "4.2",
-  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-4.2.apk",
-  "notes": "Navegação refeita no estilo das TVs Android (Leanback): o item em foco fica sempre alinhado à esquerda e a fileira desliza; cada fileira lembra onde você parou; espaçamento igual entre todos os conteúdos; segurar a seta rola suave."
+  "versionCode": 27,
+  "versionName": "4.3",
+  "apk": "https://raw.githubusercontent.com/caslu1/Xplay/ccr-e02be4ba-gz9bjy/releases/Xplay-4.3.apk",
+  "notes": "Novo: entrar com o link da lista (URL M3U ou login Xtream) direto na tela de login, além do código de 9 dígitos."
 }

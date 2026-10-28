@@ -59,8 +59,6 @@ public final class Repo {
     }
 
     public static boolean hasLogin() {
-        // With the Xplay panel, only a recharge code opens the app (older manual logins don't count).
-        if (Backend.configured() && Backend.savedCode() == null) return false;
         if (MODE_XTREAM.equals(mode)) return server != null && user != null && pass != null;
         return MODE_M3U.equals(mode) && m3uUrl != null;
     }

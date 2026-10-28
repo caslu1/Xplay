@@ -17,8 +17,9 @@ import android.widget.TextView;
 import java.util.concurrent.Callable;
 
 /**
- * Entry screen. With the Xplay panel configured the client types the 9-digit code from their recharge;
- * otherwise an Xtream login (DNS, user, password) or an M3U link. Auto-logs in when saved.
+ * Entry screen. With the Xplay panel configured the client types the 9-digit code from their recharge,
+ * or opens the manual form to sign in with a list URL; otherwise only the manual form (Xtream login or
+ * M3U link). Auto-logs in when saved.
  */
 public class LoginActivity extends Activity {
 
@@ -50,6 +51,13 @@ public class LoginActivity extends Activity {
                 code.setText(saved);
                 setContentView(buildSplash());
                 loginWithCode(saved, true);
+            } else if (Repo.hasLogin()) {
+                // Signed in with a list URL instead of a code.
+                buildUi();
+                xtreamTab = Repo.isXtream();
+                updateTabs();
+                setContentView(buildSplash());
+                connect();
             } else {
                 setContentView(codeRoot);
             }
@@ -212,7 +220,50 @@ public class LoginActivity extends Activity {
             public void onClick(View v) { submit(); }
         });
 
+        if (Backend.configured()) {
+            View back = secondaryButton("ENTRAR COM CÓDIGO");
+            LinearLayout.LayoutParams bp = Ui.lp(-1, Ui.dp(this, 48));
+            bp.topMargin = Ui.dp(this, 12);
+            form.addView(back, bp);
+            back.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) { showCodeForm(); }
+            });
+        }
+
         formRoot = root;
+    }
+
+    /** Outlined button for switching between the code and the list URL forms. */
+    private TextView secondaryButton(String label) {
+        TextView t = Ui.text(this, label, 15, Palette.TEXT, true);
+        t.setGravity(Gravity.CENTER);
+        t.setFocusable(true);
+        t.setClickable(true);
+        t.setBackground(Ui.selectable(this, Palette.SURFACE_HI, 0x33FFFFFF, Ui.dp(this, 24), Palette.GOLD));
+        return t;
+    }
+
+    /** From the code screen: sign in with a list URL (M3U link or Xtream login) instead. */
+    private void showManualForm() {
+        if (formRoot == null) buildUi();
+        xtreamTab = false;
+        updateTabs();
+        setContentView(formRoot);
+        m3u.requestFocus();
+    }
+
+    private void showCodeForm() {
+        setContentView(codeRoot);
+        code.requestFocus();
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (codeRoot != null && formRoot != null && formRoot.getParent() != null && form.getVisibility() == View.VISIBLE) {
+            showCodeForm();
+            return;
+        }
+        super.onBackPressed();
     }
 
     private TextView tab(String label) {
@@ -417,6 +468,14 @@ public class LoginActivity extends Activity {
         codeButton = btn;
         btn.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) { submitCode(); }
+        });
+
+        View byUrl = secondaryButton("ENTRAR COM LINK (URL)");
+        LinearLayout.LayoutParams ul = Ui.lp(-1, Ui.dp(this, 48));
+        ul.topMargin = Ui.dp(this, 12);
+        box.addView(byUrl, ul);
+        byUrl.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) { showManualForm(); }
         });
 
         // The install's own user: the reseller links it to the client's recharges.
