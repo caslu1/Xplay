@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Xplay mockups</title>
+<style>
+:root{
+  --black:#000;--surface:#0b0b0b;--surface-hi:#1c1c1c;--line:#262626;
+  --gold:#E8B84A;--gold-light:#F5CD6A;--hot:#B8322A;--a1:#D9682F;--a2:#9E2F22;
+  --text:#fff;--dim:#9a9a9a;--dim2:#6b6b6b;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#222;font-family:Inter,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased}
+.screen{width:1920px;height:1080px;position:relative;overflow:hidden;background:var(--black);margin-bottom:40px}
+
+/* top bar */
+.top{position:absolute;top:0;left:0;right:0;height:110px;display:flex;align-items:center;padding:0 72px;gap:14px;z-index:5;
+  background:linear-gradient(#000e,#0000)}
+.logo{font-weight:900;font-size:40px;letter-spacing:2px;color:var(--gold);margin-right:44px;display:flex;align-items:center;gap:12px}
+.logo .mark{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--gold-light),#b9862a);display:grid;place-items:center}
+.logo .mark:after{content:"";border-left:18px solid #000;border-top:11px solid transparent;border-bottom:11px solid transparent;margin-left:5px}
+.tab{font-size:24px;font-weight:600;color:#cfcfcf;padding:12px 26px;border-radius:40px}
+.tab.on{color:var(--gold)}
+.tab.focus{background:var(--gold);color:#000}
+.top .sp{flex:1}
+.ico{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:#ffffff12}
+.ico svg{width:28px;height:28px;fill:none;stroke:#ddd;stroke-width:2.2}
+.clock{font-size:26px;color:#ddd;margin-left:18px;font-weight:500}
+
+/* posters */
+.poster{position:relative;border-radius:14px;overflow:hidden;flex:none;background:#222}
+.poster .art{position:absolute;inset:0}
+.poster .t{position:absolute;left:16px;right:16px;bottom:18px;font-weight:900;line-height:1.02;text-transform:uppercase;text-shadow:0 2px 12px #000a}
+.poster .badge{position:absolute;top:12px;left:12px;background:var(--gold);color:#000;font-size:15px;font-weight:800;padding:4px 9px;border-radius:6px}
+.poster .prog{position:absolute;left:0;right:0;bottom:0;height:7px;background:#ffffff30}
+.poster .prog i{display:block;height:100%;background:var(--gold)}
+.focus-ring{outline:5px solid var(--gold);outline-offset:4px;box-shadow:0 18px 50px #000c;z-index:3}
+
+.row{position:absolute;left:72px;right:0}
+.row h3{font-size:30px;font-weight:700;margin-bottom:20px}
+.row .items{display:flex;gap:26px}
+
+.btn{white-space:nowrap;display:inline-flex;align-items:center;gap:14px;font-size:26px;font-weight:700;padding:20px 40px;border-radius:14px;background:#ffffff1c;color:#fff}
+.btn.primary{background:var(--gold);color:#000}
+.btn.focus{outline:4px solid #fff;outline-offset:4px}
+.btn svg{width:26px;height:26px}
+.chip{display:inline-block;font-size:20px;font-weight:700;padding:6px 14px;border-radius:8px;border:2px solid #ffffff55;color:#ddd}
+.chip.g{border-color:var(--gold);color:var(--gold)}
+.meta{display:flex;gap:16px;align-items:center;font-size:24px;color:#ccc}
+.dot{width:6px;height:6px;border-radius:50%;background:#777}
+.live{display:inline-flex;align-items:center;gap:8px;background:var(--hot);color:#fff;font-size:18px;font-weight:800;padding:5px 12px;border-radius:6px;letter-spacing:1px}
+.live:before{content:"";width:9px;height:9px;border-radius:50%;background:#fff}
+.dim{color:var(--dim)}
+
+/* lists */
+.list{position:absolute;top:130px;bottom:40px;background:var(--surface);border-radius:20px;padding:16px;overflow:hidden}
+.li{display:flex;align-items:center;gap:18px;padding:16px 20px;border-radius:12px;font-size:24px;color:#ddd}
+.li .n{color:var(--dim2);font-size:20px;width:40px;font-weight:600}
+.li .c{margin-left:auto;color:var(--dim2);font-size:20px}
+.li.on{background:var(--surface-hi);color:var(--gold)}
+.li.focus{background:var(--gold);color:#000}
+.li.focus .n,.li.focus .c,.li.focus .dim{color:#000a}
+.chlogo{width:62px;height:62px;border-radius:12px;display:grid;place-items:center;font-weight:900;font-size:19px;flex:none;letter-spacing:-.5px}
+.bar{height:6px;border-radius:3px;background:#ffffff25;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--gold)}
+
+/* video frames */
+.video{position:absolute;overflow:hidden}
+.scrim-b{position:absolute;left:0;right:0;bottom:0;height:560px;background:linear-gradient(#0000,#000e 60%,#000)}
+.scrim-l{position:absolute;inset:0;background:linear-gradient(90deg,#000 0%,#000d 32%,#0000 70%)}
+</style>
+</head>
+<body>
+
+<!-- 1. LOGIN -->
+<section class="screen" id="login">
+  <div class="art" id="login-bg" style="position:absolute;inset:0"></div>
+  <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,#000a,#000 75%)"></div>
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:820px;text-align:center">
+    <div class="logo" style="justify-content:center;font-size:72px;margin:0 0 14px"><span class="mark" style="width:84px;height:84px;border-radius:22px"></span>XPLAY</div>
+    <div style="font-size:26px;color:#bbb;margin-bottom:54px">TV ao vivo, filmes e séries no seu Fire TV, Android TV e Mi Box</div>
+    <div style="display:flex;gap:12px;justify-content:center;margin-bottom:40px">
+      <span class="tab focus">Código de acesso</span><span class="tab">Xtream Codes</span><span class="tab">Lista M3U</span>
+    </div>
+    <div style="background:#111d;border:1px solid #2a2a2a;border-radius:24px;padding:46px 56px;text-align:left">
+      <div style="font-size:22px;color:var(--dim);margin-bottom:14px">Digite o código de 9 dígitos</div>
+      <div style="display:flex;gap:14px;margin-bottom:34px" id="code"></div>
+      <div class="btn primary" style="width:100%;justify-content:center;padding:24px">Entrar</div>
+      <div style="display:flex;justify-content:space-between;margin-top:28px;font-size:20px;color:var(--dim)">
+        <span>ID do aparelho: <b style="color:#ddd">7F3A-92C1</b></span><span>Versão 4.2</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. HOME -->
+<section class="screen" id="home">
+  <div class="video" style="inset:0" id="home-hero"></div>
+  <div class="scrim-l"></div><div class="scrim-b" style="height:620px"></div>
+  <div class="top" data-tab="Filmes"></div>
+  <div style="position:absolute;left:72px;top:150px;width:860px">
+    <div style="display:flex;gap:12px;margin-bottom:22px"><span class="chip g">LANÇAMENTO</span><span class="chip">4K</span><span class="chip">DUBLADO</span></div>
+    <div style="font-size:104px;font-weight:900;line-height:.95;letter-spacing:-2px;margin-bottom:22px">HORIZONTE<br>DE FERRO</div>
+    <div class="meta" style="margin-bottom:22px"><span style="color:var(--gold);font-weight:700">★ 8.4</span><span class="dot"></span>2026<span class="dot"></span>2h 14min<span class="dot"></span>Ação, Ficção</div>
+    <div style="font-size:24px;line-height:1.5;color:#ccc;margin-bottom:34px">Quando uma estação orbital perde contato com a Terra, uma engenheira precisa atravessar o deserto para religar a última antena antes do apagão total.</div>
+    <div style="display:flex;gap:18px"><span class="btn primary focus"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z" fill="#000"/></svg>Assistir</span><span class="btn">+ Minha lista</span><span class="btn">Trailer</span></div>
+  </div>
+  <div class="row" style="top:770px"><h3>Continuar assistindo</h3><div class="items" id="home-r1"></div></div>
+</section>
+
+<!-- 3. LIVE TV -->
+<section class="screen" id="live">
+  <div class="top" data-tab="TV"></div>
+  <div class="list" style="left:72px;width:380px" id="live-cats"></div>
+  <div class="list" style="left:472px;width:560px" id="live-ch"></div>
+  <div style="position:absolute;left:1052px;top:130px;right:72px">
+    <div class="video" style="position:relative;height:446px;border-radius:20px" id="live-prev"></div>
+    <div style="display:flex;align-items:center;gap:16px;margin:26px 0 8px"><span class="live">AO VIVO</span><span style="font-size:22px;color:var(--dim)">104 · Esporte Max HD</span><span class="chip" style="margin-left:auto">FHD</span></div>
+    <div style="font-size:40px;font-weight:800;margin-bottom:8px">Copa Nacional: Semifinal</div>
+    <div style="font-size:22px;color:var(--dim);margin-bottom:16px">20:00 – 22:00 · termina em 48 min</div>
+    <div class="bar" style="margin-bottom:28px"><i style="width:60%"></i></div>
+    <div style="background:var(--surface);border-radius:18px;padding:10px 8px" id="live-epg"></div>
+  </div>
+</section>
+
+<!-- 4. EPG GRID -->
+<section class="screen" id="epg">
+  <div class="top" data-tab="TV"></div>
+  <div style="position:absolute;left:72px;top:130px;right:72px;height:250px;display:flex;gap:40px">
+    <div class="video" style="position:relative;width:444px;height:250px;border-radius:18px" id="epg-prev"></div>
+    <div style="flex:1;padding-top:6px">
+      <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px"><span class="live">AO VIVO</span><span class="dim" style="font-size:22px">Cine Prime · 21:00 – 23:10</span></div>
+      <div style="font-size:46px;font-weight:800;margin-bottom:14px">Noite Sem Fim</div>
+      <div style="font-size:23px;color:#bbb;line-height:1.5;max-width:1000px">Um taxista aceita uma corrida misteriosa que o leva por toda a cidade até o amanhecer. Suspense · 14 anos</div>
+    </div>
+  </div>
+  <div style="position:absolute;left:72px;right:72px;top:410px;bottom:40px;background:var(--surface);border-radius:20px;overflow:hidden" id="epg-grid"></div>
+</section>
+
+<!-- 5. MOVIES GRID -->
+<section class="screen" id="movies">
+  <div class="top" data-tab="Filmes"></div>
+  <div class="list" style="left:72px;width:360px" id="mov-cats"></div>
+  <div style="position:absolute;left:470px;top:130px;right:72px">
+    <div style="display:flex;align-items:baseline;gap:20px;margin-bottom:26px"><div style="font-size:42px;font-weight:800">Ação</div><div class="dim" style="font-size:22px">1.284 filmes</div>
+      <div style="margin-left:auto;display:flex;gap:10px"><span class="chip g">Mais recentes</span><span class="chip">A–Z</span><span class="chip">Avaliação</span></div></div>
+    <div id="mov-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:30px 26px"></div>
+  </div>
+</section>
+
+<!-- 6. DETAIL -->
+<section class="screen" id="detail">
+  <div class="video" style="inset:0" id="det-bg"></div>
+  <div class="scrim-l" style="background:linear-gradient(90deg,#000 0%,#000e 40%,#0003 80%)"></div><div class="scrim-b" style="height:420px"></div>
+  <div class="top" data-tab="Filmes"></div>
+  <div style="position:absolute;left:72px;top:140px;width:1000px">
+    <div style="font-size:92px;font-weight:900;line-height:.95;letter-spacing:-2px;margin-bottom:24px">O ÚLTIMO<br>FAROL</div>
+    <div class="meta" style="margin-bottom:20px"><span style="color:var(--gold);font-weight:700">★ 7.9</span><span class="dot"></span>2025<span class="dot"></span>1h 58min<span class="dot"></span><span class="chip">12</span><span class="chip">4K</span><span class="chip">5.1</span></div>
+    <div style="font-size:22px;color:var(--dim);margin-bottom:18px">Drama · Mistério · Dublado e Legendado</div>
+    <div style="font-size:25px;line-height:1.55;color:#ddd;margin-bottom:22px">Isolado numa ilha durante o inverno, o faroleiro Tomás começa a receber sinais luminosos de um navio que afundou há trinta anos. Para descobrir a verdade, ele terá que enfrentar o próprio passado.</div>
+    <div style="font-size:21px;color:var(--dim);margin-bottom:30px;line-height:1.6">Direção: <span style="color:#ccc">Helena Duarte</span><br>Elenco: <span style="color:#ccc">Rafael Moura, Clara Antunes, Joaquim Reis</span></div>
+    <div style="display:flex;gap:18px"><span class="btn primary focus"><svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z" fill="#000"/></svg>Continuar · 42 min</span><span class="btn">Do início</span><span class="btn">♥ Favorito</span><span class="btn">Trailer</span></div>
+  </div>
+  <div class="row" style="top:826px"><h3>Relacionados</h3><div class="items" id="det-rel"></div></div>
+</section>
+
+<!-- 7. SERIES / EPISODES -->
+<section class="screen" id="series">
+  <div class="video" style="inset:0" id="ser-bg"></div>
+  <div style="position:absolute;inset:0;background:linear-gradient(90deg,#000 0%,#000f 45%,#000a 100%)"></div>
+  <div class="top" data-tab="Séries"></div>
+  <div style="position:absolute;left:72px;top:150px;width:560px">
+    <div class="poster" style="width:300px;height:450px;margin-bottom:30px" id="ser-poster"></div>
+    <div style="font-size:52px;font-weight:900;line-height:1;margin-bottom:16px">CIDADE<br>SUBMERSA</div>
+    <div class="meta" style="font-size:22px;margin-bottom:16px"><span style="color:var(--gold);font-weight:700">★ 8.8</span><span class="dot"></span>3 temporadas<span class="dot"></span><span class="chip">16</span></div>
+    <div style="font-size:21px;color:#bbb;line-height:1.5">Uma detetive investiga desaparecimentos numa cidade parcialmente alagada após a construção de uma represa.</div>
+  </div>
+  <div style="position:absolute;left:700px;top:150px;right:72px">
+    <div style="display:flex;gap:12px;margin-bottom:30px"><span class="tab">Temporada 1</span><span class="tab focus">Temporada 2</span><span class="tab">Temporada 3</span></div>
+    <div id="ser-eps"></div>
+  </div>
+</section>
+
+<!-- 8. PLAYER VOD -->
+<section class="screen" id="player">
+  <div class="video" style="inset:0" id="pl-bg"></div>
+  <div style="position:absolute;left:0;right:0;top:0;height:260px;background:linear-gradient(#000c,#0000)"></div>
+  <div class="scrim-b" style="height:420px;background:linear-gradient(#0000,#000d)"></div>
+  <div style="position:absolute;left:72px;top:56px">
+    <div style="font-size:22px;color:var(--gold);font-weight:700;margin-bottom:6px">CIDADE SUBMERSA · T2 E4</div>
+    <div style="font-size:44px;font-weight:800">A Comporta</div>
+  </div>
+  <div style="position:absolute;right:72px;top:62px;display:flex;gap:12px"><span class="chip">FHD 1080p</span><span class="chip">Português</span><span class="chip">Legenda: Off</span></div>
+  <div style="position:absolute;left:72px;right:72px;bottom:70px">
+    <div style="display:flex;justify-content:space-between;font-size:24px;margin-bottom:16px"><span>27:41</span><span class="dim">-21:13 · termina às 22:41</span></div>
+    <div style="position:relative;height:10px;border-radius:5px;background:#ffffff30;margin-bottom:40px">
+      <div style="position:absolute;left:0;width:72%;height:100%;background:#ffffff55;border-radius:5px"></div>
+      <div style="position:absolute;left:0;width:56.6%;height:100%;background:var(--gold);border-radius:5px"></div>
+      <div style="position:absolute;left:56.6%;top:50%;width:30px;height:30px;border-radius:50%;background:var(--gold);transform:translate(-50%,-50%);box-shadow:0 0 0 7px #e8b84a40"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:22px" id="pl-ctrls"></div>
+  </div>
+  <div style="position:absolute;right:72px;bottom:300px;width:520px;background:#111e;border-radius:18px;padding:18px;display:flex;gap:18px;align-items:center">
+    <div class="poster" style="width:200px;height:112px" id="pl-next"></div>
+    <div><div style="font-size:18px;color:var(--gold);font-weight:700;margin-bottom:6px">PRÓXIMO EPISÓDIO</div><div style="font-size:24px;font-weight:700;margin-bottom:6px">E5 · Maré Baixa</div><div class="dim" style="font-size:19px">47 min</div></div>
+  </div>
+</section>
+
+<!-- 9. PLAYER LIVE OVERLAY -->
+<section class="screen" id="liveplay">
+  <div class="video" style="inset:0" id="lp-bg"></div>
+  <div class="scrim-b" style="height:470px"></div>
+  <div style="position:absolute;right:72px;top:56px;display:flex;gap:12px;align-items:center"><span class="live">AO VIVO</span><span class="chip">FHD</span><span style="font-size:28px;font-weight:600;margin-left:10px">20:12</span></div>
+  <div style="position:absolute;left:72px;right:72px;bottom:60px;display:flex;gap:26px;align-items:flex-end" id="lp-cards"></div>
+</section>
+
+<!-- 10. SPORTS -->
+<section class="screen" id="sports">
+  <div class="top" data-tab="Esportes"></div>
+  <div style="position:absolute;left:72px;top:130px;right:72px">
+    <div style="display:flex;gap:12px;margin-bottom:30px"><span class="tab focus">Ao vivo</span><span class="tab">Próximos</span><span class="tab">Todos</span><span style="margin-left:auto" class="tab">Futebol</span><span class="tab">Basquete</span><span class="tab">Lutas</span><span class="tab">Fórmula</span></div>
+    <div style="font-size:30px;font-weight:700;margin-bottom:20px">Acontecendo agora</div>
+    <div id="sp-live" style="display:grid;grid-template-columns:repeat(3,1fr);gap:26px;margin-bottom:44px"></div>
+    <div style="font-size:30px;font-weight:700;margin-bottom:20px">Hoje mais tarde</div>
+    <div id="sp-next" style="display:grid;grid-template-columns:repeat(4,1fr);gap:26px;margin-bottom:44px"></div>
+    <div style="font-size:30px;font-weight:700;margin-bottom:20px">Canais de esporte</div>
+    <div id="sp-ch" style="display:flex;gap:22px"></div>
+  </div>
+</section>
+
+<!-- 11. SEARCH -->
+<section class="screen" id="search">
+  <div class="top" data-tab=""></div>
+  <div style="position:absolute;left:72px;top:140px;width:640px">
+    <div style="background:var(--surface-hi);border:3px solid var(--gold);border-radius:16px;padding:22px 26px;font-size:32px;font-weight:600;margin-bottom:28px;display:flex;align-items:center;gap:16px">
+      <svg viewBox="0 0 24 24" style="width:32px;height:32px;fill:none;stroke:var(--gold);stroke-width:2.4"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+      cida<span style="width:3px;height:36px;background:var(--gold)"></span></div>
+    <div id="kbd" style="display:grid;grid-template-columns:repeat(7,1fr);gap:10px"></div>
+    <div style="margin-top:30px;font-size:22px;color:var(--dim)">Buscas recentes</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px"><span class="chip">farol</span><span class="chip">esporte max</span><span class="chip">desenhos</span><span class="chip">novela das nove</span></div>
+  </div>
+  <div style="position:absolute;left:780px;top:140px;right:72px">
+    <div style="font-size:28px;font-weight:700;margin-bottom:18px">Canais <span class="dim" style="font-weight:500">· 3</span></div>
+    <div id="srch-ch" style="display:flex;gap:20px;margin-bottom:40px"></div>
+    <div style="font-size:28px;font-weight:700;margin-bottom:18px">Filmes e séries <span class="dim" style="font-weight:500">· 12</span></div>
+    <div id="srch-v" style="display:grid;grid-template-columns:repeat(5,1fr);gap:20px 24px"></div>
+  </div>
+</section>
+
+<!-- 12. SETTINGS -->
+<section class="screen" id="settings">
+  <div class="top" data-tab=""></div>
+  <div class="list" style="left:72px;width:460px" id="set-menu"></div>
+  <div style="position:absolute;left:580px;top:130px;right:72px">
+    <div style="font-size:44px;font-weight:800;margin-bottom:30px">Conta</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px" id="set-cards"></div>
+  </div>
+</section>
+
+<script>
+// deterministic palette for fake artwork
+const PAL=[["#1d3557","#e63946"],["#0f2027","#2c5364"],["#3a0ca3","#f72585"],["#14213d","#fca311"],["#283618","#dda15e"],
+  ["#03045e","#00b4d8"],["#370617","#f48c06"],["#10002b","#9d4edd"],["#1b4332","#95d5b2"],["#2b2d42","#ef233c"],
+  ["#001219","#0a9396"],["#3d0c02","#e85d04"],["#22223b","#c9ada7"],["#0b090a","#ba181b"],["#002855","#7fb7be"],["#432818","#ffe6a7"]];
+function art(i,opts={}){
+  const [a,b]=PAL[i%PAL.length], ang=(i*47)%360, x=20+(i*37)%60, y=15+(i*23)%50;
+  const sun=`radial-gradient(circle at ${x}% ${y}%, ${b} 0 ${8+(i%4)*3}%, ${b}55 ${14+(i%4)*3}%, transparent ${30+(i%3)*8}%)`;
+  const hills=`radial-gradient(ellipse 90% 40% at ${30+(i*13)%40}% 105%, #000d 0 60%, transparent 61%),radial-gradient(ellipse 70% 35% at ${70-(i*11)%40}% 100%, #0009 0 60%, transparent 61%)`;
+  const fig=opts.fig?`radial-gradient(ellipse 9% 30% at ${45+(i*7)%15}% 78%, #000e 0 55%, transparent 57%),radial-gradient(circle at ${45+(i*7)%15}% 46%, #000e 0 4.5%, transparent 5%),`:"";
+  return `${fig}${hills},${sun},linear-gradient(${ang}deg, ${a}, ${b}aa 60%, ${a})`;
+}
+function poster(i,title,w,h,o={}){
+  const fs=o.fs||Math.round(w/7.5);
+  return `<div class="poster ${o.focus?'focus-ring':''}" style="width:${w}px;height:${h}px">
+    <div class="art" style="background:${art(i,{fig:true})}"></div>
+    ${o.badge?`<span class="badge">${o.badge}</span>`:''}
+    ${title?`<div class="t" style="font-size:${fs}px">${title}</div>`:''}
+    ${o.prog!=null?`<div class="prog"><i style="width:${o.prog}%"></i></div>`:''}</div>`;
+}
+const $=id=>document.getElementById(id);
+const setBg=(id,i,extra='')=>{$(id).style.background=extra+art(i,{fig:true});};
+
+// top bars
+const ICON_S='<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>';
+const ICON_G='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>';
+document.querySelectorAll('.top').forEach(t=>{
+  const on=t.dataset.tab;
+  t.innerHTML=`<div class="logo"><span class="mark"></span>XPLAY</div>`+
+   ["TV","Esportes","Filmes","Séries","Novelas","Infantis","Favoritos"].map(n=>`<span class="tab ${n===on?'on':''}">${n}</span>`).join('')+
+   `<span class="sp"></span><span class="ico" ${on===''&&t.parentElement.id==='search'?'style="background:var(--gold)"':''}>${ICON_S}</span><span class="ico" ${t.parentElement.id==='settings'?'style="background:var(--gold)"':''}>${ICON_G}</span><span class="clock">20:12</span>`;
+});
+
+// login
+$('login-bg').style.background=art(7);
+$('code').innerHTML=[4,8,1,0,3,7,'','',''].map((d,k)=>`<div style="flex:1;height:96px;border-radius:14px;background:#1c1c1c;border:3px solid ${k===6?'var(--gold)':'#2c2c2c'};display:grid;place-items:center;font-size:46px;font-weight:800">${d}</div>`).join('');
+
+// home
+setBg('home-hero',3);
+const titles=["O Último Farol","Cidade Submersa","Rota 77","Noite Sem Fim","Pico Gelado","Os Herdeiros","Ponto Cego","Maré Alta","Código Vermelho","Vale das Sombras","Turbo","Estação Zero","A Fuga","Duelo Final","Sol de Inverno","Terra Prometida","Corredor 9","Asas de Papel","Linha de Frente","O Guardião"];
+$('home-r1').innerHTML=titles.slice(0,7).map((t,k)=>poster(k+1,t,420,236,{prog:[62,35,80,15,48,90,22][k],focus:k===0,fs:34})).join('');
+
+// live
+const cats=[["Todos","2.418"],["Favoritos","24"],["Esportes","186"],["Notícias","64"],["Filmes 24h","142"],["Séries 24h","98"],["Infantis","71"],["Documentários","55"],["Abertos","48"],["Música","37"],["Internacionais","312"],["4K UHD","26"]];
+$('live-cats').innerHTML=cats.map((c,k)=>`<div class="li ${k===2?'on':''}">${c[0]}<span class="c">${c[1]}</span></div>`).join('');
+const chans=[["Esporte Max HD","Copa Nacional: Semifinal",60],["Esporte Max 2","Basquete: Liga Pro",30],["Arena Sports","Mesa Redonda",75],["Fight Channel","Noite das Lutas",12],["Motor TV","GP de Interlagos – Treino",44],["Tênis+","Open de Verão – Quartas",88],["Gol TV","Gols da Rodada",52],["Esporte Max 3","Vôlei: Superliga",20],["Radical HD","Surfe: Etapa Havaí",66]];
+const lg=(k,name,sz)=>{const [a,b]=PAL[(k*3+2)%PAL.length];const z=sz?`width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.3)}px;border-radius:${Math.round(sz*.2)}px;`:"";return `<div class="chlogo" style="${z}background:linear-gradient(135deg,${a},${b})">${name.split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase()}</div>`};
+$('live-ch').innerHTML=chans.map((c,k)=>`<div class="li ${k===0?'focus':''}" style="gap:16px;padding:12px 16px"><span class="n">${104+k}</span>${lg(k,c[0])}<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:23px">${c[0]}</div><div class="dim" style="font-size:18px;margin:4px 0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c[1]}</div><div class="bar" style="height:4px"><i style="width:${c[2]}%;${k===0?'background:#000':''}"></i></div></div></div>`).join('');
+// fake stadium for previews
+const stadium=`radial-gradient(ellipse 120% 60% at 50% 110%, #2d6a4f 0 50%, #1b4332 51% 70%, transparent 71%),repeating-linear-gradient(90deg,#2d6a4f 0 80px,#40916c 80px 160px),`;
+$('live-prev').style.background=`linear-gradient(#0000 55%,#0006),radial-gradient(circle at 20% 10%,#fff6 0 3%,transparent 10%),radial-gradient(circle at 80% 10%,#fff6 0 3%,transparent 10%),linear-gradient(#0b1d2c 0 28%,#2a2f3a 28% 40%,transparent 40%),repeating-linear-gradient(90deg,#2d6a4f 0 90px,#3a8a5f 90px 180px)`;
+$('live-prev').innerHTML=`<div style="position:absolute;left:24px;top:24px;background:#000b;border-radius:10px;padding:10px 16px;font-size:22px;font-weight:800;display:flex;gap:14px"><span>AZU</span><span style="color:var(--gold)">2 – 1</span><span>VER</span><span class="dim" style="font-weight:600">67'</span></div>`;
+const epg=[["20:00","Copa Nacional: Semifinal",1],["22:00","Pós-jogo ao Vivo",0],["23:00","Resenha da Noite",0],["00:30","Reprise: Clássicos",0]];
+$('live-epg').innerHTML=epg.map(e=>`<div style="display:flex;gap:24px;padding:14px 20px;font-size:23px;${e[2]?'color:var(--gold);font-weight:700':''}"><span style="width:80px;color:${e[2]?'var(--gold)':'var(--dim)'}">${e[0]}</span>${e[1]}</div>`).join('');
+
+// epg grid
+setBg('epg-prev',12);
+const times=["20:00","20:30","21:00","21:30","22:00","22:30","23:00"];
+const gridCh=[["Cine Prime",[["Curtas da Noite",2],["Noite Sem Fim",4.3,1],["Trailers",.7]]],["Notícias 24",[["Jornal da Noite",3],["Debate",2],["Últimas",2]]],["Esporte Max HD",[["Copa Nacional: Semifinal",4],["Pós-jogo ao Vivo",2],["Resenha",1]]],["Kids Toon",[["Turma do Parque",1],["Aventuras no Mar",2],["Robôs da Vila",2],["Hora de Dormir",2]]],["Novelas Mais",[["Amor de Verão",2.5],["Destinos Cruzados",3],["Reprise",1.5]]],["Docs World",[["Planeta Selvagem",3],["Cidades Perdidas",4]]],["Série Mania",[["Cidade Submersa T1E3",2],["Cidade Submersa T1E4",2],["Ponto Cego",3]]]];
+const colW=(1776-300)/7, now=20.2;
+let g=`<div style="display:flex;height:64px;border-bottom:1px solid var(--line);font-size:21px;color:var(--dim)"><div style="width:300px;padding:20px 28px;color:#fff;font-weight:700">Hoje, 28 out</div>${times.map(t=>`<div style="width:${colW}px;padding:20px 14px;border-left:1px solid var(--line)">${t}</div>`).join('')}</div>`;
+gridCh.forEach((c,r)=>{
+  let x=0;g+=`<div style="display:flex;height:84px;border-bottom:1px solid var(--line);position:relative"><div style="width:300px;display:flex;align-items:center;gap:16px;padding:0 20px;font-size:22px;font-weight:600;flex:none">${lg(r+4,c[0],54)}${c[0]}</div><div style="position:relative;flex:1">`;
+  c[1].forEach(p=>{const w=p[1]*colW-8;const f=p[2];const live=x/colW<=(now-20)*2&&(x/colW+p[1])>(now-20)*2;
+    g+=`<div style="position:absolute;left:${x+4}px;top:8px;width:${w}px;height:68px;border-radius:10px;padding:12px 16px;font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${f?'background:var(--gold);color:#000;font-weight:700;outline:3px solid #fff;outline-offset:2px':live?'background:#2a2a2a;color:#fff':'background:#151515;color:#bbb'}">${p[0]}<div style="font-size:16px;margin-top:4px;opacity:.7">${f?'21:00 – 23:10':''}</div></div>`;x+=p[1]*colW;});
+  g+=`</div></div>`;});
+g+=`<div style="position:absolute;top:0;height:64px;left:${300+(now-20)*2*colW}px;width:3px;background:var(--hot)"></div><div style="position:absolute;top:52px;left:${294+(now-20)*2*colW}px;border:8px solid transparent;border-top-color:var(--hot)"></div>`;
+$('epg-grid').innerHTML=g;
+
+// movies
+const mcats=["Lançamentos","Em alta","Ação","Comédia","Drama","Terror","Ficção científica","Romance","Animação","Documentário","Nacionais","4K UHD"];
+$('mov-cats').innerHTML=mcats.map((c,k)=>`<div class="li ${k===2?'on':''}">${c}</div>`).join('');
+$('mov-grid').innerHTML=titles.slice(2,14).map((t,k)=>`<div>${poster(k+3,t,206,309,{focus:k===7,badge:[ '4K',null,'NOVO',null,null,'4K',null,null,'NOVO',null,null,null][k],fs:26})}<div style="font-size:19px;margin-top:12px;color:${k===7?'var(--gold)':'#ccc'};font-weight:600">${t}</div><div class="dim" style="font-size:16px;margin-top:4px">${2026-(k%4)} · ★ ${(6.5+((k*7)%30)/10).toFixed(1)}</div></div>`).join('');
+
+// detail
+setBg('det-bg',14);
+$('det-rel').innerHTML=titles.slice(8,16).map((t,k)=>poster(k+8,t,330,186,{fs:28})).join('');
+
+// series
+setBg('ser-bg',10);
+$('ser-poster').innerHTML=`<div class="art" style="background:${art(10,{fig:true})}"></div><div class="t" style="font-size:40px">Cidade Submersa</div>`;
+const eps=[["A Represa","Os moradores se recusam a deixar as casas antes da inundação.",100],["Sinais","Uma luz acesa no fundo do lago reacende um caso antigo.",100],["Corrente","Carla encontra um diário dentro de um carro submerso.",100],["A Comporta","O prefeito tenta impedir a abertura das comportas.",56],["Maré Baixa","O nível da água revela o que estava escondido.",0]];
+$('ser-eps').innerHTML=eps.map((e,k)=>`<div style="display:flex;gap:28px;align-items:center;padding:12px 16px;border-radius:16px;margin-bottom:8px;${k===3?'background:#1c1c1c;outline:4px solid var(--gold)':''}">${poster(20+k,'',224,126,{prog:e[2]||null})}<div style="flex:1"><div style="font-size:26px;font-weight:700;margin-bottom:8px;${k===3?'color:var(--gold)':''}">${k+1}. ${e[0]}</div><div style="font-size:21px;color:#aaa;line-height:1.45;margin-bottom:8px">${e[1]}</div><div class="dim" style="font-size:18px">${44+k*2} min${e[2]===100?' · Assistido':''}</div></div></div>`).join('');
+
+// player
+setBg('pl-bg',10);
+$('pl-next').innerHTML=`<div class="art" style="background:${art(24,{fig:true})}"></div>`;
+const ic={prev:'<path d="M6 5v14M19 5L9 12l10 7z"/>',rw:'<path d="M11 5L3 12l8 7zM21 5l-8 7 8 7z"/>',pause:'<path d="M7 5h3v14H7zM14 5h3v14h-3z"/>',ff:'<path d="M13 5l8 7-8 7zM3 5l8 7-8 7z"/>',next:'<path d="M18 5v14M5 5l10 7-10 7z"/>',sub:'<rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="#fff" stroke-width="2"/><path d="M7 13h4M13 13h4M7 16h10" stroke="#fff" stroke-width="2"/>',aud:'<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 8a5 5 0 010 8M18.5 5.5a9 9 0 010 13" stroke="#fff" stroke-width="2" fill="none"/>',eps:'<path d="M4 6h16M4 12h16M4 18h10" stroke="#fff" stroke-width="2.4"/>',zoom:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" stroke="#fff" stroke-width="2.4" fill="none"/>'};
+const cb=(k,big,focus)=>`<div style="width:${big?96:76}px;height:${big?96:76}px;border-radius:50%;display:grid;place-items:center;background:${focus?'var(--gold)':'#ffffff1c'}"><svg viewBox="0 0 24 24" style="width:${big?40:32}px;height:${big?40:32}px;fill:${focus?'#000':'#fff'}">${ic[k]}</svg></div>`;
+$('pl-ctrls').innerHTML=cb('prev')+cb('rw')+cb('pause',1,1)+cb('ff')+cb('next')+'<span style="flex:1"></span>'+['eps','aud','sub','zoom'].map(k=>cb(k)).join('');
+
+// live player overlay
+$('lp-bg').style.background=`radial-gradient(circle at 15% 5%,#fff8 0 2%,transparent 12%),radial-gradient(circle at 85% 5%,#fff8 0 2%,transparent 12%),linear-gradient(#0b1d2c 0 22%,#2a2f3a 22% 34%,transparent 34%),radial-gradient(ellipse 18% 10% at 50% 62%,transparent 0 92%,#fff9 93% 96%,transparent 97%),linear-gradient(90deg,transparent 0 49.9%,#fff9 49.9% 50.1%,transparent 50.1%),repeating-linear-gradient(90deg,#2d6a4f 0 160px,#3a8a5f 160px 320px)`;
+$('lp-bg').innerHTML=`<div style="position:absolute;left:72px;top:56px;background:#000b;border-radius:12px;padding:14px 22px;font-size:30px;font-weight:800;display:flex;gap:20px"><span>AZU</span><span style="color:var(--gold)">2 – 1</span><span>VER</span><span class="dim" style="font-weight:600">67'</span></div>`;
+const side=(n,name,prog,k)=>`<div style="width:360px;background:#111d;border-radius:18px;padding:20px;opacity:.85"><div style="display:flex;gap:14px;align-items:center;margin-bottom:12px">${lg(k,name)}<div><div class="dim" style="font-size:18px">${n}</div><div style="font-size:22px;font-weight:700">${name}</div></div></div><div class="dim" style="font-size:19px;margin-bottom:10px">${prog}</div><div class="bar"><i style="width:${30+k*10}%"></i></div></div>`;
+$('lp-cards').innerHTML=side('103 ▲','Arena Sports','Mesa Redonda',2)+
+ `<div style="flex:1;background:#141414f2;border:3px solid var(--gold);border-radius:22px;padding:28px 32px"><div style="display:flex;gap:20px;align-items:center;margin-bottom:18px">${lg(0,'Esporte Max HD',84)}<div><div style="font-size:22px;color:var(--gold);font-weight:700">104 · ESPORTE MAX HD</div><div style="font-size:38px;font-weight:800">Copa Nacional: Semifinal</div></div><span class="live" style="margin-left:auto">AO VIVO</span></div><div style="display:flex;justify-content:space-between;font-size:21px;color:var(--dim);margin-bottom:10px"><span>20:00</span><span>restam 48 min</span><span>22:00</span></div><div class="bar" style="height:8px;margin-bottom:18px"><i style="width:60%"></i></div><div style="font-size:22px;color:#ccc">A seguir: <b style="color:#fff">22:00 Pós-jogo ao Vivo</b></div></div>`+
+ side('105 ▼','Esporte Max 2','Basquete: Liga Pro',1);
+
+// sports
+const teams=[["AZU","VER","2 – 1","67'","Copa Nacional"],["LEÕ","TIG","0 – 0","23'","Liga Estadual"],["RAI","FUR","88 – 84","4ºQ","Basquete Liga Pro"]];
+$('sp-live').innerHTML=teams.map((t,k)=>{const [a,b]=PAL[(k*5+1)%PAL.length],[c,d]=PAL[(k*5+4)%PAL.length];return `<div style="background:var(--surface);border-radius:20px;padding:28px;${k===0?'outline:5px solid var(--gold);outline-offset:4px':''}"><div style="display:flex;justify-content:space-between;margin-bottom:22px"><span class="dim" style="font-size:20px">${t[4]}</span><span class="live">AO VIVO · ${t[3]}</span></div><div style="display:flex;align-items:center;justify-content:space-between"><div style="text-align:center"><div style="width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,${a},${b});margin:0 auto 10px;border:4px solid #fff2"></div><b style="font-size:24px">${t[0]}</b></div><div style="font-size:54px;font-weight:900;${k===0?'color:var(--gold)':''}">${t[2]}</div><div style="text-align:center"><div style="width:96px;height:96px;border-radius:50%;background:linear-gradient(135deg,${c},${d});margin:0 auto 10px;border:4px solid #fff2"></div><b style="font-size:24px">${t[1]}</b></div></div><div style="margin-top:22px;font-size:19px;color:var(--dim);display:flex;gap:10px;flex-wrap:wrap">Assistir em: <span class="chip" style="font-size:16px">Esporte Max HD</span><span class="chip" style="font-size:16px">Arena 4K</span></div></div>`}).join('');
+const nx=[["21:30","Fight Channel","Noite das Lutas: Card Principal"],["22:00","Motor TV","GP de Interlagos – Classificação"],["22:15","Esporte Max 2","Liga Pro: Final do Oeste"],["23:00","Tênis+","Open de Verão – Semifinal"]];
+$('sp-next').innerHTML=nx.map((n,k)=>`<div style="background:var(--surface);border-radius:18px;padding:22px"><div style="font-size:34px;font-weight:800;color:var(--gold);margin-bottom:10px">${n[0]}</div><div style="font-size:22px;font-weight:700;margin-bottom:12px;line-height:1.3">${n[2]}</div><div style="display:flex;align-items:center;gap:12px">${lg(k+3,n[1],44)}<span class="dim" style="font-size:19px">${n[1]}</span></div></div>`).join('');
+
+$('sp-ch').innerHTML=chans.slice(0,9).map((c,k)=>`<div style="display:flex;flex-direction:column;align-items:center;gap:10px;width:170px">${lg(k,c[0],84)}<span style="font-size:18px;color:#ccc;text-align:center">${c[0]}</span></div>`).join('');
+// search
+$('kbd').innerHTML=[..."ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"].concat(["⌫","␣"]).map(c=>`<div style="height:66px;border-radius:12px;display:grid;place-items:center;font-size:26px;font-weight:600;background:${c==='D'?'var(--gold)':'#151515'};color:${c==='D'?'#000':'#ddd'};${c==='␣'?'grid-column:span 1':''}">${c}</div>`).join('');
+$('srch-ch').innerHTML=["Cidade TV","Cidade News","Cidade Kids"].map((n,k)=>`<div style="background:var(--surface);border-radius:16px;padding:18px 22px;display:flex;gap:16px;align-items:center;width:300px">${lg(k+7,n)}<div><div style="font-size:22px;font-weight:700">${n}</div><div class="dim" style="font-size:17px">Canal ${210+k}</div></div></div>`).join('');
+const st=["Cidade Submersa","Cidade de Vidro","A Cidade Dorme","Cidade Alta","Cidade Fantasma","Cidade Neon","Cidade Partida","Nova Cidade","Cidade dos Ventos","Cidade Perdida"];
+$('srch-v').innerHTML=st.map((t,k)=>`<div>${poster(10+k*3,t,182,240,{fs:24,badge:[0,3,6].includes(k)?'SÉRIE':null})}<div style="font-size:17px;margin-top:8px;color:#ccc;font-weight:600">${t}</div></div>`).join('');
+// make poster widths fluid in search grid
+document.querySelectorAll('#srch-v .poster').forEach(p=>p.style.width='100%');
+
+// settings
+const sm=[["Conta",1],["Listas e servidor"],["Player e reprodução"],["Controle parental"],["Aparência"],["Atualizações"],["Teste de conexão"],["Sobre"]];
+$('set-menu').innerHTML=sm.map((s,k)=>`<div class="li ${k===0?'focus':''}" style="padding:22px 24px">${s[0]}<span class="c">›</span></div>`).join('');
+const card=(t,rows)=>`<div style="background:var(--surface);border-radius:20px;padding:30px 34px"><div style="font-size:20px;color:var(--gold);font-weight:700;letter-spacing:1px;margin-bottom:18px">${t}</div>${rows.map(r=>`<div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);font-size:23px"><span class="dim">${r[0]}</span><span style="font-weight:600">${r[1]}</span></div>`).join('')}</div>`;
+$('set-cards').innerHTML=card('ASSINATURA',[["Status",'<span style="color:#6fdc8c">● Ativa</span>'],["Código de acesso","481 037 ***"],["Recarga válida até","27/01/2027"],["Conexões","1 de 2"]])+
+ card('SERVIDOR',[["Servidor","tv.exemplo.com"],["Usuário do aparelho","sala_tv"],["Criada em","12/03/2026"],["Formato","Xtream Codes"]])+
+ card('CONTEÚDO',[["Canais","2.418"],["Filmes","18.926"],["Séries","4.302"],["Guia (EPG)","Atualizado às 19:40"]])+
+ card('APARELHO',[["Aparelho","Fire TV Stick 4K Max"],["Android","11 (Fire OS 8)"],["Tela","3840 × 2160"],["Versão instalada","Xplay 4.2"]])+
+ `<div style="grid-column:span 2;display:flex;gap:18px;margin-top:6px"><span class="btn">Atualizar listas</span><span class="btn">Trocar lista / login</span><span class="btn" style="color:#ff8a7e">Sair da conta</span></div>`;
+</script>
+</body>
+</html>
