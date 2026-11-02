@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b1f4a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Minha Casa</title>
+<style>
+  :root {
+    --bg1:#1b1f4a; --bg2:#2a2350; --bg3:#4b3a7a;
+    --card:rgba(255,255,255,.075); --card-on:#121216; --box:#1e1e24; --box-on:#2b2b33;
+    --text:#fff; --dim:rgba(255,255,255,.55); --dim2:rgba(255,255,255,.38);
+    --accent:#7fb6ff; --green:#5fd38d; --red:#ff6b6b; --orange:#ff8a3d;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; min-height:100%; }
+  body {
+    background:#1b1f4a linear-gradient(170deg, var(--bg1) 0%, var(--bg2) 45%, var(--bg3) 100%) fixed;
+    color:var(--text); font:16px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    padding-bottom:120px; user-select:none;
+  }
+  button { font:inherit; color:inherit; background:none; border:0; cursor:pointer; padding:0; }
+  svg { display:block; }
+
+  header { display:flex; align-items:center; gap:8px; padding:calc(18px + env(safe-area-inset-top)) 16px 8px 20px; }
+  .home-btn { display:flex; align-items:center; gap:12px; font-size:26px; font-weight:700; }
+  .home-btn .caret { width:0; height:0; border:7px solid transparent; border-top:9px solid #fff; margin-top:8px; }
+  .spacer { flex:1; }
+  .icon-btn { width:44px; height:44px; display:grid; place-items:center; border-radius:50%; }
+  .icon-btn:active { background:rgba(255,255,255,.1); }
+
+  .tabs { display:flex; align-items:center; gap:22px; padding:10px 20px 6px; overflow-x:auto; scrollbar-width:none; white-space:nowrap; }
+  .tabs::-webkit-scrollbar { display:none; }
+  .tabs button { font-size:19px; color:var(--dim); font-weight:500; padding:6px 0; }
+  .tabs button.on { color:#fff; font-weight:600; }
+  .search { display:none; margin:6px 16px 0; }
+  .search.show { display:block; }
+  .search input { width:100%; padding:12px 16px; border-radius:16px; border:0; background:rgba(255,255,255,.1); color:#fff; font:inherit; outline:none; }
+
+  main { padding:0 14px; max-width:720px; margin:0 auto; }
+  .section-h { display:flex; align-items:center; justify-content:space-between; padding:22px 6px 10px; color:var(--dim); font-weight:600; font-size:17px; text-transform:uppercase; letter-spacing:.2px; }
+  .section-h .chev { transition:transform .2s; }
+  .section-h.closed .chev { transform:rotate(180deg); }
+  .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .grid.hidden { display:none; }
+
+  .card { position:relative; display:flex; align-items:center; gap:8px; min-height:96px; padding:14px 12px 14px 18px; border-radius:30px; background:var(--card); text-align:left; transition:background .2s, transform .1s; }
+  .card:active { transform:scale(.98); }
+  .card .txt { flex:1; min-width:0; }
+  .card .name { font-weight:600; font-size:15.5px; color:var(--dim); overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; word-break:break-word; }
+  .card .state { color:var(--dim2); font-size:14.5px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .card .box svg { transform:scale(.9); }
+  .card .box { width:58px; height:58px; flex:none; border-radius:18px; display:grid; place-items:center; background:var(--box); }
+  .card.on { background:var(--card-on); }
+  .card.on .name { color:#fff; }
+  .card.on .state { color:var(--dim); }
+  .card.on .box { background:var(--box-on); }
+  .card.offline { opacity:.55; }
+  .card.offline .box { background:transparent; }
+  .badge { position:absolute; top:-8px; right:-6px; width:36px; height:36px; border-radius:50%; background:#2c2c34; display:grid; place-items:center; }
+  .empty { color:var(--dim); text-align:center; padding:60px 20px; }
+  .empty b { color:#fff; display:block; font-size:18px; margin-bottom:6px; }
+
+  nav.bottom { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(14px + env(safe-area-inset-bottom)); width:min(640px, calc(100% - 24px)); display:flex; justify-content:space-around; padding:8px; background:rgba(28,28,32,.96); border-radius:40px; box-shadow:0 8px 30px rgba(0,0,0,.4); z-index:20; }
+  nav.bottom button { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; font-size:13px; padding:8px 4px; border-radius:30px; color:#ddd; }
+  nav.bottom button.on { background:rgba(255,255,255,.12); color:#fff; font-weight:600; }
+
+  /* Bottom sheet */
+  .scrim { position:fixed; inset:0; background:rgba(0,0,0,.55); opacity:0; pointer-events:none; transition:opacity .2s; z-index:30; }
+  .scrim.show { opacity:1; pointer-events:auto; }
+  .sheet { position:fixed; left:50%; bottom:0; transform:translate(-50%,100%); width:min(720px,100%); max-height:92vh; overflow-y:auto; background:#17171c; border-radius:28px 28px 0 0; padding:10px 20px calc(28px + env(safe-area-inset-bottom)); transition:transform .25s ease; z-index:31; }
+  .sheet.show { transform:translate(-50%,0); }
+  .grab { width:40px; height:5px; border-radius:3px; background:#444; margin:0 auto 14px; }
+  .sheet h2 { margin:0; font-size:22px; } .sheet .sub { color:var(--dim); margin:2px 0 18px; }
+  .row { display:flex; align-items:center; gap:12px; }
+  .power { width:64px; height:64px; border-radius:50%; background:#2a2a32; display:grid; place-items:center; flex:none; }
+  .power.on { background:var(--accent); color:#0c1a33; }
+  .big-temp { text-align:center; margin:22px 0 8px; }
+  .big-temp .v { font-size:72px; font-weight:300; letter-spacing:-2px; }
+  .big-temp .l { color:var(--dim); }
+  .stepper { display:flex; justify-content:center; gap:28px; margin-bottom:18px; }
+  .round { width:64px; height:64px; border-radius:50%; background:#26262e; font-size:30px; display:grid; place-items:center; }
+  .round:active, .chip:active, .btn:active { filter:brightness(1.3); }
+  .label { color:var(--dim); font-size:14px; margin:18px 0 8px; text-transform:uppercase; letter-spacing:.4px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { padding:10px 16px; border-radius:20px; background:#26262e; font-size:15px; }
+  .chip.on { background:var(--accent); color:#0c1a33; font-weight:600; }
+  .remote { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:8px; }
+  .remote .col { display:flex; flex-direction:column; align-items:center; gap:10px; background:#202027; border-radius:40px; padding:10px 0; }
+  .remote .col span { color:var(--dim); font-size:13px; }
+  .disabled { opacity:.35; pointer-events:none; }
+
+  .btn { display:block; width:100%; padding:14px; border-radius:16px; background:var(--accent); color:#0c1a33; font-weight:700; text-align:center; margin-top:12px; }
+  .btn.ghost { background:#26262e; color:#fff; font-weight:600; }
+  .btn.danger { background:#3a1f24; color:var(--red); }
+  .field { display:block; margin-top:12px; }
+  .field span { display:block; color:var(--dim); font-size:14px; margin-bottom:6px; }
+  .field input, .field select { width:100%; padding:13px 14px; border-radius:14px; border:1px solid #33333d; background:#1f1f26; color:#fff; font:inherit; outline:none; }
+  .panel { background:var(--card); border-radius:24px; padding:18px; margin-top:14px; }
+  .panel h3 { margin:0 0 6px; font-size:18px; }
+  .panel p { margin:6px 0; color:var(--dim); font-size:15px; }
+  .panel a { color:var(--accent); }
+  .list-item { display:flex; align-items:center; gap:14px; padding:14px 0; border-top:1px solid rgba(255,255,255,.07); }
+  .list-item:first-of-type { border-top:0; }
+  .list-item .t { flex:1; }
+  .list-item .t small { display:block; color:var(--dim); }
+  .play { width:48px; height:48px; border-radius:50%; background:rgba(255,255,255,.12); display:grid; place-items:center; }
+  .hello { font-size:28px; font-weight:700; margin:18px 6px 4px; }
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; }
+  .stat { background:var(--card); border-radius:22px; padding:16px; }
+  .stat b { font-size:28px; display:block; } .stat span { color:var(--dim); font-size:14px; }
+
+  .toast { position:fixed; left:50%; bottom:110px; transform:translateX(-50%) translateY(20px); background:#f2f2f5; color:#111; padding:12px 18px; border-radius:14px; font-size:15px; opacity:0; transition:.2s; z-index:50; pointer-events:none; max-width:calc(100% - 32px); }
+  .toast.show { opacity:1; transform:translateX(-50%); }
+  .menu { position:absolute; right:12px; top:calc(64px + env(safe-area-inset-top)); background:#24242b; border-radius:16px; padding:6px; min-width:210px; box-shadow:0 10px 30px rgba(0,0,0,.5); z-index:40; display:none; }
+  .menu.show { display:block; }
+  .menu button { display:block; width:100%; text-align:left; padding:12px 14px; border-radius:10px; }
+  .menu button:active { background:rgba(255,255,255,.08); }
+  .spin { animation:spin 1s linear infinite; } @keyframes spin { to { transform:rotate(360deg); } }
+  @media (max-width:360px) { .card { padding-left:14px; } .card .box { width:50px; height:50px; } .card .box svg { transform:scale(.85); } }
+  @media (min-width:600px) { .card .box { width:72px; height:72px; } .card { padding-left:22px; min-height:104px; } }
+</style>
+</head>
+<body>
+
+<header>
+  <button class="home-btn" id="homeBtn">
+    <svg width="44" height="44" viewBox="0 0 48 48" fill="none" stroke="#fff" stroke-width="3"><circle cx="10" cy="10" r="5"/><circle cx="24" cy="10" r="5"/><circle cx="10" cy="24" r="5"/><path d="M22 40V28l10-8 10 8v12z" fill="#fff"/></svg>
+    <span id="homeName">Minha casa</span><i class="caret"></i>
+  </button>
+  <div class="spacer"></div>
+  <button class="icon-btn" id="addBtn" aria-label="Adicionar"><svg width="30" height="30" viewBox="0 0 24 24" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M12 4v16M4 12h16"/></svg></button>
+  <button class="icon-btn" id="moreBtn" aria-label="Mais"><svg width="28" height="28" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
+</header>
+<div class="menu" id="menu">
+  <button data-act="refresh">Atualizar</button>
+  <button data-act="alloff">Desligar tudo</button>
+  <button data-act="settings">Configurações</button>
+</div>
+
+<div id="tabsWrap"></div>
+<main id="main"></main>
+
+<nav class="bottom" id="nav">
+  <button data-page="home"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 10.5 12 4l8 6.5V20H4z"/><path d="M10 20v-5h4v5"/></svg>Início</button>
+  <button data-page="devices"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="12" width="8.5" height="8" rx="1.5"/><rect x="12.5" y="12" width="8.5" height="8" rx="1.5"/></svg>Aparelhos</button>
+  <button data-page="routines"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l5.5-3.5z" fill="currentColor"/></svg>Rotinas</button>
+  <button data-page="menu"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Menu</button>
+</nav>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+/* ---------- Ícones ---------- */
+const ICONS = {
+  ac: on => `<svg width="46" height="30" viewBox="0 0 46 30"><rect x="1" y="3" width="44" height="22" rx="5" fill="${on?'#9a9aa3':'#8a8a92'}"/><rect x="8" y="15" width="30" height="3" rx="1.5" fill="${on?'#8fc4ff':'#e6e6ea'}"/></svg>`,
+  tv: on => `<svg width="44" height="40" viewBox="0 0 44 40"><rect x="2" y="2" width="40" height="26" rx="4" fill="${on?'#e9e9ee':'#cfcfd6'}"/><path d="M22 28v4M12 37l10-5 10 5" stroke="${on?'#e9e9ee':'#cfcfd6'}" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>`,
+  light: on => `<svg width="38" height="42" viewBox="0 0 24 26"><path d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2z" fill="${on?'#ffd36b':'#bdbdc4'}"/><rect x="8.5" y="19.5" width="7" height="2.5" rx="1" fill="#9a9aa3"/></svg>`,
+  switch: on => `<svg width="40" height="40" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="3" fill="#9a9aa3"/><rect x="9" y="${on?5:12}" width="6" height="7" rx="1.5" fill="${on?'#8fc4ff':'#e6e6ea'}"/></svg>`,
+  speaker: on => `<svg width="40" height="40" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="3" fill="#9a9aa3"/><circle cx="12" cy="14" r="4" fill="${on?'#8fc4ff':'#e6e6ea'}"/><circle cx="12" cy="6.5" r="1.5" fill="#e6e6ea"/></svg>`,
+  other: on => `<svg width="40" height="40" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2" fill="#9a9aa3"/><circle cx="17" cy="17" r="4" fill="#9a9aa3"/><rect x="13" y="3" width="8" height="8" rx="2" fill="${on?'#8fc4ff':'#9a9aa3'}"/><rect x="3" y="13" width="8" height="8" rx="2" fill="#9a9aa3"/></svg>`,
+};
+const CLOUD_OFF = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.3 9.6 4.2 4.2 0 0 0 7 18z" fill="#fff" stroke="none"/><path d="M3 3l18 18" stroke="#2c2c34" stroke-width="4"/><path d="M3 3l18 18"/></svg>`;
+const CHEV = `<svg class="chev" width="34" height="20" viewBox="0 0 34 20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 16 17 4l14 12"/></svg>`;
+const POWER = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v9M6.3 6.3a8 8 0 1 0 11.4 0"/></svg>`;
+const SPK = m => `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/>${m ? '<path d="m16 9 5 6M21 9l-5 6"/>' : '<path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>'}</svg>`;
+const PLAY = `<svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>`;
+
+const AC_MODES = { cool:'Gelar', dry:'Desumidificar', wind:'Ventilar', fanOnly:'Ventilar', auto:'Auto', heat:'Aquecer', aIComfort:'IA Conforto' };
+const FAN_MODES = { auto:'Auto', low:'Baixa', medium:'Média', high:'Alta', turbo:'Turbo' };
+const TYPE_NAMES = { ac:'Ar-condicionado', tv:'TV', light:'Lâmpada', switch:'Tomada / interruptor', speaker:'Caixa de som', other:'Outro' };
+
+/* ---------- Estado ---------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('casa.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('casa.' + k, JSON.stringify(v)); } catch {} },
+};
+const DEMO = () => ({
+  homeName: 'Minha casa',
+  rooms: [{ id:'sala', name:'Sala' }, { id:'meninas', name:'Meninas' }, { id:'suite', name:'Suíte' }],
+  devices: [
+    { id:'d1', name:'AR SALA', roomId:'sala', type:'ac', online:true, on:false, temp:27, target:22, acMode:'cool', fan:'auto', acModes:['cool','dry','wind','auto','heat'], fanModes:['auto','low','medium','high','turbo'] },
+    { id:'d2', name:'TV SALA', roomId:'sala', type:'tv', online:true, on:false, volume:12, muted:false, input:'HDMI1', inputs:['TV','HDMI1','HDMI2'] },
+    { id:'d3', name:'AR MENINAS', roomId:'meninas', type:'ac', online:true, on:true, temp:24, target:23, acMode:'cool', fan:'auto', acModes:['cool','dry','wind','auto','heat'], fanModes:['auto','low','medium','high','turbo'] },
+    { id:'d4', name:'AR SUÍTE', roomId:'suite', type:'ac', online:true, on:true, temp:18, target:18, acMode:'cool', fan:'low', acModes:['cool','dry','wind','auto','heat'], fanModes:['auto','low','medium','high','turbo'] },
+    { id:'d5', name:'TV SUÍTE', roomId:'suite', type:'tv', online:false, on:false, volume:8, muted:false, input:'TV', inputs:['TV','HDMI1'] },
+  ],
+  scenes: [
+    { id:'s1', name:'Hora de dormir', desc:'Ar das meninas e da suíte em 23°C, TVs desligadas', actions:[['d3','target',23],['d4','target',23],['d2','on',false],['d5','on',false]] },
+    { id:'s2', name:'Sair de casa', desc:'Desliga todos os aparelhos', actions:'alloff' },
+    { id:'s3', name:'Cinema na sala', desc:'Liga a TV e o ar da sala em 21°C', actions:[['d2','on',true],['d1','on',true],['d1','target',21]] },
+  ],
+});
+
+const S = {
+  mode: store.get('mode', 'demo'),   // 'demo' | 'st'
+  token: store.get('token', ''),
+  locationId: store.get('locationId', ''),
+  locations: [], rooms: [], devices: [], scenes: [],
+  homeName: 'Minha casa',
+  page: 'devices', tab: 'all', query: '',
+  collapsed: store.get('collapsed', {}),
+  loading: false, error: '',
+  sheetDev: null,
+};
+
+/* ---------- Utilidades ---------- */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+let toastT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2400); }
+const fmtT = v => v == null || isNaN(v) ? '--' : (Math.round(v * 10) / 10).toString().replace('.', ',');
+
+function stateText(d) {
+  if (!d.online) return 'Offline';
+  if (d.type === 'ac') return d.on ? `Atual ${fmtT(d.temp)}°C` : 'Desligado';
+  if (d.type === 'tv') return d.on ? 'Ligada' : 'Desativado';
+  if (d.type === 'light') return d.on ? (d.level != null ? `Ligada · ${d.level}%` : 'Ligada') : 'Desligada';
+  if (d.hasSwitch) return d.on ? 'Ligado' : 'Desligado';
+  return d.summary || 'Conectado';
+}
+
+/* ---------- SmartThings API ---------- */
+const API = 'https://api.smartthings.com/v1';
+async function api(path, opts = {}) {
+  const url = path.startsWith('http') ? path : API + path;
+  const r = await fetch(url, { ...opts, headers: { 'Authorization': 'Bearer ' + S.token, 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+  if (r.status === 401) throw new Error('Token inválido ou expirado. Gere outro em Menu → Conexão.');
+  if (r.status === 403) throw new Error('O token não tem permissão para isso. Marque todas as permissões de Devices, Locations e Scenes.');
+  if (!r.ok) throw new Error('SmartThings respondeu ' + r.status);
+  return r.status === 204 ? {} : r.json();
+}
+async function apiAll(path) {
+  let out = [], next = path;
+  while (next) { const j = await api(next); out = out.concat(j.items || []); next = j._links && j._links.next && j._links.next.href; }
+  return out;
+}
+
+function baseDevice(raw) {
+  const caps = new Set();
+  (raw.components || []).forEach(c => (c.capabilities || []).forEach(x => caps.add(x.id)));
+  const cats = (raw.components || []).flatMap(c => (c.categories || []).map(x => x.name));
+  let type = 'other';
+  if (caps.has('airConditionerMode') || cats.includes('AirConditioner')) type = 'ac';
+  else if (caps.has('tvChannel') || cats.includes('Television')) type = 'tv';
+  else if (caps.has('switchLevel') || caps.has('colorControl') || cats.some(c => /Light/i.test(c))) type = 'light';
+  else if (caps.has('audioVolume') || cats.includes('Speaker')) type = 'speaker';
+  else if (caps.has('switch')) type = 'switch';
+  return { id: raw.deviceId, name: raw.label || raw.name || 'Aparelho', roomId: raw.roomId || '', type, caps, hasSwitch: caps.has('switch'), online: true, on: false };
+}
+function applyStatus(d, st) {
+  const m = (st.components && st.components.main) || {};
+  const v = (cap, attr) => m[cap] && m[cap][attr] ? m[cap][attr].value : undefined;
+  d.on = v('switch', 'switch') === 'on';
+  d.temp = v('temperatureMeasurement', 'temperature');
+  d.target = v('thermostatCoolingSetpoint', 'coolingSetpoint');
+  d.acMode = v('airConditionerMode', 'airConditionerMode');
+  d.acModes = v('airConditionerMode', 'supportedAcModes') || (d.type === 'ac' ? ['cool','dry','wind','auto','heat'] : null);
+  d.fan = v('airConditionerFanMode', 'fanMode');
+  d.fanModes = v('airConditionerFanMode', 'supportedAcFanModes') || (d.caps.has('airConditionerFanMode') ? ['auto','low','medium','high','turbo'] : null);
+  d.volume = v('audioVolume', 'volume');
+  d.muted = v('audioMute', 'mute') === 'muted';
+  d.input = v('mediaInputSource', 'inputSource') || v('samsungvd.mediaInputSource', 'inputSource');
+  const inp = v('mediaInputSource', 'supportedInputSources') || v('samsungvd.mediaInputSource', 'supportedInputSourcesMap');
+  d.inputs = Array.isArray(inp) ? inp.map(x => typeof x === 'string' ? x : (x.id || x.name)) : null;
+  d.inputCap = v('mediaInputSource', 'inputSource') !== undefined ? 'mediaInputSource' : 'samsungvd.mediaInputSource';
+  d.level = v('switchLevel', 'level');
+  const contact = v('contactSensor', 'contact'), motion = v('motionSensor', 'motion'), batt = v('battery', 'battery');
+  d.summary = contact ? (contact === 'open' ? 'Aberto' : 'Fechado') : motion ? (motion === 'active' ? 'Movimento' : 'Sem movimento') : d.temp != null ? `${fmtT(d.temp)}°C` : batt != null ? `Bateria ${batt}%` : '';
+}
+async function refreshDevice(d) {
+  try {
+    const [st, h] = await Promise.all([api(`/devices/${d.id}/status`), api(`/devices/${d.id}/health`).catch(() => ({}))]);
+    applyStatus(d, st);
+    d.online = h.state ? h.state !== 'OFFLINE' : true;
+  } catch (e) { d.online = false; }
+}
+async function loadST() {
+  S.loading = true; S.error = ''; render();
+  try {
+    S.locations = (await apiAll('/locations')).map(l => ({ id: l.locationId, name: l.name }));
+    if (!S.locations.length) throw new Error('Nenhuma casa encontrada nessa conta.');
+    if (!S.locations.find(l => l.id === S.locationId)) S.locationId = S.locations[0].id;
+    store.set('locationId', S.locationId);
+    S.homeName = S.locations.find(l => l.id === S.locationId).name;
+    const [rooms, devs, scenes] = await Promise.all([
+      apiAll(`/locations/${S.locationId}/rooms`),
+      apiAll(`/devices?locationId=${S.locationId}`),
+      apiAll(`/scenes?locationId=${S.locationId}`).catch(() => []),
+    ]);
+    S.rooms = rooms.map(r => ({ id: r.roomId, name: r.name }));
+    S.devices = devs.map(baseDevice);
+    S.scenes = scenes.map(s => ({ id: s.sceneId, name: s.sceneName, desc: '' }));
+    S.loading = false; render();
+    // status em lotes de 6 para não estourar o limite da API
+    for (let i = 0; i < S.devices.length; i += 6) {
+      await Promise.all(S.devices.slice(i, i + 6).map(refreshDevice));
+      render();
+    }
+  } catch (e) {
+    S.loading = false; S.error = e.message === 'Failed to fetch' ? 'Sem conexão com o SmartThings. Verifique a internet.' : e.message; render();
+  }
+}
+async function refreshAll() {
+  if (S.mode !== 'st' || !S.devices.length || document.hidden || S.loading) return;
+  for (let i = 0; i < S.devices.length; i += 6) await Promise.all(S.devices.slice(i, i + 6).map(refreshDevice));
+  render();
+}
+
+/* ---------- Modo demonstração ---------- */
+function loadDemo() {
+  const saved = store.get('demo', null) || DEMO();
+  S.rooms = saved.rooms; S.devices = saved.devices; S.scenes = saved.scenes; S.homeName = saved.homeName;
+  S.locations = [{ id: 'demo', name: S.homeName }];
+  S.error = ''; render();
+}
+function saveDemo() { if (S.mode === 'demo') store.set('demo', { homeName: S.homeName, rooms: S.rooms, devices: S.devices, scenes: S.scenes }); }
+
+/* ---------- Comandos ---------- */
+async function send(d, capability, command, args = []) {
+  saveDemo(); render(); renderSheet();
+  if (S.mode !== 'st') return;
+  try {
+    await api(`/devices/${d.id}/commands`, { method: 'POST', body: JSON.stringify({ commands: [{ component: 'main', capability, command, arguments: args }] }) });
+  } catch (e) { toast(e.message); }
+  clearTimeout(d._t);
+  d._t = setTimeout(async () => { await refreshDevice(d); render(); renderSheet(); }, 2500);
+}
+function setPower(d, on) {
+  if (!d.online) return toast(`${d.name} está offline`);
+  d.on = on; send(d, 'switch', on ? 'on' : 'off');
+}
+function setTarget(d, t) {
+  t = Math.max(16, Math.min(30, t)); d.target = t;
+  clearTimeout(d._st); render(); renderSheet();
+  d._st = setTimeout(() => send(d, 'thermostatCoolingSetpoint', 'setCoolingSetpoint', [t]), 600);
+}
+function setAcMode(d, m) { d.acMode = m; send(d, 'airConditionerMode', 'setAirConditionerMode', [m]); }
+function setFan(d, m) { d.fan = m; send(d, 'airConditionerFanMode', 'setFanMode', [m]); }
+function volume(d, delta) {
+  d.volume = Math.max(0, Math.min(100, (d.volume || 0) + delta)); d.muted = false;
+  send(d, 'audioVolume', delta > 0 ? 'volumeUp' : 'volumeDown');
+}
+function mute(d) { d.muted = !d.muted; send(d, 'audioMute', d.muted ? 'mute' : 'unmute'); }
+function channel(d, up) { send(d, 'tvChannel', up ? 'channelUp' : 'channelDown'); toast(up ? 'Canal +' : 'Canal −'); }
+function setInput(d, src) { d.input = src; send(d, d.inputCap || 'mediaInputSource', 'setInputSource', [src]); }
+function setLevel(d, l) { d.level = l; d.on = l > 0; send(d, 'switchLevel', 'setLevel', [l]); }
+
+async function allOff() {
+  const on = S.devices.filter(d => d.online && d.on && (d.hasSwitch || S.mode === 'demo'));
+  if (!on.length) return toast('Nada ligado agora');
+  on.forEach(d => setPower(d, false));
+  toast(`${on.length} aparelho(s) desligado(s)`);
+}
+async function runScene(sc) {
+  if (S.mode === 'st') {
+    try { await api(`/scenes/${sc.id}/execute`, { method: 'POST' }); toast(`"${sc.name}" executada`); setTimeout(refreshAll, 3000); }
+    catch (e) { toast(e.message); }
+    return;
+  }
+  if (sc.actions === 'alloff') allOff();
+  else (sc.actions || []).forEach(([id, k, v]) => { const d = S.devices.find(x => x.id === id); if (d && d.online) { d[k] = v; if (k === 'target') d.on = true; } });
+  saveDemo(); render(); toast(`"${sc.name}" executada`);
+}
+
+/* ---------- Render ---------- */
+function card(d) {
+  const on = d.online && d.on;
+  return `<button class="card ${on ? 'on' : ''} ${d.online ? '' : 'offline'}" data-dev="${esc(d.id)}">
+    <div class="txt"><div class="name">${esc(d.name)}</div><div class="state">${esc(stateText(d))}</div></div>
+    <div class="box" data-toggle="${esc(d.id)}">${(ICONS[d.type] || ICONS.other)(on)}</div>
+    ${d.online ? '' : `<div class="badge">${CLOUD_OFF}</div>`}
+  </button>`;
+}
+function section(key, title, devs) {
+  if (!devs.length) return '';
+  const closed = S.collapsed[key];
+  return `<div class="section-h ${closed ? 'closed' : ''}" data-sec="${esc(key)}"><span>${esc(title)}</span>${CHEV}</div>
+    <div class="grid ${closed ? 'hidden' : ''}">${devs.map(card).join('')}</div>`;
+}
+function renderTabs() {
+  if (S.page !== 'devices') { $('#tabsWrap').innerHTML = ''; return; }
+  const tabs = [['all', 'Todos os aparelhos'], ...S.rooms.map(r => [r.id, r.name])];
+  $('#tabsWrap').innerHTML = `<div class="tabs">
+      <button id="searchBtn" aria-label="Buscar"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg></button>
+      ${tabs.map(([id, n]) => `<button data-tab="${esc(id)}" class="${S.tab === id ? 'on' : ''}">${esc(n)}</button>`).join('')}
+    </div>
+    <div class="search ${S.query || S.searchOpen ? 'show' : ''}"><input id="q" placeholder="Buscar aparelho" value="${esc(S.query)}"></div>`;
+}
+function pageDevices() {
+  if (S.loading && !S.devices.length) return `<div class="empty"><b>Carregando seus aparelhos…</b>Conectando ao SmartThings</div>`;
+  if (S.error) return `<div class="empty"><b>Não deu para carregar</b>${esc(S.error)}<button class="btn" data-act="refresh">Tentar de novo</button><button class="btn ghost" data-act="settings">Configurações</button></div>`;
+  const q = S.query.trim().toLowerCase();
+  let devs = S.devices.filter(d => !q || d.name.toLowerCase().includes(q));
+  if (S.tab !== 'all') devs = devs.filter(d => d.roomId === S.tab);
+  if (!devs.length) return `<div class="empty"><b>Nenhum aparelho aqui</b>${q ? 'Nada encontrado com esse nome.' : 'Toque em + para adicionar.'}</div>`;
+  let html = '';
+  const rooms = S.tab === 'all' ? S.rooms : S.rooms.filter(r => r.id === S.tab);
+  rooms.forEach(r => { html += section(r.id, r.name, devs.filter(d => d.roomId === r.id)); });
+  const known = new Set(S.rooms.map(r => r.id));
+  if (S.tab === 'all') html += section('_none', 'Sem cômodo', devs.filter(d => !known.has(d.roomId)));
+  return html;
+}
+function pageHome() {
+  const h = new Date().getHours();
+  const hi = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+  const on = S.devices.filter(d => d.online && d.on);
+  const off = S.devices.filter(d => !d.online);
+  const acs = S.devices.filter(d => d.type === 'ac' && d.online && d.temp != null);
+  const avg = acs.length ? acs.reduce((a, d) => a + Number(d.temp), 0) / acs.length : null;
+  return `<div class="hello">${hi}!</div>
+    <div class="stats">
+      <div class="stat"><b>${on.length}</b><span>ligados</span></div>
+      <div class="stat"><b>${off.length}</b><span>offline</span></div>
+      <div class="stat"><b>${avg == null ? '--' : fmtT(avg) + '°'}</b><span>média dos cômodos</span></div>
+    </div>
+    ${on.length ? `<div class="section-h"><span>Ligados agora</span></div><div class="grid">${on.map(card).join('')}</div>
+      <button class="btn ghost" data-act="alloff">Desligar tudo</button>` : `<div class="panel"><h3>Tudo desligado</h3><p>Nenhum aparelho está ligado agora.</p></div>`}
+    ${S.scenes.length ? `<div class="section-h"><span>Rotinas rápidas</span></div><div class="panel">${S.scenes.slice(0, 3).map(scene).join('')}</div>` : ''}`;
+}
+function scene(s) {
+  return `<div class="list-item"><div class="t">${esc(s.name)}${s.desc ? `<small>${esc(s.desc)}</small>` : ''}</div><button class="play" data-scene="${esc(s.id)}" aria-label="Executar">${PLAY}</button></div>`;
+}
+function pageRoutines() {
+  return `<div class="hello">Rotinas</div>
+    ${S.scenes.length ? `<div class="panel">${S.scenes.map(scene).join('')}</div>` : `<div class="empty"><b>Nenhuma rotina</b>${S.mode === 'st' ? 'Crie cenas no app SmartThings e elas aparecem aqui.' : ''}</div>`}
+    ${S.mode === 'st' ? '<p style="color:var(--dim);padding:0 6px;font-size:14px">As rotinas vêm das cenas da sua conta SmartThings.</p>' : ''}`;
+}
+function pageMenu() {
+  const st = S.mode === 'st';
+  return `<div class="hello">Menu</div>
+    <div class="panel">
+      <h3>Conexão</h3>
+      <p>${st ? `Conectado ao SmartThings · ${S.devices.length} aparelho(s)` : 'Modo demonstração: os aparelhos são de exemplo e nada é enviado para a casa.'}</p>
+      <label class="field"><span>Token de acesso pessoal do SmartThings</span><input id="tok" type="password" autocomplete="off" placeholder="Cole aqui o token" value="${esc(S.token)}"></label>
+      <button class="btn" data-act="connect">${st ? 'Salvar e recarregar' : 'Conectar à minha casa'}</button>
+      ${st ? '<button class="btn ghost" data-act="demo">Usar modo demonstração</button>' : ''}
+    </div>
+    <div class="panel">
+      <h3>Como pegar o token</h3>
+      <p>1. No computador ou no celular, abra <a href="https://account.smartthings.com/tokens" target="_blank" rel="noopener">account.smartthings.com/tokens</a> e entre com a mesma conta Samsung do app.</p>
+      <p>2. Toque em <b>Generate new token</b>, dê um nome (ex.: Minha Casa) e marque todas as permissões de <b>Devices</b>, <b>Locations</b> e <b>Scenes</b>.</p>
+      <p>3. Copie o token, cole acima e toque em <b>Conectar</b>. Ele fica salvo só neste aparelho.</p>
+    </div>
+    ${!st ? `<div class="panel"><h3>Demonstração</h3><p>Volte os aparelhos de exemplo ao estado inicial.</p><button class="btn danger" data-act="resetdemo">Restaurar exemplo</button></div>` : ''}
+    <div class="panel"><h3>Instalar na tela inicial</h3><p>No Chrome do Android, abra o menu ⋮ e toque em <b>Adicionar à tela inicial</b>. O app abre em tela cheia, como os outros.</p></div>`;
+}
+function render() {
+  $('#homeName').textContent = S.homeName;
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.page === S.page));
+  const q = document.activeElement && document.activeElement.id === 'q';
+  renderTabs();
+  const pages = { devices: pageDevices, home: pageHome, routines: pageRoutines, menu: pageMenu };
+  if (S.page === 'menu' && document.activeElement && document.activeElement.id === 'tok') return; // não apaga o que está sendo digitado
+  $('#main').innerHTML = pages[S.page]();
+  if (q) { const i = $('#q'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+}
+
+/* ---------- Painel do aparelho ---------- */
+function openSheet(html) { $('#sheet').innerHTML = '<div class="grab"></div>' + html; $('#sheet').classList.add('show'); $('#scrim').classList.add('show'); }
+function closeSheet() { $('#sheet').classList.remove('show'); $('#scrim').classList.remove('show'); S.sheetDev = null; }
+function roomName(id) { const r = S.rooms.find(r => r.id === id); return r ? r.name : 'Sem cômodo'; }
+function renderSheet() {
+  const d = S.sheetDev && S.devices.find(x => x.id === S.sheetDev);
+  if (!d) return;
+  const on = d.online && d.on;
+  let body = '';
+  if (d.type === 'ac') {
+    body = `<div class="big-temp ${on ? '' : 'disabled'}"><div class="v">${fmtT(d.target)}°</div><div class="l">Temperatura desejada · ambiente ${fmtT(d.temp)}°C</div></div>
+      <div class="stepper ${on ? '' : 'disabled'}"><button class="round" data-c="t-">−</button><button class="round" data-c="t+">+</button></div>
+      ${d.acModes ? `<div class="label">Modo</div><div class="chips ${on ? '' : 'disabled'}">${d.acModes.map(m => `<button class="chip ${d.acMode === m ? 'on' : ''}" data-c="mode" data-v="${esc(m)}">${esc(AC_MODES[m] || m)}</button>`).join('')}</div>` : ''}
+      ${d.fanModes ? `<div class="label">Ventilação</div><div class="chips ${on ? '' : 'disabled'}">${d.fanModes.map(m => `<button class="chip ${d.fan === m ? 'on' : ''}" data-c="fan" data-v="${esc(m)}">${esc(FAN_MODES[m] || m)}</button>`).join('')}</div>` : ''}`;
+  } else if (d.type === 'tv' || d.type === 'speaker') {
+    body = `<div class="remote ${on ? '' : 'disabled'}" style="margin-top:18px">
+        <div class="col"><button class="round" data-c="v+">+</button><span>VOL ${d.volume ?? ''}</span><button class="round" data-c="v-">−</button></div>
+        <div class="col" style="justify-content:center"><button class="round" data-c="mute">${SPK(d.muted)}</button><span>${d.muted ? 'Mudo' : 'Som'}</span></div>
+        ${d.type === 'tv' ? `<div class="col"><button class="round" data-c="c+">+</button><span>CANAL</span><button class="round" data-c="c-">−</button></div>` : '<div></div>'}
+      </div>
+      ${d.inputs && d.inputs.length ? `<div class="label">Fonte</div><div class="chips ${on ? '' : 'disabled'}">${d.inputs.map(s => `<button class="chip ${d.input === s ? 'on' : ''}" data-c="input" data-v="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
+      ${S.mode === 'st' && d.type === 'tv' && !on ? '<p style="color:var(--dim);font-size:14px;margin-top:16px">Algumas TVs só ligam pela rede se a opção "Ligar com celular" estiver ativa nas configurações da TV.</p>' : ''}`;
+  } else if (d.type === 'light' && (d.caps ? d.caps.has('switchLevel') : true)) {
+    body = `<div class="label">Brilho</div><div class="chips">${[10, 25, 50, 75, 100].map(l => `<button class="chip ${on && d.level === l ? 'on' : ''}" data-c="level" data-v="${l}">${l}%</button>`).join('')}</div>`;
+  }
+  const canPower = d.hasSwitch !== false || S.mode === 'demo';
+  openSheet(`<div class="row">
+      <div style="flex:1"><h2>${esc(d.name)}</h2><div class="sub" style="margin:2px 0 0">${esc(roomName(d.roomId))} · ${esc(stateText(d))}</div></div>
+      ${canPower ? `<button class="power ${on ? 'on' : ''} ${d.online ? '' : 'disabled'}" data-c="power" aria-label="Ligar/desligar">${POWER}</button>` : ''}
+    </div>
+    ${d.online ? body : '<div class="panel"><h3>Aparelho offline</h3><p>Verifique se ele está na tomada e conectado ao Wi-Fi.</p></div>'}
+    ${S.mode === 'demo' ? `<button class="btn danger" data-c="remove" style="margin-top:22px">Remover aparelho</button>` : ''}`);
+}
+function sheetCommand(c, v) {
+  const d = S.devices.find(x => x.id === S.sheetDev); if (!d) return;
+  switch (c) {
+    case 'power': setPower(d, !d.on); break;
+    case 't+': setTarget(d, Number(d.target ?? 22) + 1); break;
+    case 't-': setTarget(d, Number(d.target ?? 22) - 1); break;
+    case 'mode': setAcMode(d, v); break;
+    case 'fan': setFan(d, v); break;
+    case 'v+': volume(d, 1); break;
+    case 'v-': volume(d, -1); break;
+    case 'mute': mute(d); break;
+    case 'c+': channel(d, true); break;
+    case 'c-': channel(d, false); break;
+    case 'input': setInput(d, v); break;
+    case 'level': setLevel(d, Number(v)); break;
+    case 'remove':
+      if (confirm(`Remover ${d.name}?`)) { S.devices = S.devices.filter(x => x !== d); saveDemo(); closeSheet(); render(); }
+      break;
+  }
+}
+
+/* ---------- Adicionar / trocar casa ---------- */
+function openAdd() {
+  if (S.mode === 'st') {
+    openSheet(`<h2>Adicionar aparelho</h2><p class="sub">Aparelhos novos são pareados pelo app do fabricante (SmartThings). Depois disso eles aparecem aqui sozinhos.</p>
+      <button class="btn" data-act="refresh">Atualizar lista agora</button>`);
+    return;
+  }
+  openSheet(`<h2>Adicionar aparelho</h2><p class="sub">Modo demonstração</p>
+    <label class="field"><span>Nome</span><input id="nName" placeholder="Ex.: LUZ VARANDA"></label>
+    <label class="field"><span>Tipo</span><select id="nType">${Object.entries(TYPE_NAMES).map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select></label>
+    <label class="field"><span>Cômodo</span><select id="nRoom">${S.rooms.map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join('')}<option value="_new">+ Novo cômodo…</option></select></label>
+    <label class="field" id="nRoomNewW" style="display:none"><span>Nome do novo cômodo</span><input id="nRoomNew" placeholder="Ex.: Varanda"></label>
+    <button class="btn" data-act="adddev">Adicionar</button>`);
+  $('#nRoom').onchange = e => { $('#nRoomNewW').style.display = e.target.value === '_new' ? 'block' : 'none'; };
+}
+function addDevice() {
+  const name = $('#nName').value.trim(); if (!name) return toast('Digite um nome');
+  const type = $('#nType').value; let roomId = $('#nRoom').value;
+  if (roomId === '_new') {
+    const rn = $('#nRoomNew').value.trim(); if (!rn) return toast('Digite o nome do cômodo');
+    roomId = 'r' + Date.now(); S.rooms.push({ id: roomId, name: rn });
+  }
+  const d = { id: 'd' + Date.now(), name, roomId, type, online: true, on: false, hasSwitch: true };
+  if (type === 'ac') Object.assign(d, { temp: 26, target: 22, acMode: 'cool', fan: 'auto', acModes: ['cool','dry','wind','auto','heat'], fanModes: ['auto','low','medium','high','turbo'] });
+  if (type === 'tv' || type === 'speaker') Object.assign(d, { volume: 10, muted: false, inputs: type === 'tv' ? ['TV','HDMI1','HDMI2'] : null, input: 'TV' });
+  if (type === 'light') d.level = 100;
+  S.devices.push(d); saveDemo(); closeSheet(); render(); toast(`${name} adicionado`);
+}
+function openHomes() {
+  if (S.mode !== 'st' || S.locations.length < 2) {
+    openSheet(`<h2>Casas</h2><div class="panel"><div class="list-item"><div class="t">${esc(S.homeName)}<small>${S.mode === 'st' ? 'Única casa da conta' : 'Demonstração'}</small></div></div></div>`);
+    return;
+  }
+  openSheet(`<h2>Escolher casa</h2><div class="panel">${S.locations.map(l => `<div class="list-item"><div class="t">${esc(l.name)}</div><button class="chip ${l.id === S.locationId ? 'on' : ''}" data-loc="${esc(l.id)}">${l.id === S.locationId ? 'Atual' : 'Abrir'}</button></div>`).join('')}</div>`);
+}
+
+/* ---------- Eventos ---------- */
+let pressT, longPressed = false;
+document.addEventListener('click', e => {
+  const t = e.target;
+  if (!t.closest('#menu') && !t.closest('#moreBtn')) $('#menu').classList.remove('show');
+  const tog = t.closest('[data-toggle]');
+  if (tog && !t.closest('.sheet')) { e.stopPropagation(); const d = S.devices.find(x => x.id === tog.dataset.toggle); if (d) { if (d.type === 'other' && !d.hasSwitch && S.mode === 'st') { S.sheetDev = d.id; renderSheet(); } else setPower(d, !d.on); } return; }
+  const dev = t.closest('[data-dev]');
+  if (dev) { S.sheetDev = dev.dataset.dev; renderSheet(); return; }
+  const sec = t.closest('[data-sec]');
+  if (sec) { const k = sec.dataset.sec; S.collapsed[k] = !S.collapsed[k]; store.set('collapsed', S.collapsed); render(); return; }
+  const tab = t.closest('[data-tab]');
+  if (tab) { S.tab = tab.dataset.tab; render(); tab.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' }); return; }
+  if (t.closest('#searchBtn')) { S.searchOpen = !S.searchOpen; if (!S.searchOpen) S.query = ''; render(); if (S.searchOpen) $('#q').focus(); return; }
+  const nav = t.closest('[data-page]');
+  if (nav) { S.page = nav.dataset.page; render(); window.scrollTo(0, 0); return; }
+  const sc = t.closest('[data-scene]');
+  if (sc) { const s = S.scenes.find(x => x.id === sc.dataset.scene); if (s) runScene(s); return; }
+  const c = t.closest('[data-c]');
+  if (c) { sheetCommand(c.dataset.c, c.dataset.v); return; }
+  const loc = t.closest('[data-loc]');
+  if (loc) { S.locationId = loc.dataset.loc; store.set('locationId', S.locationId); S.tab = 'all'; closeSheet(); loadST(); return; }
+  const a = t.closest('[data-act]');
+  if (a) {
+    $('#menu').classList.remove('show');
+    switch (a.dataset.act) {
+      case 'refresh': closeSheet(); S.mode === 'st' ? loadST() : (loadDemo(), toast('Atualizado')); break;
+      case 'alloff': allOff(); break;
+      case 'settings': S.page = 'menu'; render(); break;
+      case 'adddev': addDevice(); break;
+      case 'connect': {
+        const tok = $('#tok').value.trim(); if (!tok) return toast('Cole o token primeiro');
+        S.token = tok; S.mode = 'st'; store.set('token', tok); store.set('mode', 'st');
+        S.page = 'devices'; S.tab = 'all'; S.devices = []; document.activeElement.blur(); loadST(); break;
+      }
+      case 'demo': S.mode = 'demo'; store.set('mode', 'demo'); S.tab = 'all'; loadDemo(); break;
+      case 'resetdemo': store.set('demo', null); loadDemo(); toast('Exemplo restaurado'); break;
+    }
+  }
+});
+document.addEventListener('input', e => { if (e.target.id === 'q') { S.query = e.target.value; render(); } });
+$('#scrim').onclick = closeSheet;
+$('#addBtn').onclick = openAdd;
+$('#homeBtn').onclick = openHomes;
+$('#moreBtn').onclick = () => $('#menu').classList.toggle('show');
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+// Arrastar o painel para baixo fecha
+let sy = null;
+$('#sheet').addEventListener('touchstart', e => { sy = $('#sheet').scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
+$('#sheet').addEventListener('touchend', e => { if (sy != null && e.changedTouches[0].clientY - sy > 90) closeSheet(); sy = null; });
+
+setInterval(refreshAll, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshAll(); });
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+
+if (S.mode === 'st' && S.token) loadST(); else { S.mode = 'demo'; loadDemo(); }
+</script>
+</body>
+</html>

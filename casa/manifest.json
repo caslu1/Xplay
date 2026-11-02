@@ -1,0 +1,11 @@
+{
+  "name": "Minha Casa",
+  "short_name": "Minha Casa",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1b1f4a",
+  "theme_color": "#1b1f4a",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
