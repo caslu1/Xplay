@@ -28,4 +28,4 @@ Códigos de 9 dígitos, recargas, usuários dos aparelhos e a chave do TMDB: vej
 
 ## Minha Casa (controle dos aparelhos)
 
-A pasta [`casa/`](casa/) tem um app web para controlar os aparelhos da casa (ar-condicionado, TV, lâmpadas, tomadas) usando a conta SmartThings. APK pronto em [`releases/MinhaCasa-1.0.apk`](releases/MinhaCasa-1.0.apk). Veja [docs/CASA.md](docs/CASA.md).
+A pasta [`casa/`](casa/) tem um app web para controlar os aparelhos da casa (ar-condicionado, TV, lâmpadas, tomadas) usando a conta SmartThings. APK pronto em [`releases/MinhaCasa-1.1.apk`](releases/MinhaCasa-1.1.apk). Veja [docs/CASA.md](docs/CASA.md).

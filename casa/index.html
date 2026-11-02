@@ -112,6 +112,61 @@
   .demo-pill button { padding:8px 14px; border-radius:14px; background:#fff; color:#1b1f4a; font-weight:700; font-size:13.5px; }
   .stat { position:relative; overflow:hidden; }
   .stat::after { content:''; position:absolute; right:-20px; top:-20px; width:70px; height:70px; border-radius:50%; background:rgba(255,255,255,.05); }
+  /* Lâmpadas */
+  .slider { -webkit-appearance:none; appearance:none; width:100%; height:54px; border-radius:20px; outline:none; margin:0;
+    background:linear-gradient(90deg, var(--lc,#ffd36b) 0 var(--p,50%), #26262e var(--p,50%) 100%); }
+  .slider::-webkit-slider-thumb { -webkit-appearance:none; width:8px; height:34px; border-radius:4px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.4); }
+  .slider::-moz-range-thumb { width:8px; height:34px; border-radius:4px; background:#fff; border:0; }
+  .swatches { display:flex; flex-wrap:wrap; gap:12px; }
+  .sw { width:44px; height:44px; border-radius:50%; box-shadow:inset 0 0 0 2px rgba(255,255,255,.15); transition:transform .15s; }
+  .sw.on { box-shadow:0 0 0 3px #17171c, 0 0 0 5px #fff; }
+  .sw:active { transform:scale(.88); }
+  .bulb-hero { display:grid; place-items:center; margin:18px 0 6px; }
+  .bulb-hero .b { width:120px; height:120px; border-radius:50%; display:grid; place-items:center; transition:background .3s, box-shadow .3s; }
+
+  /* Mapa 3D */
+  .map-bar { display:flex; align-items:center; gap:10px; margin:14px 4px 10px; }
+  .map-bar .seg { flex:0 0 auto; }
+  .map-bar .seg button { padding:8px 16px; }
+  .map-bar .tool { padding:10px 16px; border-radius:16px; background:rgba(255,255,255,.1); font-size:14px; font-weight:600; }
+  .map-bar .tool.primary { background:#fff; color:#1b1f4a; }
+  .stage { position:relative; border-radius:28px; overflow:hidden; touch-action:none; perspective:1400px;
+    background:radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.08), rgba(0,0,0,.18)); }
+  .plane { position:absolute; left:50%; top:50%; transform-style:preserve-3d; transition:transform .45s cubic-bezier(.2,.9,.25,1);
+    transform:translate(-50%,-50%) rotateX(var(--tilt)) rotateZ(var(--rot)) scale(var(--zoom)); }
+  .stage.drag .plane { transition:none; }
+  .base { position:absolute; inset:-14px; border-radius:18px; background:rgba(255,255,255,.06); box-shadow:0 30px 60px rgba(0,0,0,.35); }
+  .room { position:absolute; transform-style:preserve-3d; }
+  .room .floor { position:absolute; inset:0; background:var(--c); border-radius:3px; box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.08); }
+  .room .floor::after { content:''; position:absolute; inset:0; background:repeating-linear-gradient(90deg, rgba(0,0,0,.035) 0 1px, transparent 1px 18px); }
+  .wall { position:absolute; background:linear-gradient(0deg, rgba(255,255,255,.92), rgba(240,240,250,.75)); box-shadow:inset 0 0 0 1px rgba(0,0,0,.06); backface-visibility:visible; }
+  .wt, .wb { left:0; width:100%; height:var(--wh); transform-origin:top; transform:rotateX(90deg); }
+  .wt { top:0; } .wb { top:100%; }
+  .wl, .wr { top:0; height:100%; width:var(--wh); transform-origin:left; transform:rotateY(-90deg); }
+  .wl { left:0; } .wr { left:100%; }
+  .flat .wall { display:none; }
+  .rlabel { position:absolute; left:8px; top:6px; font-size:12px; font-weight:700; color:rgba(20,20,40,.6); text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; pointer-events:none; }
+  .edit .room .floor { box-shadow:inset 0 0 0 2px rgba(80,90,255,.55); }
+  .rs { position:absolute; right:-10px; bottom:-10px; width:26px; height:26px; border-radius:50%; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.4); display:grid; place-items:center; color:#1b1f4a; font-size:13px; font-weight:800; }
+  .pin { position:absolute; width:0; height:0; transform-style:preserve-3d; }
+  .pin .glow { position:absolute; width:150px; height:150px; left:-75px; top:-75px; border-radius:50%; background:radial-gradient(circle, var(--g) 0%, transparent 65%); pointer-events:none; opacity:.85; }
+  .pin .dot { position:absolute; width:14px; height:14px; left:-7px; top:-7px; border-radius:50%; background:rgba(0,0,0,.25); }
+  .pin .stand { position:absolute; left:0; top:0; transform-style:preserve-3d;
+    transform:translateZ(2px) rotateZ(calc(var(--rot) * -1)) rotateX(calc(var(--tilt) * -1)) scale(calc(1 / var(--zoom))); }
+  .flat .pin .stand, .edit .pin .stand { transform:none; }
+  .pin .card3 { position:absolute; left:0; bottom:0; transform:translate(-50%,-6px); display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .pin .bub { width:34px; height:34px; border-radius:50%; background:#1d1d24; display:grid; place-items:center; box-shadow:0 6px 14px rgba(0,0,0,.45); border:2px solid rgba(255,255,255,.15); transition:background .25s, box-shadow .25s; }
+  .pin .bub svg { width:20px; height:20px; }
+  .pin.on .bub { background:#fff; border-color:#fff; box-shadow:0 0 0 3px var(--g), 0 8px 18px rgba(0,0,0,.4); }
+  .pin.offline .bub { opacity:.5; }
+  .pin .pn { display:none; }
+  .labels .pin .pn, .pin.on .pn { display:block; }
+  .flat .pin .pn { max-width:70px; }
+  .pin .pn { font-size:10px; font-weight:700; color:#fff; background:rgba(15,15,25,.72); padding:2px 7px; border-radius:8px; white-space:nowrap; max-width:110px; overflow:hidden; text-overflow:ellipsis; }
+  .flat .pin .card3, .edit .pin .card3 { transform:translate(-50%,50%); }
+  .map-hint { color:var(--dim); font-size:13px; text-align:center; margin:10px 0 0; }
+  .legend { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:10px; font-size:13px; color:var(--dim); }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle; }
   main.enter > * { animation:up .35s ease both; }
   @keyframes up { from { opacity:0; transform:translateY(10px); } }
   .big-temp { text-align:center; margin:22px 0 8px; }
@@ -185,6 +240,7 @@
 <nav class="bottom" id="nav">
   <button data-page="home"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 10.5 12 4l8 6.5V20H4z"/><path d="M10 20v-5h4v5"/></svg>Início</button>
   <button data-page="devices"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="12" width="8.5" height="8" rx="1.5"/><rect x="12.5" y="12" width="8.5" height="8" rx="1.5"/></svg>Aparelhos</button>
+  <button data-page="map"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M12 3 3 7.5v9L12 21l9-4.5v-9z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></svg>Mapa</button>
   <button data-page="routines"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l5.5-3.5z" fill="currentColor"/></svg>Rotinas</button>
   <button data-page="menu"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Menu</button>
 </nav>
@@ -199,7 +255,7 @@
 const ICONS = {
   ac: on => `<svg width="46" height="30" viewBox="0 0 46 30"><rect x="1" y="3" width="44" height="22" rx="5" fill="${on?'#9a9aa3':'#8a8a92'}"/><rect x="8" y="15" width="30" height="3" rx="1.5" fill="${on?'#8fc4ff':'#e6e6ea'}"/></svg>`,
   tv: on => `<svg width="44" height="40" viewBox="0 0 44 40"><rect x="2" y="2" width="40" height="26" rx="4" fill="${on?'#e9e9ee':'#cfcfd6'}"/><path d="M22 28v4M12 37l10-5 10 5" stroke="${on?'#e9e9ee':'#cfcfd6'}" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>`,
-  light: on => `<svg width="38" height="42" viewBox="0 0 24 26"><path d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2z" fill="${on?'#ffd36b':'#bdbdc4'}"/><rect x="8.5" y="19.5" width="7" height="2.5" rx="1" fill="#9a9aa3"/></svg>`,
+  light: (on, col) => `<svg width="38" height="42" viewBox="0 0 24 26"><path d="M12 2a7 7 0 0 0-4 12.7V18h8v-3.3A7 7 0 0 0 12 2z" fill="${on?(col||'#ffd36b'):'#bdbdc4'}"/><rect x="8.5" y="19.5" width="7" height="2.5" rx="1" fill="#9a9aa3"/></svg>`,
   switch: on => `<svg width="40" height="40" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="3" fill="#9a9aa3"/><rect x="9" y="${on?5:12}" width="6" height="7" rx="1.5" fill="${on?'#8fc4ff':'#e6e6ea'}"/></svg>`,
   speaker: on => `<svg width="40" height="40" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="3" fill="#9a9aa3"/><circle cx="12" cy="14" r="4" fill="${on?'#8fc4ff':'#e6e6ea'}"/><circle cx="12" cy="6.5" r="1.5" fill="#e6e6ea"/></svg>`,
   other: on => `<svg width="40" height="40" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="2" fill="#9a9aa3"/><circle cx="17" cy="17" r="4" fill="#9a9aa3"/><rect x="13" y="3" width="8" height="8" rx="2" fill="${on?'#8fc4ff':'#9a9aa3'}"/><rect x="3" y="13" width="8" height="8" rx="2" fill="#9a9aa3"/></svg>`,
@@ -221,13 +277,19 @@ const store = {
 };
 const DEMO = () => ({
   homeName: 'Minha casa',
-  rooms: [{ id:'sala', name:'Sala' }, { id:'meninas', name:'Meninas' }, { id:'suite', name:'Suíte' }],
+  v: 2,
+  rooms: [{ id:'sala', name:'Sala' }, { id:'cozinha', name:'Cozinha' }, { id:'meninas', name:'Meninas' }, { id:'suite', name:'Suíte' }],
   devices: [
     { id:'d1', name:'AR SALA', roomId:'sala', type:'ac', online:true, on:false, temp:27, target:22, acMode:'cool', fan:'auto', acModes:['cool','dry','wind','auto','heat'], fanModes:['auto','low','medium','high','turbo'] },
     { id:'d2', name:'TV SALA', roomId:'sala', type:'tv', online:true, on:false, volume:12, muted:false, input:'HDMI1', inputs:['TV','HDMI1','HDMI2'] },
     { id:'d3', name:'AR MENINAS', roomId:'meninas', type:'ac', online:true, on:true, temp:24, target:23, acMode:'cool', fan:'auto', acModes:['cool','dry','wind','auto','heat'], fanModes:['auto','low','medium','high','turbo'] },
     { id:'d4', name:'AR SUÍTE', roomId:'suite', type:'ac', online:true, on:true, temp:18, target:18, acMode:'cool', fan:'low', acModes:['cool','dry','wind','auto','heat'], fanModes:['auto','low','medium','high','turbo'] },
     { id:'d5', name:'TV SUÍTE', roomId:'suite', type:'tv', online:false, on:false, volume:8, muted:false, input:'TV', inputs:['TV','HDMI1'] },
+    { id:'l1', name:'Luz Sala', roomId:'sala', type:'light', online:true, on:true, level:80, ct:2700, hasSwitch:true, demoCaps:['switchLevel','colorTemperature'] },
+    { id:'l2', name:'Fita LED Sala', roomId:'sala', type:'light', online:true, on:false, level:60, color:'hsl(270,90%,62%)', hue:75, sat:90, hasSwitch:true, demoCaps:['switchLevel','colorControl','colorTemperature'] },
+    { id:'l3', name:'Luz Cozinha', roomId:'cozinha', type:'light', online:true, on:false, level:100, ct:5000, hasSwitch:true, demoCaps:['switchLevel','colorTemperature'] },
+    { id:'l4', name:'Luz Meninas', roomId:'meninas', type:'light', online:true, on:false, level:70, hasSwitch:true, demoCaps:['switchLevel','colorControl','colorTemperature'] },
+    { id:'l5', name:'Abajur Suíte', roomId:'suite', type:'light', online:true, on:true, level:30, ct:2700, hasSwitch:true, demoCaps:['switchLevel','colorTemperature'] },
   ],
   scenes: [
     { id:'s1', name:'Hora de dormir', desc:'Ar das meninas e da suíte em 23°C, TVs desligadas', actions:[['d3','target',23],['d4','target',23],['d2','on',false],['d5','on',false]] },
@@ -324,6 +386,10 @@ function applyStatus(d, st) {
   d.inputs = Array.isArray(inp) ? inp.map(x => typeof x === 'string' ? x : (x.id || x.name)) : null;
   d.inputCap = v('mediaInputSource', 'inputSource') !== undefined ? 'mediaInputSource' : 'samsungvd.mediaInputSource';
   d.level = v('switchLevel', 'level');
+  d.ct = v('colorTemperature', 'colorTemperature');
+  const hue = v('colorControl', 'hue'), sat = v('colorControl', 'saturation');
+  d.hue = hue; d.sat = sat;
+  d.color = hue != null && sat != null && sat > 15 ? `hsl(${Math.round(hue * 3.6)},${Math.max(50, sat)}%,62%)` : null;
   const contact = v('contactSensor', 'contact'), motion = v('motionSensor', 'motion'), batt = v('battery', 'battery');
   d.summary = contact ? (contact === 'open' ? 'Aberto' : 'Fechado') : motion ? (motion === 'active' ? 'Movimento' : 'Sem movimento') : d.temp != null ? `${fmtT(d.temp)}°C` : batt != null ? `Bateria ${batt}%` : '';
 }
@@ -368,12 +434,13 @@ async function refreshAll() {
 
 /* ---------- Modo demonstração ---------- */
 function loadDemo() {
-  const saved = store.get('demo', null) || DEMO();
+  let saved = store.get('demo', null);
+  if (!saved || saved.v !== 2) saved = DEMO();
   S.rooms = saved.rooms; S.devices = saved.devices; S.scenes = saved.scenes; S.homeName = saved.homeName;
   S.locations = [{ id: 'demo', name: S.homeName }];
   S.error = ''; render();
 }
-function saveDemo() { if (S.mode === 'demo') store.set('demo', { homeName: S.homeName, rooms: S.rooms, devices: S.devices, scenes: S.scenes }); }
+function saveDemo() { if (S.mode === 'demo') store.set('demo', { v: 2, homeName: S.homeName, rooms: S.rooms, devices: S.devices, scenes: S.scenes }); }
 
 /* ---------- Comandos ---------- */
 async function send(d, capability, command, args = []) {
@@ -403,7 +470,11 @@ function volume(d, delta) {
 function mute(d) { d.muted = !d.muted; send(d, 'audioMute', d.muted ? 'mute' : 'unmute'); }
 function channel(d, up) { send(d, 'tvChannel', up ? 'channelUp' : 'channelDown'); toast(up ? 'Canal +' : 'Canal −'); }
 function setInput(d, src) { d.input = src; send(d, d.inputCap || 'mediaInputSource', 'setInputSource', [src]); }
-function setLevel(d, l) { d.level = l; d.on = l > 0; send(d, 'switchLevel', 'setLevel', [l]); }
+function setLevel(d, l) { haptic(); d.level = l; d.on = l > 0; send(d, 'switchLevel', 'setLevel', [l]); }
+function setCT(d, k) { haptic(); d.ct = k; d.color = null; d.on = true; send(d, 'colorTemperature', 'setColorTemperature', [k]); }
+function setColor(d, hue, sat) { haptic(); d.hue = hue; d.sat = sat; d.color = `hsl(${Math.round(hue * 3.6)},${sat}%,62%)`; d.on = true; send(d, 'colorControl', 'setColor', [{ hue, saturation: sat }]); }
+const LIGHT_COLORS = [[0, 90], [8, 95], [15, 95], [30, 80], [47, 80], [62, 85], [72, 85], [83, 80], [92, 75]];
+const LIGHT_CTS = [[2700, 'Quente', '#ffc46b'], [4000, 'Neutra', '#fff1d6'], [6500, 'Fria', '#d9ecff']];
 
 async function allOff() {
   const on = S.devices.filter(d => d.online && d.on && (d.hasSwitch || S.mode === 'demo'));
@@ -423,11 +494,18 @@ async function runScene(sc) {
 }
 
 /* ---------- Render ---------- */
+function lightColor(d) {
+  if (d.color) return d.color;
+  if (d.ct) return d.ct < 3300 ? '#ffc46b' : d.ct < 5000 ? '#fff1d6' : '#d9ecff';
+  return '#ffd36b';
+}
+function devIcon(d, on) { return d.type === 'light' ? ICONS.light(on, lightColor(d)) : (ICONS[d.type] || ICONS.other)(on); }
+function hasCap(d, cap) { return d.caps ? d.caps.has(cap) : (d.demoCaps || []).includes(cap); }
 function card(d) {
   const on = d.online && d.on;
   return `<button class="card ${on ? 'on' : ''} ${d.online ? '' : 'offline'}" data-type="${esc(d.type)}" data-dev="${esc(d.id)}">
     <div class="txt"><div class="name">${esc(d.name)}</div><div class="state">${esc(stateText(d))}</div></div>
-    <div class="box" data-toggle="${esc(d.id)}">${(ICONS[d.type] || ICONS.other)(on)}</div>
+    <div class="box" data-toggle="${esc(d.id)}">${devIcon(d, on)}</div>
     ${d.online ? '' : `<div class="badge">${CLOUD_OFF}</div>`}
   </button>`;
 }
@@ -502,17 +580,168 @@ function pageMenu() {
       <p>3. Copie o token, cole acima e toque em <b>Conectar</b>. Ele fica salvo só neste aparelho.</p>
     </div>
     ${!st ? `<div class="panel"><h3>Demonstração</h3><p>Volte os aparelhos de exemplo ao estado inicial.</p><button class="btn danger" data-act="resetdemo">Restaurar exemplo</button></div>` : ''}
-    ${NATIVE ? '<p style="color:var(--dim2);text-align:center;font-size:13px;margin-top:22px">Minha Casa 1.0</p>' : `<div class="panel"><h3>Instalar na tela inicial</h3><p>No Chrome do Android, abra o menu ⋮ e toque em <b>Adicionar à tela inicial</b>. O app abre em tela cheia, como os outros.</p></div>`}`;
+    ${NATIVE ? '<p style="color:var(--dim2);text-align:center;font-size:13px;margin-top:22px">Minha Casa 1.1</p>' : `<div class="panel"><h3>Instalar na tela inicial</h3><p>No Chrome do Android, abra o menu ⋮ e toque em <b>Adicionar à tela inicial</b>. O app abre em tela cheia, como os outros.</p></div>`}`;
 }
 function render() {
   $('#homeName').textContent = S.homeName;
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.page === S.page));
   const q = document.activeElement && document.activeElement.id === 'q';
   renderTabs();
-  const pages = { devices: pageDevices, home: pageHome, routines: pageRoutines, menu: pageMenu };
+  const pages = { devices: pageDevices, home: pageHome, routines: pageRoutines, menu: pageMenu, map: pageMap };
+  if (S.page === 'map' && MAP.busy) return; // não redesenha no meio de um arraste
   if (S.page === 'menu' && document.activeElement && document.activeElement.id === 'tok') return; // não apaga o que está sendo digitado
   $('#main').innerHTML = pages[S.page]();
   if (q) { const i = $('#q'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+}
+
+/* ---------- Mapa 3D ---------- */
+const ROOM_COLORS = ['#ece6f7', '#f4e9dc', '#dfefe6', '#e2ebf7', '#f6e2e8', '#efeedd', '#e6e9f0', '#f2e6f2'];
+const MAP = { rot: -35, tilt: 56, zoom: 1, mode: '3d', edit: false, busy: false, moved: false, s: 40 };
+const snap = v => Math.round(v * 4) / 4;
+function layoutKey() { return 'layout.' + (S.mode === 'demo' ? 'demo' : S.locationId); }
+function mapRooms() {
+  const rs = [...S.rooms];
+  if (S.devices.some(d => !S.rooms.find(r => r.id === d.roomId))) rs.push({ id: '_none', name: 'Outros' });
+  return rs;
+}
+function devRoom(d) { return S.rooms.find(r => r.id === d.roomId) ? d.roomId : '_none'; }
+function getLayout(fresh) {
+  const L = (!fresh && store.get(layoutKey(), null)) || { rooms: {}, devices: {} };
+  let changed = !!fresh;
+  mapRooms().forEach(r => {
+    if (L.rooms[r.id]) return;
+    const n = Object.keys(L.rooms).length, big = n === 0;
+    const maxY = Math.max(0, ...Object.values(L.rooms).map(q => q.y + q.h));
+    const row = Object.values(L.rooms).filter(q => q.y + q.h === maxY && maxY > 0);
+    const rowW = row.reduce((a, q) => Math.max(a, q.x + q.w), 0);
+    const w = big ? 6 : 5, h = 4.6;
+    if (row.length && rowW + w <= 11.5) L.rooms[r.id] = { x: rowW, y: row[0].y, w, h, c: ROOM_COLORS[n % ROOM_COLORS.length] };
+    else L.rooms[r.id] = { x: 0, y: maxY, w, h, c: ROOM_COLORS[n % ROOM_COLORS.length] };
+    changed = true;
+  });
+  const count = {};
+  S.devices.forEach(d => { const rid = devRoom(d); if (L.devices[d.id]) count[rid] = (count[rid] || 0) + 1; });
+  S.devices.forEach(d => {
+    if (L.devices[d.id]) return;
+    const rid = devRoom(d), r = L.rooms[rid]; const i = count[rid] = (count[rid] || 0) + 1;
+    const per = Math.max(2, Math.floor((r.w - 0.6) / 1.7));
+    L.devices[d.id] = { x: snap(Math.min(r.x + r.w - 0.6, r.x + 1.1 + ((i - 1) % per) * 1.7)), y: snap(Math.min(r.y + r.h - 0.5, r.y + 2 + Math.floor((i - 1) / per) * 1.6)) };
+    changed = true;
+  });
+  if (changed) store.set(layoutKey(), L);
+  return L;
+}
+function glowColor(d) {
+  if (d.type === 'light') return lightColor(d);
+  if (d.type === 'ac') return d.acMode === 'heat' ? '#ff9a5e' : '#6fd0ff';
+  if (d.type === 'tv') return '#c9d4ff';
+  return '#9fb8ff';
+}
+function pageMap() {
+  const L = getLayout();
+  const rooms = mapRooms();
+  const W = Math.max(4, ...rooms.map(r => L.rooms[r.id].x + L.rooms[r.id].w));
+  const H = Math.max(4, ...rooms.map(r => L.rooms[r.id].y + L.rooms[r.id].h));
+  const sw = Math.min(720, window.innerWidth) - 28, sh = Math.max(380, window.innerHeight - 260);
+  const flat = MAP.mode === '2d' || MAP.edit;
+  const s = MAP.s = Math.max(18, Math.min(70, flat ? Math.min((sw - 40) / W, (sh - 60) / H) : Math.min((sw - 10) / ((W + H) * 0.72), (sh - 40) / ((W + H) * 0.5))));
+  const stageH = Math.round(Math.max(320, Math.min(sh, flat ? H * s + 70 : (W + H) * 0.5 * s + 150)));
+  const vars = `height:${stageH}px;--rot:${flat ? 0 : MAP.rot}deg;--tilt:${flat ? 0 : MAP.tilt}deg;--zoom:${MAP.zoom};--wh:${Math.round(s * 0.85)}px`;
+  const px = v => (v * s).toFixed(1) + 'px';
+  const roomsHtml = rooms.map(r => { const q = L.rooms[r.id];
+    return `<div class="room" data-room="${esc(r.id)}" style="left:${px(q.x)};top:${px(q.y)};width:${px(q.w)};height:${px(q.h)};--c:${q.c}">
+      <div class="floor"></div><div class="wall wt"></div><div class="wall wb"></div><div class="wall wl"></div><div class="wall wr"></div>
+      <div class="rlabel">${esc(r.name)}</div>${MAP.edit ? `<div class="rs" data-resize="${esc(r.id)}">↘</div>` : ''}</div>`; }).join('');
+  const pins = S.devices.map(d => { const q = L.devices[d.id], on = d.online && d.on;
+    return `<div class="pin ${on ? 'on' : ''} ${d.online ? '' : 'offline'}" data-pin="${esc(d.id)}" style="left:${px(q.x)};top:${px(q.y)};--g:${glowColor(d)}">
+      ${on && !MAP.edit ? '<div class="glow"></div>' : ''}<div class="dot"></div>
+      <div class="stand"><div class="card3"><div class="bub">${devIcon(d, on)}</div><div class="pn">${esc(d.name)}</div></div></div></div>`; }).join('');
+  const bar = MAP.edit
+    ? `<b style="flex:1;font-size:16px">Editando a planta</b><button class="tool" data-map="auto">Reorganizar</button><button class="tool primary" data-map="done">Concluir</button>`
+    : `<div class="seg"><button class="${MAP.mode === '3d' ? 'on' : ''}" data-map="3d">3D</button><button class="${MAP.mode === '2d' ? 'on' : ''}" data-map="2d">Planta</button></div>
+       <div class="spacer"></div><button class="tool" data-map="reset" aria-label="Centralizar">⟲</button><button class="tool" data-map="edit">Editar</button>`;
+  const hint = MAP.edit ? 'Arraste os cômodos e os aparelhos. Puxe o ↘ para mudar o tamanho do cômodo.'
+    : MAP.mode === '3d' ? 'Arraste para girar · pinça para zoom · toque num aparelho para controlar' : 'Toque num aparelho para controlar · pinça para zoom';
+  return `<div class="map-bar">${bar}</div>
+    <div class="stage ${flat ? 'flat' : ''} ${MAP.edit ? 'edit' : ''} ${flat || MAP.zoom >= 1.35 ? 'labels' : ''}" id="stage" style="${vars}">
+      <div class="plane" id="plane" style="width:${px(W)};height:${px(H)}"><div class="base"></div>${roomsHtml}${pins}</div>
+    </div>
+    <div class="map-hint">${hint}</div>
+    ${MAP.edit ? '' : `<div class="legend"><span><i style="background:#6fd0ff"></i>Ar ligado</span><span><i style="background:#ffd36b"></i>Luz acesa</span><span><i style="background:#c9d4ff"></i>TV ligada</span></div>`}`;
+}
+function applyMapVars() {
+  const st = $('#stage'); if (!st) return;
+  st.style.setProperty('--rot', MAP.rot + 'deg'); st.style.setProperty('--tilt', MAP.tilt + 'deg'); st.style.setProperty('--zoom', MAP.zoom);
+  st.classList.toggle('labels', st.classList.contains('flat') || MAP.zoom >= 1.35);
+}
+const ptrs = new Map(); let mg = null;
+const pdist = () => { const [a, b] = [...ptrs.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+document.addEventListener('pointerdown', e => {
+  const st = e.target.closest('#stage'); if (!st) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  MAP.moved = false;
+  if (ptrs.size === 2) { mg = { kind: 'pinch', d0: pdist(), z0: MAP.zoom }; }
+  else if (MAP.edit) {
+    const L = getLayout(), base = { sx: e.clientX, sy: e.clientY, L };
+    const rs = e.target.closest('[data-resize]'), pin = e.target.closest('[data-pin]'), room = e.target.closest('[data-room]');
+    if (rs) mg = { ...base, kind: 'resize', id: rs.dataset.resize, o: { ...L.rooms[rs.dataset.resize] } };
+    else if (pin) mg = { ...base, kind: 'pin', id: pin.dataset.pin, o: { ...L.devices[pin.dataset.pin] } };
+    else if (room) { const id = room.dataset.room;
+      mg = { ...base, kind: 'room', id, o: { ...L.rooms[id] }, devs: S.devices.filter(d => devRoom(d) === id).map(d => [d.id, { ...L.devices[d.id] }]) }; }
+    else mg = null;
+  } else mg = { kind: 'view', sx: e.clientX, sy: e.clientY, rot: MAP.rot, tilt: MAP.tilt };
+  if (mg) { MAP.busy = true; st.classList.add('drag'); }
+});
+document.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (!mg) return;
+  e.preventDefault();
+  if (mg.kind === 'pinch') { if (ptrs.size === 2) { MAP.moved = true; MAP.zoom = Math.max(.5, Math.min(2.6, mg.z0 * pdist() / mg.d0)); applyMapVars(); } return; }
+  const dx = e.clientX - mg.sx, dy = e.clientY - mg.sy;
+  if (Math.hypot(dx, dy) > 6) MAP.moved = true;
+  if (mg.kind === 'view') {
+    if (MAP.mode === '3d') { MAP.rot = mg.rot + dx * 0.35; MAP.tilt = Math.max(10, Math.min(72, mg.tilt - dy * 0.25)); applyMapVars(); }
+    return;
+  }
+  if (!MAP.moved) return;
+  const u = MAP.s * MAP.zoom, ux = snap(dx / u), uy = snap(dy / u), px = v => (v * MAP.s) + 'px';
+  const st = $('#stage'), q = sel => st.querySelector(sel);
+  if (mg.kind === 'room') {
+    const r = mg.L.rooms[mg.id]; r.x = Math.max(0, mg.o.x + ux); r.y = Math.max(0, mg.o.y + uy);
+    const el = q(`[data-room="${CSS.escape(mg.id)}"]`); el.style.left = px(r.x); el.style.top = px(r.y);
+    mg.devs.forEach(([id, o]) => { const p = mg.L.devices[id]; p.x = o.x + (r.x - mg.o.x); p.y = o.y + (r.y - mg.o.y);
+      const pe = q(`[data-pin="${CSS.escape(id)}"]`); if (pe) { pe.style.left = px(p.x); pe.style.top = px(p.y); } });
+  } else if (mg.kind === 'resize') {
+    const r = mg.L.rooms[mg.id]; r.w = Math.max(1.5, mg.o.w + ux); r.h = Math.max(1.5, mg.o.h + uy);
+    const el = q(`[data-room="${CSS.escape(mg.id)}"]`); el.style.width = px(r.w); el.style.height = px(r.h);
+  } else if (mg.kind === 'pin') {
+    const p = mg.L.devices[mg.id]; p.x = Math.max(0, mg.o.x + ux); p.y = Math.max(0, mg.o.y + uy);
+    const el = q(`[data-pin="${CSS.escape(mg.id)}"]`); el.style.left = px(p.x); el.style.top = px(p.y);
+  }
+}, { passive: false });
+function endPtr(e) {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId);
+  if (ptrs.size) return;
+  const g = mg; mg = null; MAP.busy = false;
+  const st = $('#stage'); if (st) st.classList.remove('drag');
+  if (g && g.L && MAP.moved) { store.set(layoutKey(), g.L); render(); }
+}
+document.addEventListener('pointerup', endPtr);
+document.addEventListener('pointercancel', endPtr);
+document.addEventListener('wheel', e => {
+  if (!e.target.closest('#stage')) return;
+  e.preventDefault(); MAP.zoom = Math.max(.5, Math.min(2.6, MAP.zoom * (e.deltaY < 0 ? 1.1 : 0.9))); applyMapVars();
+}, { passive: false });
+function mapAction(a) {
+  haptic();
+  if (a === '3d' || a === '2d') MAP.mode = a;
+  if (a === 'reset') Object.assign(MAP, { rot: -35, tilt: 56, zoom: 1 });
+  if (a === 'edit') { MAP.edit = true; MAP.zoom = 1; }
+  if (a === 'done') { MAP.edit = false; toast('Planta salva'); }
+  if (a === 'auto' && confirm('Reorganizar a planta automaticamente? As posições atuais serão perdidas.')) getLayout(true);
+  render();
 }
 
 /* ---------- Painel do aparelho ---------- */
@@ -538,8 +767,14 @@ function renderSheet() {
       </div>
       ${d.inputs && d.inputs.length ? `<div class="label">Fonte</div><div class="chips ${on ? '' : 'disabled'}">${d.inputs.map(s => `<button class="chip ${d.input === s ? 'on' : ''}" data-c="input" data-v="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
       ${S.mode === 'st' && d.type === 'tv' && !on ? '<p style="color:var(--dim);font-size:14px;margin-top:16px">Algumas TVs só ligam pela rede se a opção "Ligar com celular" estiver ativa nas configurações da TV.</p>' : ''}`;
-  } else if (d.type === 'light' && (d.caps ? d.caps.has('switchLevel') : true)) {
-    body = `<div class="label">Brilho</div><div class="chips">${[10, 25, 50, 75, 100].map(l => `<button class="chip ${on && d.level === l ? 'on' : ''}" data-c="level" data-v="${l}">${l}%</button>`).join('')}</div>`;
+  } else if (d.type === 'light') {
+    const col = lightColor(d), lv = d.level ?? 100;
+    const near = d.color && d.hue != null ? LIGHT_COLORS.reduce((b, c, i) => Math.abs(c[0] - d.hue) < Math.abs(LIGHT_COLORS[b][0] - d.hue) ? i : b, 0) : -1;
+    body = `<div class="bulb-hero"><div class="b" style="background:${on ? `radial-gradient(circle, ${col} 0%, transparent 68%)` : '#202027'}">${ICONS.light(on, col).replace('width="38" height="42"', 'width="56" height="62"')}</div></div>
+      ${hasCap(d, 'switchLevel') ? `<div class="label">Brilho · <span id="lvl">${on ? lv : 0}%</span></div>
+        <input type="range" class="slider" min="1" max="100" value="${on ? lv : 1}" data-lvl="1" style="--p:${on ? lv : 0}%;--lc:${col}">` : ''}
+      ${hasCap(d, 'colorTemperature') ? `<div class="label">Tom de branco</div><div class="seg">${LIGHT_CTS.map(([k, n]) => `<button class="${on && !d.color && d.ct && Math.abs(d.ct - k) < 700 ? 'on' : ''}" data-c="ct" data-v="${k}">${n}</button>`).join('')}</div>` : ''}
+      ${hasCap(d, 'colorControl') ? `<div class="label">Cor</div><div class="swatches">${LIGHT_COLORS.map(([h, sa], i) => `<button class="sw ${on && i === near ? 'on' : ''}" style="background:hsl(${Math.round(h * 3.6)},${sa}%,60%)" data-c="color" data-v="${h},${sa}"></button>`).join('')}</div>` : ''}`;
   }
   const canPower = d.hasSwitch !== false || S.mode === 'demo';
   openSheet(`<div class="row">
@@ -608,6 +843,8 @@ function sheetCommand(c, v) {
     case 'c-': channel(d, false); break;
     case 'input': setInput(d, v); break;
     case 'level': setLevel(d, Number(v)); break;
+    case 'ct': setCT(d, Number(v)); break;
+    case 'color': { const [h, sa] = v.split(',').map(Number); setColor(d, h, sa); break; }
     case 'remove':
       if (confirm(`Remover ${d.name}?`)) { S.devices = S.devices.filter(x => x !== d); saveDemo(); closeSheet(); render(); }
       break;
@@ -639,7 +876,7 @@ function addDevice() {
   const d = { id: 'd' + Date.now(), name, roomId, type, online: true, on: false, hasSwitch: true };
   if (type === 'ac') Object.assign(d, { temp: 26, target: 22, acMode: 'cool', fan: 'auto', acModes: ['cool','dry','wind','auto','heat'], fanModes: ['auto','low','medium','high','turbo'] });
   if (type === 'tv' || type === 'speaker') Object.assign(d, { volume: 10, muted: false, inputs: type === 'tv' ? ['TV','HDMI1','HDMI2'] : null, input: 'TV' });
-  if (type === 'light') d.level = 100;
+  if (type === 'light') Object.assign(d, { level: 100, ct: 2700, demoCaps: ['switchLevel', 'colorTemperature', 'colorControl'] });
   S.devices.push(d); saveDemo(); closeSheet(); render(); toast(`${name} adicionado`);
 }
 function openHomes() {
@@ -655,6 +892,7 @@ function animateMain() { const m = $('#main'); m.classList.remove('enter'); void
 window.onBack = () => {
   if ($('#sheet').classList.contains('show')) { closeSheet(); return true; }
   if ($('#menu').classList.contains('show')) { $('#menu').classList.remove('show'); return true; }
+  if (S.page === 'map' && MAP.edit) { MAP.edit = false; render(); return true; }
   if (S.searchOpen || S.query) { S.searchOpen = false; S.query = ''; render(); return true; }
   if (S.page !== 'devices') { S.page = 'devices'; render(); animateMain(); return true; }
   return false;
@@ -666,6 +904,10 @@ document.addEventListener('click', e => {
   const link = t.closest('a[href^="https://"]');
   if (link && NATIVE) { e.preventDefault(); NATIVE.openUrl(link.href); return; }
   if (!t.closest('#menu') && !t.closest('#moreBtn')) $('#menu').classList.remove('show');
+  const mapBtn = t.closest('[data-map]');
+  if (mapBtn) { mapAction(mapBtn.dataset.map); return; }
+  const pin = t.closest('[data-pin]');
+  if (pin) { if (!MAP.edit && !MAP.moved) { S.sheetDev = pin.dataset.pin; renderSheet(); } return; }
   const tog = t.closest('[data-toggle]');
   if (tog && !t.closest('.sheet')) { e.stopPropagation(); const d = S.devices.find(x => x.id === tog.dataset.toggle); if (d) { if (d.type === 'other' && !d.hasSwitch && S.mode === 'st') { S.sheetDev = d.id; renderSheet(); } else setPower(d, !d.on); } return; }
   const dev = t.closest('[data-dev]');
@@ -701,7 +943,13 @@ document.addEventListener('click', e => {
     }
   }
 });
-document.addEventListener('input', e => { if (e.target.id === 'q') { S.query = e.target.value; render(); } });
+document.addEventListener('input', e => {
+  if (e.target.id === 'q') { S.query = e.target.value; render(); return; }
+  if (e.target.dataset.lvl) { const v = Number(e.target.value); e.target.style.setProperty('--p', v + '%'); const l = $('#lvl'); if (l) l.textContent = v + '%'; }
+});
+document.addEventListener('change', e => {
+  if (e.target.dataset.lvl) { const d = S.devices.find(x => x.id === S.sheetDev); if (d) setLevel(d, Number(e.target.value)); }
+});
 $('#scrim').onclick = closeSheet;
 $('#addBtn').onclick = openAdd;
 $('#homeBtn').onclick = openHomes;
