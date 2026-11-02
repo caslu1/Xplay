@@ -38,6 +38,12 @@ public class NotifService extends NotificationListenerService {
     private MediaSessionManager msm;
     private MediaSessionManager.OnActiveSessionsChangedListener sessionsListener;
     private List<MediaController> controllers = new ArrayList<>();
+    /** Sessions reported by the system as active. */
+    private List<MediaController> activeSessions = new ArrayList<>();
+    /** Sessions found in media notifications (YouTube and others that the active list misses). */
+    private final Map<String, MediaController> notifSessions = new HashMap<>();
+    /** Title/text/picture of each app's media notification, used when the session has no metadata. */
+    private final Map<String, Item> mediaNotifs = new HashMap<>();
 
     private final Runnable republish = new Runnable() {
         @Override public void run() { publish(); }
@@ -96,6 +102,10 @@ public class NotifService extends NotificationListenerService {
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn) {
         if (liveNotifs.remove(sbn.getKey()) != null) publish();
+        if (notifSessions.remove(sbn.getKey()) != null) {
+            mediaNotifs.remove(sbn.getPackageName());
+            setControllers(activeSessions);
+        }
         Hub.removed(sbn.getKey());
     }
 
@@ -105,7 +115,10 @@ public class NotifService extends NotificationListenerService {
         if (n == null || getPackageName().equals(pkg)) return;
         Bundle ex = n.extras;
         if (ex == null) ex = new Bundle();
-        if (ex.containsKey(Notification.EXTRA_MEDIA_SESSION)) return; // handled by media sessions
+        if (ex.containsKey(Notification.EXTRA_MEDIA_SESSION)) {
+            mediaNotification(sbn, ex);
+            return;
+        }
 
         boolean ongoing = (n.flags & Notification.FLAG_ONGOING_EVENT) != 0
                 || (n.flags & Notification.FLAG_FOREGROUND_SERVICE) != 0;
@@ -228,12 +241,39 @@ public class NotifService extends NotificationListenerService {
 
     // ---------------------------------------------------------------- media
 
+    private void mediaNotification(StatusBarNotification sbn, Bundle ex) {
+        Object t = ex.getParcelable(Notification.EXTRA_MEDIA_SESSION);
+        if (!(t instanceof android.media.session.MediaSession.Token)) return;
+        mediaNotifs.put(sbn.getPackageName(), build(sbn, Item.MEDIA));
+        MediaController old = notifSessions.get(sbn.getKey());
+        if (old != null && old.getSessionToken().equals(t)) {
+            schedule();
+            return;
+        }
+        try {
+            notifSessions.put(sbn.getKey(), new MediaController(this, (android.media.session.MediaSession.Token) t));
+        } catch (Exception e) {
+            return;
+        }
+        try {
+            activeSessions = msm.getActiveSessions(new ComponentName(this, NotifService.class));
+        } catch (Exception ignored) {
+        }
+        setControllers(activeSessions);
+    }
+
     private void setControllers(List<MediaController> list) {
         for (Map.Entry<MediaController, MediaController.Callback> e : callbacks.entrySet()) {
             e.getKey().unregisterCallback(e.getValue());
         }
         callbacks.clear();
-        controllers = list != null ? list : new ArrayList<MediaController>();
+        activeSessions = list != null ? list : new ArrayList<MediaController>();
+        controllers = new ArrayList<>(activeSessions);
+        for (MediaController n : notifSessions.values()) {
+            boolean dup = false;
+            for (MediaController c : controllers) if (c.getSessionToken().equals(n.getSessionToken())) dup = true;
+            if (!dup) controllers.add(n);
+        }
         for (MediaController c : controllers) {
             MediaController.Callback cb = new MediaController.Callback() {
                 @Override public void onPlaybackStateChanged(PlaybackState state) { schedule(); }
@@ -259,7 +299,7 @@ public class NotifService extends NotificationListenerService {
         for (MediaController c : controllers) {
             PlaybackState st = c.getPlaybackState();
             MediaMetadata md = c.getMetadata();
-            if (st == null || md == null) continue;
+            if (st == null || (md == null && !mediaNotifs.containsKey(c.getPackageName()))) continue;
             int s = st.getState();
             boolean playing = s == PlaybackState.STATE_PLAYING || s == PlaybackState.STATE_BUFFERING;
             String id = c.getPackageName();
@@ -287,24 +327,34 @@ public class NotifService extends NotificationListenerService {
             handler.postDelayed(republish, Math.max(1000, left + 500));
         }
         MediaMetadata md = best.getMetadata();
+        Item fb = mediaNotifs.get(best.getPackageName());
         Item it = new Item();
         it.type = Item.MEDIA;
         it.key = "media:" + best.getPackageName();
         it.pkg = best.getPackageName();
         it.app = appLabel(it.pkg);
         it.icon = appIcon(it.pkg);
-        it.title = str(md, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE);
-        it.text = str(md, MediaMetadata.METADATA_KEY_ARTIST, MediaMetadata.METADATA_KEY_ALBUM_ARTIST);
-        if (it.text == null) it.text = str(md, MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, MediaMetadata.METADATA_KEY_ALBUM);
-        Bitmap art = md.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
-        if (art == null) art = md.getBitmap(MediaMetadata.METADATA_KEY_ART);
-        if (art == null) art = md.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON);
+        Bitmap art = null;
+        if (md != null) {
+            it.title = str(md, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE);
+            it.text = str(md, MediaMetadata.METADATA_KEY_ARTIST, MediaMetadata.METADATA_KEY_ALBUM_ARTIST);
+            if (it.text == null) it.text = str(md, MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, MediaMetadata.METADATA_KEY_ALBUM);
+            art = md.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
+            if (art == null) art = md.getBitmap(MediaMetadata.METADATA_KEY_ART);
+            if (art == null) art = md.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON);
+            it.max = (int) Math.max(0, md.getLong(MediaMetadata.METADATA_KEY_DURATION));
+        }
+        if (fb != null) {
+            if (it.title == null) it.title = fb.title;
+            if (it.text == null) it.text = fb.text;
+            if (art == null) art = fb.art;
+        }
         it.art = art;
         it.color = art != null ? Colors.accentOf(art) : 0xFFFF5A6E;
-        it.max = (int) Math.max(0, md.getLong(MediaMetadata.METADATA_KEY_DURATION));
         it.controller = best;
         it.playing = bestPlaying;
         it.contentIntent = best.getSessionActivity();
+        if (it.contentIntent == null && fb != null) it.contentIntent = fb.contentIntent;
         return it;
     }
 
