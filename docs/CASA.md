@@ -24,7 +24,17 @@ Sem token, o app abre em **modo demonstração** com aparelhos de exemplo (nada 
 
 O token fica salvo só no navegador do celular. Não compartilhe o link com o token, nem o token. Ele dá acesso aos seus aparelhos.
 
-## Abrir no celular
+## Instalar o APK (Android)
+
+1. Baixe [`releases/MinhaCasa-1.0.apk`](../releases/MinhaCasa-1.0.apk) no celular (no GitHub, abra o arquivo e toque em **Download raw file**).
+2. Abra o arquivo e permita **Instalar apps desconhecidos** quando o Android pedir.
+3. Abra **Minha Casa**, vá em **Menu → Conexão** e cole o token.
+
+O APK roda o mesmo app desta pasta, mas as chamadas ao SmartThings saem pelo Android, sem passar pelas restrições do navegador. O botão Voltar fecha os painéis, e os toques vibram de leve.
+
+Para gerar o APK de novo: `./build-casa.sh` (cria `build/casa/MinhaCasa.apk`). Ele é assinado com `tools/casa.keystore` (senha `casa123`). Use sempre essa chave para que as atualizações instalem por cima. Ao lançar uma versão nova, aumente `versionCode`/`versionName` em `casa-app/AndroidManifest.xml`.
+
+## Abrir no navegador (opcional)
 
 O app precisa estar num endereço `https://`. O jeito mais simples é o GitHub Pages:
 
@@ -40,3 +50,5 @@ Também dá para abrir `casa/index.html` direto no navegador do computador.
 - `casa/index.html`: o app inteiro (HTML, CSS e JavaScript, sem dependências)
 - `casa/manifest.json`, `casa/icon.svg`: nome e ícone na tela inicial
 - `casa/sw.js`: guarda a tela para abrir rápido
+- `casa-app/`: projeto Android (casca nativa que mostra `casa/index.html`)
+- `build-casa.sh`: gera o APK

@@ -58,7 +58,14 @@
   .card.on { background:var(--card-on); }
   .card.on .name { color:#fff; }
   .card.on .state { color:var(--dim); }
-  .card.on .box { background:var(--box-on); }
+  .card.on .box { background:var(--box-on); box-shadow:inset 0 0 0 1px rgba(255,255,255,.04); }
+  .card.on[data-type="ac"] .box { background:radial-gradient(circle at 50% 60%, rgba(94,200,255,.22), var(--box-on) 70%); }
+  .card.on[data-type="light"] .box { background:radial-gradient(circle at 50% 50%, rgba(255,211,107,.28), var(--box-on) 70%); }
+  .card.on[data-type="tv"] .box { background:radial-gradient(circle at 50% 45%, rgba(255,255,255,.14), var(--box-on) 70%); }
+  .card { box-shadow:0 1px 0 rgba(255,255,255,.04) inset; }
+  .card.on { box-shadow:0 10px 24px -12px rgba(0,0,0,.6); }
+  .card .box svg { transition:transform .25s cubic-bezier(.3,1.6,.5,1); }
+  .card .box:active svg { transform:scale(.75); }
   .card.offline { opacity:.55; }
   .card.offline .box { background:transparent; }
   .badge { position:absolute; top:-8px; right:-6px; width:36px; height:36px; border-radius:50%; background:#2c2c34; display:grid; place-items:center; }
@@ -66,19 +73,47 @@
   .empty b { color:#fff; display:block; font-size:18px; margin-bottom:6px; }
 
   nav.bottom { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(14px + env(safe-area-inset-bottom)); width:min(640px, calc(100% - 24px)); display:flex; justify-content:space-around; padding:8px; background:rgba(28,28,32,.96); border-radius:40px; box-shadow:0 8px 30px rgba(0,0,0,.4); z-index:20; }
+  nav.bottom { -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); background:rgba(24,24,30,.88); }
+  nav.bottom button { transition:background .25s, color .25s; }
   nav.bottom button { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; font-size:13px; padding:8px 4px; border-radius:30px; color:#ddd; }
   nav.bottom button.on { background:rgba(255,255,255,.12); color:#fff; font-weight:600; }
 
   /* Bottom sheet */
-  .scrim { position:fixed; inset:0; background:rgba(0,0,0,.55); opacity:0; pointer-events:none; transition:opacity .2s; z-index:30; }
+  .scrim { position:fixed; inset:0; background:rgba(8,8,20,.5); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); opacity:0; pointer-events:none; transition:opacity .2s; z-index:30; }
   .scrim.show { opacity:1; pointer-events:auto; }
-  .sheet { position:fixed; left:50%; bottom:0; transform:translate(-50%,100%); width:min(720px,100%); max-height:92vh; overflow-y:auto; background:#17171c; border-radius:28px 28px 0 0; padding:10px 20px calc(28px + env(safe-area-inset-bottom)); transition:transform .25s ease; z-index:31; }
+  .sheet { position:fixed; left:50%; bottom:0; transform:translate(-50%,100%); width:min(720px,100%); max-height:92vh; overflow-y:auto; background:linear-gradient(180deg,#1d1d27 0%,#15151b 60%); border-radius:30px 30px 0 0; box-shadow:0 -10px 40px rgba(0,0,0,.45); padding:10px 20px calc(28px + env(safe-area-inset-bottom)); transition:transform .32s cubic-bezier(.2,.9,.25,1); overscroll-behavior:contain; z-index:31; }
   .sheet.show { transform:translate(-50%,0); }
   .grab { width:40px; height:5px; border-radius:3px; background:#444; margin:0 auto 14px; }
   .sheet h2 { margin:0; font-size:22px; } .sheet .sub { color:var(--dim); margin:2px 0 18px; }
   .row { display:flex; align-items:center; gap:12px; }
   .power { width:64px; height:64px; border-radius:50%; background:#2a2a32; display:grid; place-items:center; flex:none; }
-  .power.on { background:var(--accent); color:#0c1a33; }
+  .power { transition:background .25s, box-shadow .25s, transform .15s; }
+  .power:active { transform:scale(.92); }
+  .power.on { background:linear-gradient(135deg,#7fd0ff,#7f8cff); color:#0c1a33; box-shadow:0 8px 24px -6px rgba(127,160,255,.7); }
+  .power.on.heat { background:linear-gradient(135deg,#ffc06b,#ff6a5e); box-shadow:0 8px 24px -6px rgba(255,120,90,.7); }
+  .dial-wrap { position:relative; width:270px; height:250px; margin:8px auto 0; touch-action:none; }
+  .dial-wrap > svg { position:absolute; inset:0; width:270px; height:270px; }
+  .dial-c { position:absolute; left:0; right:0; top:68px; text-align:center; pointer-events:none; }
+  .dial-c .v { font-size:68px; font-weight:250; letter-spacing:-3px; line-height:1; }
+  .dial-c .v sup { font-size:28px; letter-spacing:0; vertical-align:top; position:relative; top:6px; margin-left:2px; }
+  .dial-c .l { color:var(--dim); font-size:14px; margin-top:8px; }
+  .dial-c .m { display:inline-flex; align-items:center; gap:6px; margin-top:10px; padding:5px 12px; border-radius:20px; background:rgba(255,255,255,.07); font-size:13.5px; color:#cfd6ff; }
+  .dial-btns { display:flex; justify-content:space-between; width:270px; margin:-58px auto 10px; position:relative; }
+  .modes { display:grid; grid-template-columns:repeat(auto-fill,minmax(88px,1fr)); gap:8px; }
+  .mode { display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px 6px; border-radius:18px; background:#23232c; font-size:13px; color:#ccc; transition:background .2s, color .2s; }
+  .mode svg { width:24px; height:24px; }
+  .mode.on { background:linear-gradient(135deg,rgba(127,208,255,.22),rgba(127,140,255,.22)); color:#fff; box-shadow:inset 0 0 0 1.5px rgba(140,180,255,.6); }
+  .mode.on.heat { background:linear-gradient(135deg,rgba(255,192,107,.2),rgba(255,106,94,.2)); box-shadow:inset 0 0 0 1.5px rgba(255,150,100,.6); }
+  .seg { display:flex; background:#23232c; border-radius:18px; padding:4px; }
+  .seg button { flex:1; padding:10px 0; border-radius:14px; font-size:14px; color:#bbb; transition:background .2s,color .2s; }
+  .seg button.on { background:#3a3a48; color:#fff; font-weight:600; }
+  .demo-pill { display:flex; align-items:center; gap:10px; margin:14px 4px 0; padding:12px 14px; border-radius:20px; background:linear-gradient(90deg,rgba(127,182,255,.16),rgba(160,120,255,.16)); font-size:14px; color:#dfe4ff; }
+  .demo-pill b { flex:1; font-weight:500; }
+  .demo-pill button { padding:8px 14px; border-radius:14px; background:#fff; color:#1b1f4a; font-weight:700; font-size:13.5px; }
+  .stat { position:relative; overflow:hidden; }
+  .stat::after { content:''; position:absolute; right:-20px; top:-20px; width:70px; height:70px; border-radius:50%; background:rgba(255,255,255,.05); }
+  main.enter > * { animation:up .35s ease both; }
+  @keyframes up { from { opacity:0; transform:translateY(10px); } }
   .big-temp { text-align:center; margin:22px 0 8px; }
   .big-temp .v { font-size:72px; font-weight:300; letter-spacing:-2px; }
   .big-temp .l { color:var(--dim); }
@@ -88,13 +123,14 @@
   .label { color:var(--dim); font-size:14px; margin:18px 0 8px; text-transform:uppercase; letter-spacing:.4px; }
   .chips { display:flex; flex-wrap:wrap; gap:8px; }
   .chip { padding:10px 16px; border-radius:20px; background:#26262e; font-size:15px; }
-  .chip.on { background:var(--accent); color:#0c1a33; font-weight:600; }
+  .chip.on { background:linear-gradient(135deg,#7fd0ff,#7f8cff); color:#0c1a33; font-weight:600; }
+  .chip { transition:background .2s; }
   .remote { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:8px; }
   .remote .col { display:flex; flex-direction:column; align-items:center; gap:10px; background:#202027; border-radius:40px; padding:10px 0; }
   .remote .col span { color:var(--dim); font-size:13px; }
   .disabled { opacity:.35; pointer-events:none; }
 
-  .btn { display:block; width:100%; padding:14px; border-radius:16px; background:var(--accent); color:#0c1a33; font-weight:700; text-align:center; margin-top:12px; }
+  .btn { display:block; width:100%; padding:15px; border-radius:18px; background:linear-gradient(135deg,#8fd6ff,#8a8dff); color:#0c1a33; font-weight:700; text-align:center; margin-top:12px; }
   .btn.ghost { background:#26262e; color:#fff; font-weight:600; }
   .btn.danger { background:#3a1f24; color:var(--red); }
   .field { display:block; margin-top:12px; }
@@ -114,6 +150,7 @@
   .stat { background:var(--card); border-radius:22px; padding:16px; }
   .stat b { font-size:28px; display:block; } .stat span { color:var(--dim); font-size:14px; }
 
+  .toast { box-shadow:0 10px 30px rgba(0,0,0,.35); font-weight:500; }
   .toast { position:fixed; left:50%; bottom:110px; transform:translateX(-50%) translateY(20px); background:#f2f2f5; color:#111; padding:12px 18px; border-radius:14px; font-size:15px; opacity:0; transition:.2s; z-index:50; pointer-events:none; max-width:calc(100% - 32px); }
   .toast.show { opacity:1; transform:translateX(-50%); }
   .menu { position:absolute; right:12px; top:calc(64px + env(safe-area-inset-top)); background:#24242b; border-radius:16px; padding:6px; min-width:210px; box-shadow:0 10px 30px rgba(0,0,0,.5); z-index:40; display:none; }
@@ -227,11 +264,26 @@ function stateText(d) {
   return d.summary || 'Conectado';
 }
 
+/* ---------- Ponte com o app Android ---------- */
+const NATIVE = window.Native || null;
+const nativeCbs = {}; let nativeSeq = 0;
+window.__nativeCb = (id, status, body) => { const cb = nativeCbs[id]; delete nativeCbs[id]; if (cb) cb(status, body); };
+function nativeFetch(url, opts) {
+  return new Promise(resolve => {
+    const id = 'r' + (++nativeSeq);
+    nativeCbs[id] = (status, body) => resolve({ status, ok: status >= 200 && status < 300, json: async () => JSON.parse(body || '{}') });
+    NATIVE.http(id, opts.method || 'GET', url, S.token, opts.body || '');
+  });
+}
+function haptic() { try { if (NATIVE) NATIVE.haptic(); else if (navigator.vibrate) navigator.vibrate(8); } catch {} }
+
 /* ---------- SmartThings API ---------- */
 const API = 'https://api.smartthings.com/v1';
 async function api(path, opts = {}) {
   const url = path.startsWith('http') ? path : API + path;
-  const r = await fetch(url, { ...opts, headers: { 'Authorization': 'Bearer ' + S.token, 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+  const r = NATIVE ? await nativeFetch(url, opts)
+    : await fetch(url, { ...opts, headers: { 'Authorization': 'Bearer ' + S.token, 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+  if (r.status === 0) throw new Error('Failed to fetch');
   if (r.status === 401) throw new Error('Token inválido ou expirado. Gere outro em Menu → Conexão.');
   if (r.status === 403) throw new Error('O token não tem permissão para isso. Marque todas as permissões de Devices, Locations e Scenes.');
   if (!r.ok) throw new Error('SmartThings respondeu ' + r.status);
@@ -335,15 +387,15 @@ async function send(d, capability, command, args = []) {
 }
 function setPower(d, on) {
   if (!d.online) return toast(`${d.name} está offline`);
-  d.on = on; send(d, 'switch', on ? 'on' : 'off');
+  haptic(); d.on = on; send(d, 'switch', on ? 'on' : 'off');
 }
 function setTarget(d, t) {
-  t = Math.max(16, Math.min(30, t)); d.target = t;
+  t = Math.max(16, Math.min(30, Math.round(t))); if (t === d.target) return; haptic(); d.target = t;
   clearTimeout(d._st); render(); renderSheet();
   d._st = setTimeout(() => send(d, 'thermostatCoolingSetpoint', 'setCoolingSetpoint', [t]), 600);
 }
-function setAcMode(d, m) { d.acMode = m; send(d, 'airConditionerMode', 'setAirConditionerMode', [m]); }
-function setFan(d, m) { d.fan = m; send(d, 'airConditionerFanMode', 'setFanMode', [m]); }
+function setAcMode(d, m) { haptic(); d.acMode = m; send(d, 'airConditionerMode', 'setAirConditionerMode', [m]); }
+function setFan(d, m) { haptic(); d.fan = m; send(d, 'airConditionerFanMode', 'setFanMode', [m]); }
 function volume(d, delta) {
   d.volume = Math.max(0, Math.min(100, (d.volume || 0) + delta)); d.muted = false;
   send(d, 'audioVolume', delta > 0 ? 'volumeUp' : 'volumeDown');
@@ -373,7 +425,7 @@ async function runScene(sc) {
 /* ---------- Render ---------- */
 function card(d) {
   const on = d.online && d.on;
-  return `<button class="card ${on ? 'on' : ''} ${d.online ? '' : 'offline'}" data-dev="${esc(d.id)}">
+  return `<button class="card ${on ? 'on' : ''} ${d.online ? '' : 'offline'}" data-type="${esc(d.type)}" data-dev="${esc(d.id)}">
     <div class="txt"><div class="name">${esc(d.name)}</div><div class="state">${esc(stateText(d))}</div></div>
     <div class="box" data-toggle="${esc(d.id)}">${(ICONS[d.type] || ICONS.other)(on)}</div>
     ${d.online ? '' : `<div class="badge">${CLOUD_OFF}</div>`}
@@ -401,7 +453,7 @@ function pageDevices() {
   let devs = S.devices.filter(d => !q || d.name.toLowerCase().includes(q));
   if (S.tab !== 'all') devs = devs.filter(d => d.roomId === S.tab);
   if (!devs.length) return `<div class="empty"><b>Nenhum aparelho aqui</b>${q ? 'Nada encontrado com esse nome.' : 'Toque em + para adicionar.'}</div>`;
-  let html = '';
+  let html = S.mode === 'demo' && S.tab === 'all' && !q ? `<div class="demo-pill"><b>Modo demonstração: aparelhos de exemplo</b><button data-act="settings">Conectar</button></div>` : '';
   const rooms = S.tab === 'all' ? S.rooms : S.rooms.filter(r => r.id === S.tab);
   rooms.forEach(r => { html += section(r.id, r.name, devs.filter(d => d.roomId === r.id)); });
   const known = new Set(S.rooms.map(r => r.id));
@@ -450,7 +502,7 @@ function pageMenu() {
       <p>3. Copie o token, cole acima e toque em <b>Conectar</b>. Ele fica salvo só neste aparelho.</p>
     </div>
     ${!st ? `<div class="panel"><h3>Demonstração</h3><p>Volte os aparelhos de exemplo ao estado inicial.</p><button class="btn danger" data-act="resetdemo">Restaurar exemplo</button></div>` : ''}
-    <div class="panel"><h3>Instalar na tela inicial</h3><p>No Chrome do Android, abra o menu ⋮ e toque em <b>Adicionar à tela inicial</b>. O app abre em tela cheia, como os outros.</p></div>`;
+    ${NATIVE ? '<p style="color:var(--dim2);text-align:center;font-size:13px;margin-top:22px">Minha Casa 1.0</p>' : `<div class="panel"><h3>Instalar na tela inicial</h3><p>No Chrome do Android, abra o menu ⋮ e toque em <b>Adicionar à tela inicial</b>. O app abre em tela cheia, como os outros.</p></div>`}`;
 }
 function render() {
   $('#homeName').textContent = S.homeName;
@@ -473,10 +525,11 @@ function renderSheet() {
   const on = d.online && d.on;
   let body = '';
   if (d.type === 'ac') {
-    body = `<div class="big-temp ${on ? '' : 'disabled'}"><div class="v">${fmtT(d.target)}°</div><div class="l">Temperatura desejada · ambiente ${fmtT(d.temp)}°C</div></div>
-      <div class="stepper ${on ? '' : 'disabled'}"><button class="round" data-c="t-">−</button><button class="round" data-c="t+">+</button></div>
-      ${d.acModes ? `<div class="label">Modo</div><div class="chips ${on ? '' : 'disabled'}">${d.acModes.map(m => `<button class="chip ${d.acMode === m ? 'on' : ''}" data-c="mode" data-v="${esc(m)}">${esc(AC_MODES[m] || m)}</button>`).join('')}</div>` : ''}
-      ${d.fanModes ? `<div class="label">Ventilação</div><div class="chips ${on ? '' : 'disabled'}">${d.fanModes.map(m => `<button class="chip ${d.fan === m ? 'on' : ''}" data-c="fan" data-v="${esc(m)}">${esc(FAN_MODES[m] || m)}</button>`).join('')}</div>` : ''}`;
+    const heat = d.acMode === 'heat';
+    body = `<div class="dial-wrap ${on ? '' : 'disabled'}" id="dialWrap">${dialSVG(d)}</div>
+      <div class="dial-btns ${on ? '' : 'disabled'}"><button class="round" data-c="t-">−</button><button class="round" data-c="t+">+</button></div>
+      ${d.acModes ? `<div class="label">Modo</div><div class="modes ${on ? '' : 'disabled'}">${d.acModes.map(m => `<button class="mode ${d.acMode === m ? 'on' : ''} ${heat ? 'heat' : ''}" data-c="mode" data-v="${esc(m)}">${MODE_ICONS[m] || MODE_ICONS.auto}${esc(AC_MODES[m] || m)}</button>`).join('')}</div>` : ''}
+      ${d.fanModes ? `<div class="label">Ventilação</div><div class="seg ${on ? '' : 'disabled'}">${d.fanModes.map(m => `<button class="${d.fan === m ? 'on' : ''}" data-c="fan" data-v="${esc(m)}">${esc(FAN_MODES[m] || m)}</button>`).join('')}</div>` : ''}`;
   } else if (d.type === 'tv' || d.type === 'speaker') {
     body = `<div class="remote ${on ? '' : 'disabled'}" style="margin-top:18px">
         <div class="col"><button class="round" data-c="v+">+</button><span>VOL ${d.volume ?? ''}</span><button class="round" data-c="v-">−</button></div>
@@ -491,11 +544,55 @@ function renderSheet() {
   const canPower = d.hasSwitch !== false || S.mode === 'demo';
   openSheet(`<div class="row">
       <div style="flex:1"><h2>${esc(d.name)}</h2><div class="sub" style="margin:2px 0 0">${esc(roomName(d.roomId))} · ${esc(stateText(d))}</div></div>
-      ${canPower ? `<button class="power ${on ? 'on' : ''} ${d.online ? '' : 'disabled'}" data-c="power" aria-label="Ligar/desligar">${POWER}</button>` : ''}
+      ${canPower ? `<button class="power ${on ? 'on' : ''} ${d.type === 'ac' && d.acMode === 'heat' ? 'heat' : ''} ${d.online ? '' : 'disabled'}" data-c="power" aria-label="Ligar/desligar">${POWER}</button>` : ''}
     </div>
     ${d.online ? body : '<div class="panel"><h3>Aparelho offline</h3><p>Verifique se ele está na tomada e conectado ao Wi-Fi.</p></div>'}
     ${S.mode === 'demo' ? `<button class="btn danger" data-c="remove" style="margin-top:22px">Remover aparelho</button>` : ''}`);
 }
+const MODE_ICONS = {
+  cool: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7M9 4l3 2 3-2M9 20l3-2 3 2"/></svg>',
+  dry: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>',
+  wind: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 8h11a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h8"/></svg>',
+  auto: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 16 12 7l3.5 9M9.7 13h4.6"/></svg>',
+  heat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+};
+MODE_ICONS.fanOnly = MODE_ICONS.wind; MODE_ICONS.aIComfort = MODE_ICONS.auto;
+const DIAL = { min: 16, max: 30, c: 135, r: 110, start: 135, sweep: 270 };
+function dialPt(a) { const r = a * Math.PI / 180; return [DIAL.c + DIAL.r * Math.cos(r), DIAL.c + DIAL.r * Math.sin(r)]; }
+function dialArc(a0, a1) { const [x0, y0] = dialPt(a0), [x1, y1] = dialPt(a1); return `M${x0.toFixed(1)} ${y0.toFixed(1)} A${DIAL.r} ${DIAL.r} 0 ${a1 - a0 > 180 ? 1 : 0} 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`; }
+function dialSVG(d) {
+  const t = Math.max(DIAL.min, Math.min(DIAL.max, Number(d.target ?? 22)));
+  const f = (t - DIAL.min) / (DIAL.max - DIAL.min), end = DIAL.start + DIAL.sweep * f;
+  const [kx, ky] = dialPt(end), heat = d.acMode === 'heat';
+  const c1 = heat ? '#ffc06b' : '#6fd6ff', c2 = heat ? '#ff5e62' : '#8a7bff';
+  let ticks = '';
+  for (let i = 0; i <= 14; i++) { const a = (DIAL.start + DIAL.sweep * i / 14) * Math.PI / 180, r1 = 86, r2 = i % 7 === 0 ? 76 : 80;
+    ticks += `<line x1="${(135 + r1 * Math.cos(a)).toFixed(1)}" y1="${(135 + r1 * Math.sin(a)).toFixed(1)}" x2="${(135 + r2 * Math.cos(a)).toFixed(1)}" y2="${(135 + r2 * Math.sin(a)).toFixed(1)}" stroke="rgba(255,255,255,${i / 14 <= f ? .5 : .15})" stroke-width="2" stroke-linecap="round"/>`; }
+  return `<svg viewBox="0 0 270 270"><defs><linearGradient id="dg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient>
+      <filter id="glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter></defs>
+    <path d="${dialArc(DIAL.start, DIAL.start + DIAL.sweep)}" stroke="rgba(255,255,255,.07)" stroke-width="16" fill="none" stroke-linecap="round"/>
+    ${f > 0.002 ? `<path d="${dialArc(DIAL.start, end)}" stroke="url(#dg)" stroke-width="16" fill="none" stroke-linecap="round" filter="url(#glow)" opacity=".55"/>
+    <path d="${dialArc(DIAL.start, end)}" stroke="url(#dg)" stroke-width="16" fill="none" stroke-linecap="round"/>` : ''}
+    ${ticks}
+    <circle cx="${kx.toFixed(1)}" cy="${ky.toFixed(1)}" r="14" fill="#fff" stroke="${c2}" stroke-width="4"/>
+  </svg>
+  <div class="dial-c"><div class="v">${fmtT(t)}<sup>°C</sup></div><div class="l">Ambiente ${fmtT(d.temp)}°C</div>
+    <div class="m">${(MODE_ICONS[d.acMode] || '').replace('<svg ', '<svg width="15" height="15" ')}${esc(AC_MODES[d.acMode] || d.acMode || '')}</div></div>`;
+}
+let dialDrag = false;
+function dialMove(e) {
+  const w = $('#dialWrap'); const d = S.devices.find(x => x.id === S.sheetDev); if (!w || !d) return;
+  const b = w.getBoundingClientRect(), sx = b.width / 270;
+  let a = Math.atan2(e.clientY - b.top - 135 * sx, e.clientX - b.left - 135 * sx) * 180 / Math.PI;
+  let rel = (a - DIAL.start + 720) % 360;
+  if (rel > DIAL.sweep) rel = rel > DIAL.sweep + (360 - DIAL.sweep) / 2 ? 0 : DIAL.sweep;
+  setTarget(d, DIAL.min + rel / DIAL.sweep * (DIAL.max - DIAL.min));
+}
+document.addEventListener('pointerdown', e => { if (e.target.closest('#dialWrap')) { dialDrag = true; dialMove(e); } });
+document.addEventListener('pointermove', e => { if (dialDrag) { e.preventDefault(); dialMove(e); } }, { passive: false });
+document.addEventListener('pointerup', () => { dialDrag = false; });
+document.addEventListener('pointercancel', () => { dialDrag = false; });
+
 function sheetCommand(c, v) {
   const d = S.devices.find(x => x.id === S.sheetDev); if (!d) return;
   switch (c) {
@@ -554,9 +651,20 @@ function openHomes() {
 }
 
 /* ---------- Eventos ---------- */
+function animateMain() { const m = $('#main'); m.classList.remove('enter'); void m.offsetWidth; m.classList.add('enter'); clearTimeout(m._t); m._t = setTimeout(() => m.classList.remove('enter'), 500); }
+window.onBack = () => {
+  if ($('#sheet').classList.contains('show')) { closeSheet(); return true; }
+  if ($('#menu').classList.contains('show')) { $('#menu').classList.remove('show'); return true; }
+  if (S.searchOpen || S.query) { S.searchOpen = false; S.query = ''; render(); return true; }
+  if (S.page !== 'devices') { S.page = 'devices'; render(); animateMain(); return true; }
+  return false;
+};
+window.onAppResume = () => refreshAll();
 let pressT, longPressed = false;
 document.addEventListener('click', e => {
   const t = e.target;
+  const link = t.closest('a[href^="https://"]');
+  if (link && NATIVE) { e.preventDefault(); NATIVE.openUrl(link.href); return; }
   if (!t.closest('#menu') && !t.closest('#moreBtn')) $('#menu').classList.remove('show');
   const tog = t.closest('[data-toggle]');
   if (tog && !t.closest('.sheet')) { e.stopPropagation(); const d = S.devices.find(x => x.id === tog.dataset.toggle); if (d) { if (d.type === 'other' && !d.hasSwitch && S.mode === 'st') { S.sheetDev = d.id; renderSheet(); } else setPower(d, !d.on); } return; }
@@ -565,10 +673,10 @@ document.addEventListener('click', e => {
   const sec = t.closest('[data-sec]');
   if (sec) { const k = sec.dataset.sec; S.collapsed[k] = !S.collapsed[k]; store.set('collapsed', S.collapsed); render(); return; }
   const tab = t.closest('[data-tab]');
-  if (tab) { S.tab = tab.dataset.tab; render(); tab.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' }); return; }
+  if (tab) { S.tab = tab.dataset.tab; render(); animateMain(); tab.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' }); return; }
   if (t.closest('#searchBtn')) { S.searchOpen = !S.searchOpen; if (!S.searchOpen) S.query = ''; render(); if (S.searchOpen) $('#q').focus(); return; }
   const nav = t.closest('[data-page]');
-  if (nav) { S.page = nav.dataset.page; render(); window.scrollTo(0, 0); return; }
+  if (nav) { if (S.page !== nav.dataset.page) { haptic(); S.page = nav.dataset.page; render(); animateMain(); window.scrollTo(0, 0); } return; }
   const sc = t.closest('[data-scene]');
   if (sc) { const s = S.scenes.find(x => x.id === sc.dataset.scene); if (s) runScene(s); return; }
   const c = t.closest('[data-c]');
@@ -601,7 +709,7 @@ $('#moreBtn').onclick = () => $('#menu').classList.toggle('show');
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 // Arrastar o painel para baixo fecha
 let sy = null;
-$('#sheet').addEventListener('touchstart', e => { sy = $('#sheet').scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
+$('#sheet').addEventListener('touchstart', e => { sy = $('#sheet').scrollTop <= 0 && !e.target.closest('#dialWrap') ? e.touches[0].clientY : null; }, { passive: true });
 $('#sheet').addEventListener('touchend', e => { if (sy != null && e.changedTouches[0].clientY - sy > 90) closeSheet(); sy = null; });
 
 setInterval(refreshAll, 30000);
