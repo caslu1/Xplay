@@ -119,12 +119,96 @@ public class IslandService extends AccessibilityService {
         buildWindow();
         if (!Prefs.calibrated(this)) detectCutout();
         loadGeometry();
+        sysLive = Hub.live;
         live = Hub.live;
+        audioManager = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+        h.post(audioPoll);
         Hub.requestResync();
         render();
     }
 
-    @Override public void onAccessibilityEvent(AccessibilityEvent event) {}
+    @Override
+    public void onAccessibilityEvent(AccessibilityEvent event) {
+        if (event == null || event.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return;
+        CharSequence p = event.getPackageName();
+        if (p == null) return;
+        String pkg = p.toString();
+        if (pkg.equals(getPackageName()) || pkg.equals("com.android.systemui") || pkg.equals("android")) return;
+        Boolean ok = launchable.get(pkg);
+        if (ok == null) {
+            ok = getPackageManager().getLaunchIntentForPackage(pkg) != null; // skips keyboards and system pop-ups
+            launchable.put(pkg, ok);
+        }
+        if (ok) fgPkg = pkg;
+    }
+
+    // ------------------------------------------------------------------ audio without a player
+    // WhatsApp / Telegram voice messages (and some video apps) play sound without a media
+    // session. We notice that audio is playing and credit it to the app that was on screen.
+
+    private final java.util.Map<String, Boolean> launchable = new java.util.HashMap<>();
+    private android.media.AudioManager audioManager;
+    private String fgPkg;
+    private Item audio;
+    private int silentTicks;
+    private List<Item> sysLive = new ArrayList<>();
+
+    private final Runnable audioPoll = new Runnable() {
+        @Override public void run() {
+            h.postDelayed(this, 1000);
+            boolean active = audioManager != null && audioManager.isMusicActive();
+            boolean sessionPlaying = false;
+            for (Item it : sysLive) if (it.type == Item.MEDIA && it.playing) sessionPlaying = true;
+            if (active && !sessionPlaying && Prefs.audio(IslandService.this)) {
+                silentTicks = 0;
+                if (audio == null && fgPkg != null && Prefs.appAllowed(IslandService.this, fgPkg) && !isGame(fgPkg)) {
+                    audio = audioItem(fgPkg);
+                    primaryKey = audio.key;
+                    mergeLive();
+                }
+            } else if (audio != null && (sessionPlaying || ++silentTicks >= 3)) {
+                audio = null;
+                mergeLive();
+            }
+        }
+    };
+
+    private Item audioItem(String pkg) {
+        Item it = new Item();
+        it.type = Item.AUDIO;
+        it.key = "audio:" + pkg;
+        it.pkg = pkg;
+        try {
+            it.app = getPackageManager().getApplicationLabel(getPackageManager().getApplicationInfo(pkg, 0)).toString();
+            it.icon = getPackageManager().getApplicationIcon(pkg);
+        } catch (Exception e) {
+            it.app = pkg;
+        }
+        boolean chat = pkg.startsWith("com.whatsapp") || pkg.contains("telegram") || pkg.startsWith("org.thunderdog")
+                || pkg.contains("messenger") || pkg.contains("signal");
+        it.title = chat ? "Mensagem de voz" : "Tocando áudio";
+        it.text = it.app;
+        it.color = Colors.ofDrawable(it.icon);
+        it.playing = true;
+        it.chronoBase = System.currentTimeMillis();
+        return it;
+    }
+
+    private boolean isGame(String pkg) {
+        try {
+            android.content.pm.ApplicationInfo ai = getPackageManager().getApplicationInfo(pkg, 0);
+            if ((ai.flags & android.content.pm.ApplicationInfo.FLAG_IS_GAME) != 0) return true;
+            return ai.getClass().getField("category").getInt(ai) == 0; // CATEGORY_GAME (API 26)
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    private void mergeLive() {
+        List<Item> l = new ArrayList<>(sysLive);
+        if (audio != null) l.add(0, audio);
+        setLive(l);
+    }
     @Override public void onInterrupt() {}
 
     @Override
@@ -161,6 +245,11 @@ public class IslandService extends AccessibilityService {
     // ------------------------------------------------------------------ public API (Hub / settings)
 
     void onLive(List<Item> items) {
+        sysLive = items;
+        mergeLive();
+    }
+
+    private void setLive(List<Item> items) {
         live = items;
         boolean found = false;
         for (Item it : items) if (it.key.equals(primaryKey)) found = true;
@@ -684,6 +773,7 @@ public class IslandService extends AccessibilityService {
         View right;
         int rw = s;
         switch (it.type) {
+            case Item.AUDIO:
             case Item.MEDIA: {
                 Widgets.Bars bars = new Widgets.Bars(this, it.color);
                 bars.setPlaying(it.playing);
@@ -806,7 +896,7 @@ public class IslandService extends AccessibilityService {
         head.addView(app);
         View spacer = new View(this);
         head.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1));
-        if (it.type == Item.MEDIA) {
+        if (it.type == Item.MEDIA || it.type == Item.AUDIO) {
             Widgets.Bars bars = new Widgets.Bars(this, it.color);
             bars.setPlaying(it.playing);
             head.addView(bars, new LinearLayout.LayoutParams(px(16), px(12)));
@@ -858,7 +948,7 @@ public class IslandService extends AccessibilityService {
         }
         row.addView(txt, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
-        if ((it.type == Item.TIMER || it.type == Item.CALL) && it.chronoBase > 0) {
+        if ((it.type == Item.TIMER || it.type == Item.CALL || it.type == Item.AUDIO) && it.chronoBase > 0) {
             final TextView t = text(22, it.type == Item.CALL ? 0xFF4CE08A : it.color, true);
             t.setPadding(px(10), 0, 0, 0);
             Runnable r = new Runnable() { @Override public void run() { t.setText(chrono(it)); } };

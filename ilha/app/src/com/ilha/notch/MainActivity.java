@@ -203,6 +203,7 @@ public class MainActivity extends Activity {
     private void features() {
         LinearLayout c = card("3. O que mostrar");
         toggle(c, "Música", "Capa, barras animadas e controles.", "music", true);
+        toggle(c, "Áudio de outros apps", "Mensagens de voz do WhatsApp e Telegram, vídeos e apps sem player.", "audio", true);
         toggle(c, "Notificações", "Mensagens com resposta rápida.", "notifs", true);
         toggle(c, "Atividades ao vivo", "Timers, downloads, navegação, entregas.", "live", true);
         toggle(c, "Chamadas", "Atender e recusar pela ilha.", "calls", true);

@@ -35,6 +35,7 @@ final class Prefs {
     static boolean notifs(Context c) { return get(c).getBoolean("notifs", true); }
     static boolean live(Context c) { return get(c).getBoolean("live", true); }
     static boolean calls(Context c) { return get(c).getBoolean("calls", true); }
+    static boolean audio(Context c) { return get(c).getBoolean("audio", true); }
     static boolean vibrate(Context c) { return get(c).getBoolean("vibrate", false); }
     static boolean hideLandscape(Context c) { return get(c).getBoolean("hide_land", true); }
     /** Seconds a notification stays open on the island. */

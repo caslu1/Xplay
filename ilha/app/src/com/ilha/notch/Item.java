@@ -8,7 +8,7 @@ import android.media.session.MediaController;
 
 /** Something the island shows: a live activity (music, timer, progress, call) or a notification. */
 final class Item {
-    static final int MEDIA = 1, PROGRESS = 2, TIMER = 3, CALL = 4, NOTIF = 5, INCOMING = 6, TEST = 7;
+    static final int MEDIA = 1, PROGRESS = 2, TIMER = 3, CALL = 4, NOTIF = 5, INCOMING = 6, TEST = 7, AUDIO = 8;
 
     int type;
     String key;
@@ -30,5 +30,5 @@ final class Item {
     boolean playing;
     long postedAt;
 
-    boolean isLive() { return type == MEDIA || type == PROGRESS || type == TIMER || type == CALL; }
+    boolean isLive() { return type == MEDIA || type == AUDIO || type == PROGRESS || type == TIMER || type == CALL; }
 }

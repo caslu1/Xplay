@@ -31,6 +31,19 @@ final class Colors {
         }
     }
 
+    static int ofDrawable(android.graphics.drawable.Drawable d) {
+        if (d == null) return 0xFF7CF2C4;
+        try {
+            Bitmap b = Bitmap.createBitmap(24, 24, Bitmap.Config.ARGB_8888);
+            android.graphics.Canvas c = new android.graphics.Canvas(b);
+            d.setBounds(0, 0, 24, 24);
+            d.draw(c);
+            return accentOf(b);
+        } catch (Exception e) {
+            return 0xFF7CF2C4;
+        }
+    }
+
     /** Keeps the hue, lifts the brightness so it reads on black. */
     static int forDark(int c) {
         float[] hsv = new float[3];
