@@ -9,6 +9,8 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <title>Minha Casa</title>
+<script src="three.min.js"></script>
+<script src="casa3d.js"></script>
 <style>
   :root {
     --bg1:#1b1f4a; --bg2:#2a2350; --bg3:#4b3a7a;
@@ -164,6 +166,42 @@
   .flat .pin .pn { max-width:70px; }
   .pin .pn { font-size:10px; font-weight:700; color:#fff; background:rgba(15,15,25,.72); padding:2px 7px; border-radius:8px; white-space:nowrap; max-width:110px; overflow:hidden; text-overflow:ellipsis; }
   .flat .pin .card3, .edit .pin .card3 { transform:translate(-50%,50%); }
+  .stage3 { position:relative; height:calc(100vh - 300px); min-height:360px; border-radius:28px; overflow:hidden;
+    background:radial-gradient(ellipse at 50% 35%, rgba(255,255,255,.10), rgba(0,0,0,.22)); }
+  .c3d { position:absolute; inset:0; }
+  .c3d canvas { display:block; touch-action:none; }
+  .c3d-labels { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+  .lbl { position:absolute; left:0; top:0; width:0; height:0; pointer-events:none; }
+  .lbl .bub { position:absolute; left:-17px; top:-38px; width:34px; height:34px; border-radius:50%; background:#1d1d24; display:grid; place-items:center; pointer-events:auto; cursor:pointer;
+    box-shadow:0 6px 14px rgba(0,0,0,.45); border:2px solid rgba(255,255,255,.18); transition:background .25s, box-shadow .25s; }
+  .lbl .bub svg { width:20px; height:20px; }
+  .lbl.on .bub { background:#fff; border-color:#fff; box-shadow:0 0 0 3px var(--g), 0 0 22px var(--g); }
+  .lbl.offline .bub { opacity:.5; }
+  .lbl .pn { position:absolute; left:0; top:0; transform:translateX(-50%); font-size:10.5px; font-weight:700; color:#fff; background:rgba(15,15,25,.72); padding:2px 7px; border-radius:8px; white-space:nowrap; display:none; pointer-events:none; }
+  .lbl.named .pn, .lbl.on .pn { display:block; }
+  .map-bar .tool.cam { background:linear-gradient(135deg,#8fd6ff,#8a8dff); color:#0c1a33; }
+  .furn { position:absolute; border-radius:4px; background:var(--fc); opacity:.92; box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.18); display:grid; place-items:center; overflow:hidden; }
+  .furn span { font-size:9px; font-weight:700; color:rgba(0,0,0,.6); white-space:nowrap; pointer-events:none; }
+  .furn.wallish { background:repeating-linear-gradient(45deg, var(--fc) 0 4px, rgba(255,255,255,.6) 4px 8px); }
+  .furn.sel { box-shadow:0 0 0 3px #6c7bff, 0 4px 12px rgba(0,0,0,.4); z-index:3; }
+  .furn-tools { display:flex; gap:8px; justify-content:center; margin-top:10px; }
+  .furn-tools .tool { padding:10px 16px; border-radius:16px; background:rgba(255,255,255,.12); font-weight:600; font-size:14px; }
+  .catalog { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+  .catalog button { padding:12px 6px; border-radius:16px; background:#23232c; font-size:13px; display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .catalog i { width:30px; height:18px; border-radius:4px; display:block; }
+  .photos { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px; }
+  .ph { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:#23232c; display:grid; place-items:center; color:var(--dim); font-size:28px; }
+  .ph img { width:100%; height:100%; object-fit:cover; }
+  .ph button { position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,.65); color:#fff; font-size:14px; }
+  .scan-steps { color:var(--dim); font-size:14px; margin:4px 0 0; padding-left:18px; }
+  .scan-steps li { margin:4px 0; }
+  .busy { display:flex; align-items:center; gap:12px; margin-top:16px; padding:14px; border-radius:16px; background:rgba(127,182,255,.12); }
+  .busy .ring { width:26px; height:26px; border-radius:50%; border:3px solid rgba(255,255,255,.2); border-top-color:#8fd6ff; animation:spin 1s linear infinite; flex:none; }
+  .found { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .found span { padding:6px 10px; border-radius:12px; background:#23232c; font-size:13px; }
+  .check { display:flex; gap:10px; align-items:center; margin-top:14px; color:#ddd; font-size:14px; }
+  .check input { width:20px; height:20px; accent-color:#8fb4ff; }
+  .err { color:var(--red); font-size:14px; margin-top:10px; }
   .map-hint { color:var(--dim); font-size:13px; text-align:center; margin:10px 0 0; }
   .legend { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:10px; font-size:13px; color:var(--dim); }
   .legend i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle; }
@@ -579,8 +617,13 @@ function pageMenu() {
       <p>2. Toque em <b>Generate new token</b>, dê um nome (ex.: Minha Casa) e marque todas as permissões de <b>Devices</b>, <b>Locations</b> e <b>Scenes</b>.</p>
       <p>3. Copie o token, cole acima e toque em <b>Conectar</b>. Ele fica salvo só neste aparelho.</p>
     </div>
+    <div class="panel"><h3>Fotos → 3D (IA)</h3>
+      <p>Para montar os cômodos em 3D a partir de fotos, o app usa o Claude, a IA da Anthropic. Crie uma chave em <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener">platform.claude.com</a> → API Keys. O uso é cobrado na sua conta da Anthropic.</p>
+      <label class="field"><span>Chave da API ${store.get('aikey', '') ? '(salva)' : ''}</span><input id="aikeyM" type="password" autocomplete="off" placeholder="sk-ant-..." value="${esc(store.get('aikey', ''))}"></label>
+      <button class="btn ghost" data-act="saveai">Salvar chave</button>
+    </div>
     ${!st ? `<div class="panel"><h3>Demonstração</h3><p>Volte os aparelhos de exemplo ao estado inicial.</p><button class="btn danger" data-act="resetdemo">Restaurar exemplo</button></div>` : ''}
-    ${NATIVE ? '<p style="color:var(--dim2);text-align:center;font-size:13px;margin-top:22px">Minha Casa 1.1</p>' : `<div class="panel"><h3>Instalar na tela inicial</h3><p>No Chrome do Android, abra o menu ⋮ e toque em <b>Adicionar à tela inicial</b>. O app abre em tela cheia, como os outros.</p></div>`}`;
+    ${NATIVE ? '<p style="color:var(--dim2);text-align:center;font-size:13px;margin-top:22px">Minha Casa 1.2</p>' : `<div class="panel"><h3>Instalar na tela inicial</h3><p>No Chrome do Android, abra o menu ⋮ e toque em <b>Adicionar à tela inicial</b>. O app abre em tela cheia, como os outros.</p></div>`}`;
 }
 function render() {
   $('#homeName').textContent = S.homeName;
@@ -589,8 +632,9 @@ function render() {
   renderTabs();
   const pages = { devices: pageDevices, home: pageHome, routines: pageRoutines, menu: pageMenu, map: pageMap };
   if (S.page === 'map' && MAP.busy) return; // não redesenha no meio de um arraste
-  if (S.page === 'menu' && document.activeElement && document.activeElement.id === 'tok') return; // não apaga o que está sendo digitado
+  if (S.page === 'menu' && document.activeElement && ['tok', 'aikeyM'].includes(document.activeElement.id)) return; // não apaga o que está sendo digitado
   $('#main').innerHTML = pages[S.page]();
+  if (S.page === 'map') mount3d();
   if (q) { const i = $('#q'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
 }
 
@@ -608,6 +652,7 @@ function devRoom(d) { return S.rooms.find(r => r.id === d.roomId) ? d.roomId : '
 function getLayout(fresh) {
   const L = (!fresh && store.get(layoutKey(), null)) || { rooms: {}, devices: {} };
   let changed = !!fresh;
+  if (!L.furniture) { L.furniture = fresh ? {} : (store.get(layoutKey(), {}) || {}).furniture || {}; changed = true; }
   mapRooms().forEach(r => {
     if (L.rooms[r.id]) return;
     const n = Object.keys(L.rooms).length, big = n === 0;
@@ -619,6 +664,7 @@ function getLayout(fresh) {
     else L.rooms[r.id] = { x: 0, y: maxY, w, h, c: ROOM_COLORS[n % ROOM_COLORS.length] };
     changed = true;
   });
+  if (S.mode === 'demo' && !L.seeded) { seedDemo(L); changed = true; }
   const count = {};
   S.devices.forEach(d => { const rid = devRoom(d); if (L.devices[d.id]) count[rid] = (count[rid] || 0) + 1; });
   S.devices.forEach(d => {
@@ -630,6 +676,28 @@ function getLayout(fresh) {
   });
   if (changed) store.set(layoutKey(), L);
   return L;
+}
+/* casa de exemplo já mobiliada */
+function seedDemo(L) {
+  L.seeded = true;
+  const F = (type, x, y, rotation, extra) => ({ type, label: FURN_NAMES[type], x, y, rotation: rotation || 0, ...furnDefaults(type), ...(extra || {}) });
+  const furn = {
+    sala: [F('rug', 3, 2.7, 0, { width: 2.8, depth: 1.9, color: '#d9cbe6' }), F('sofa', 3, 3.95, 180, { width: 2.3, color: '#6f7a90' }), F('coffee_table', 3, 2.75),
+      F('tv_stand', 3, 0.32, 0, { width: 1.9 }), F('armchair', 5.25, 2.6, 90, { color: '#b08a74' }), F('plant', 0.45, 0.45), F('plant', 5.5, 4.1),
+      F('bookshelf', 0.3, 2.2, 270, { width: 1.0 }), F('window', 1.6, 0, 0, { width: 1.6 }), F('door', 0, 3.9, 0)],
+    cozinha: [F('sink', 0.75, 0.32), F('kitchen_counter', 2.0, 0.32, 0, { width: 1.6 }), F('stove', 3.1, 0.32), F('fridge', 4.35, 0.42),
+      F('dining_table', 2.5, 3.0), F('chair', 2.1, 2.35, 0), F('chair', 2.9, 2.35, 0), F('chair', 2.1, 3.65, 180), F('chair', 2.9, 3.65, 180),
+      F('window', 5, 2.6, 0, { width: 1.4 }), F('plant', 4.5, 4.2)],
+    meninas: [F('rug', 2.5, 2.5, 0, { width: 2.0, depth: 1.4, color: '#f3c6d3' }), F('bed', 1.0, 1.1, 0, { width: 0.95, depth: 1.95, color: '#f0a7c0' }),
+      F('bed', 4.0, 1.1, 0, { width: 0.95, depth: 1.95, color: '#a7c8f0' }), F('nightstand', 2.5, 0.3), F('wardrobe', 2.6, 4.25, 180, { width: 1.8 }),
+      F('desk', 4.62, 3.3, 90), F('chair', 4.05, 3.3, 270, { color: '#e07aa0' }), F('window', 2.5, 0, 0, { width: 1.2 }), F('door', 0.7, 4.6, 0)],
+    suite: [F('rug', 2.5, 2.7, 0, { width: 2.4, depth: 1.6, color: '#cdbfae' }), F('bed', 2.5, 1.12, 0, { color: '#8fa7c4' }), F('nightstand', 1.35, 0.3), F('nightstand', 3.65, 0.3),
+      F('wardrobe', 4.65, 3.2, 90, { width: 2.0 }), F('dresser', 0.28, 3.1, 270), F('plant', 0.45, 4.15), F('window', 0, 1.4, 0, { width: 1.2 }), F('door', 1.2, 4.6, 0)],
+  };
+  Object.entries(furn).forEach(([rid, list]) => { if (L.rooms[rid] && !(L.furniture[rid] || []).length) L.furniture[rid] = list; });
+  const pos = { d1: ['sala', 5.85, 2.3], d2: ['sala', 3, 0.2], l1: ['sala', 3, 2.4], l2: ['sala', 1.1, 1.2], l3: ['cozinha', 2.5, 2.2],
+    d3: ['meninas', 0.12, 3.0], l4: ['meninas', 2.5, 2.3], d4: ['suite', 2.5, 0.12], d5: ['suite', 2.5, 4.5], l5: ['suite', 1.35, 0.45] };
+  Object.entries(pos).forEach(([id, [rid, x, y]]) => { const r = L.rooms[rid]; if (r && S.devices.find(d => d.id === id)) L.devices[id] = { x: r.x + x, y: r.y + y }; });
 }
 function glowColor(d) {
   if (d.type === 'light') return lightColor(d);
@@ -652,20 +720,29 @@ function pageMap() {
     return `<div class="room" data-room="${esc(r.id)}" style="left:${px(q.x)};top:${px(q.y)};width:${px(q.w)};height:${px(q.h)};--c:${q.c}">
       <div class="floor"></div><div class="wall wt"></div><div class="wall wb"></div><div class="wall wl"></div><div class="wall wr"></div>
       <div class="rlabel">${esc(r.name)}</div>${MAP.edit ? `<div class="rs" data-resize="${esc(r.id)}">↘</div>` : ''}</div>`; }).join('');
+  const furnHtml = flat ? rooms.map(r => { const q = L.rooms[r.id];
+    return (L.furniture[r.id] || []).map((f, i) => { const sel = MAP.sel && MAP.sel.room === r.id && MAP.sel.i === i;
+      return `<div class="furn ${WALLISH[f.type] ? 'wallish' : ''} ${sel ? 'sel' : ''}" data-furn="${esc(r.id)}" data-fi="${i}" style="left:${px(q.x + f.x - f.width / 2)};top:${px(q.y + f.y - f.depth / 2)};width:${px(f.width)};height:${px(Math.max(0.12, f.depth))};transform:rotate(${f.rotation || 0}deg);--fc:${esc(f.color || '#bbb')}"><span style="transform:rotate(${(f.rotation || 0) >= 180 ? 180 : 0}deg)">${esc(f.width * s > 40 ? (f.label || FURN_NAMES[f.type] || '') : '')}</span></div>`; }).join(''); }).join('') : '';
   const pins = S.devices.map(d => { const q = L.devices[d.id], on = d.online && d.on;
     return `<div class="pin ${on ? 'on' : ''} ${d.online ? '' : 'offline'}" data-pin="${esc(d.id)}" style="left:${px(q.x)};top:${px(q.y)};--g:${glowColor(d)}">
       ${on && !MAP.edit ? '<div class="glow"></div>' : ''}<div class="dot"></div>
       <div class="stand"><div class="card3"><div class="bub">${devIcon(d, on)}</div><div class="pn">${esc(d.name)}</div></div></div></div>`; }).join('');
   const bar = MAP.edit
-    ? `<b style="flex:1;font-size:16px">Editando a planta</b><button class="tool" data-map="auto">Reorganizar</button><button class="tool primary" data-map="done">Concluir</button>`
+    ? `<button class="tool" data-map="addfurn">+ Móvel</button><button class="tool cam" data-map="scan">📷 Fotos</button><div class="spacer"></div><button class="tool" data-map="auto" aria-label="Reorganizar">↺</button><button class="tool primary" data-map="done">Concluir</button>`
     : `<div class="seg"><button class="${MAP.mode === '3d' ? 'on' : ''}" data-map="3d">3D</button><button class="${MAP.mode === '2d' ? 'on' : ''}" data-map="2d">Planta</button></div>
-       <div class="spacer"></div><button class="tool" data-map="reset" aria-label="Centralizar">⟲</button><button class="tool" data-map="edit">Editar</button>`;
-  const hint = MAP.edit ? 'Arraste os cômodos e os aparelhos. Puxe o ↘ para mudar o tamanho do cômodo.'
+       <div class="spacer"></div><button class="tool cam" data-map="scan" aria-label="Criar com fotos">📷</button><button class="tool" data-map="reset" aria-label="Centralizar">⟲</button><button class="tool" data-map="edit">Editar</button>`;
+  const use3d = !flat && window.Casa3D && Casa3D.supported;
+  const hint = MAP.edit ? (MAP.sel ? 'Arraste o móvel para mudar de lugar.' : 'Arraste cômodos, móveis e aparelhos. Puxe o ↘ para mudar o tamanho. Toque num móvel para girar ou excluir.')
+    : use3d ? 'Arraste para girar · pinça para zoom e mover · toque num cômodo para entrar · toque duas vezes para voltar'
     : MAP.mode === '3d' ? 'Arraste para girar · pinça para zoom · toque num aparelho para controlar' : 'Toque num aparelho para controlar · pinça para zoom';
+  if (use3d) return `<div class="map-bar">${bar}</div><div class="stage3" id="slot3d"></div><div class="map-hint">${hint}</div>
+    <div class="legend"><span><i style="background:#6fd0ff"></i>Ar ligado</span><span><i style="background:#ffd36b"></i>Luz acesa</span><span><i style="background:#c9d4ff"></i>TV ligada</span></div>`;
+  const sel = MAP.edit && MAP.sel && (L.furniture[MAP.sel.room] || [])[MAP.sel.i];
   return `<div class="map-bar">${bar}</div>
     <div class="stage ${flat ? 'flat' : ''} ${MAP.edit ? 'edit' : ''} ${flat || MAP.zoom >= 1.35 ? 'labels' : ''}" id="stage" style="${vars}">
-      <div class="plane" id="plane" style="width:${px(W)};height:${px(H)}"><div class="base"></div>${roomsHtml}${pins}</div>
+      <div class="plane" id="plane" style="width:${px(W)};height:${px(H)}"><div class="base"></div>${roomsHtml}${furnHtml}${pins}</div>
     </div>
+    ${sel ? `<div class="furn-tools"><b style="align-self:center;margin-right:6px">${esc(sel.label || FURN_NAMES[sel.type] || 'Móvel')}</b><button class="tool" data-map="rotf">↻ Girar</button><button class="tool" data-map="delf">Excluir</button><button class="tool" data-map="unsel">OK</button></div>` : ''}
     <div class="map-hint">${hint}</div>
     ${MAP.edit ? '' : `<div class="legend"><span><i style="background:#6fd0ff"></i>Ar ligado</span><span><i style="background:#ffd36b"></i>Luz acesa</span><span><i style="background:#c9d4ff"></i>TV ligada</span></div>`}`;
 }
@@ -683,8 +760,9 @@ document.addEventListener('pointerdown', e => {
   if (ptrs.size === 2) { mg = { kind: 'pinch', d0: pdist(), z0: MAP.zoom }; }
   else if (MAP.edit) {
     const L = getLayout(), base = { sx: e.clientX, sy: e.clientY, L };
-    const rs = e.target.closest('[data-resize]'), pin = e.target.closest('[data-pin]'), room = e.target.closest('[data-room]');
-    if (rs) mg = { ...base, kind: 'resize', id: rs.dataset.resize, o: { ...L.rooms[rs.dataset.resize] } };
+    const rs = e.target.closest('[data-resize]'), pin = e.target.closest('[data-pin]'), room = e.target.closest('[data-room]'), fu = e.target.closest('[data-furn]');
+    if (fu) { const rid = fu.dataset.furn, i = Number(fu.dataset.fi); mg = { ...base, kind: 'furn', id: rid, i, o: { ...L.furniture[rid][i] } }; }
+    else if (rs) mg = { ...base, kind: 'resize', id: rs.dataset.resize, o: { ...L.rooms[rs.dataset.resize] } };
     else if (pin) mg = { ...base, kind: 'pin', id: pin.dataset.pin, o: { ...L.devices[pin.dataset.pin] } };
     else if (room) { const id = room.dataset.room;
       mg = { ...base, kind: 'room', id, o: { ...L.rooms[id] }, devs: S.devices.filter(d => devRoom(d) === id).map(d => [d.id, { ...L.devices[d.id] }]) }; }
@@ -715,6 +793,12 @@ document.addEventListener('pointermove', e => {
   } else if (mg.kind === 'resize') {
     const r = mg.L.rooms[mg.id]; r.w = Math.max(1.5, mg.o.w + ux); r.h = Math.max(1.5, mg.o.h + uy);
     const el = q(`[data-room="${CSS.escape(mg.id)}"]`); el.style.width = px(r.w); el.style.height = px(r.h);
+  } else if (mg.kind === 'furn') {
+    const r = mg.L.rooms[mg.id], f = mg.L.furniture[mg.id][mg.i];
+    f.x = Math.max(0, Math.min(r.w, mg.o.x + ux)); f.y = Math.max(0, Math.min(r.h, mg.o.y + uy));
+    const el = q(`[data-furn="${CSS.escape(mg.id)}"][data-fi="${mg.i}"]`);
+    if (el) { el.style.left = px(r.x + f.x - f.width / 2); el.style.top = px(r.y + f.y - f.depth / 2); }
+    MAP.sel = { room: mg.id, i: mg.i };
   } else if (mg.kind === 'pin') {
     const p = mg.L.devices[mg.id]; p.x = Math.max(0, mg.o.x + ux); p.y = Math.max(0, mg.o.y + uy);
     const el = q(`[data-pin="${CSS.escape(mg.id)}"]`); el.style.left = px(p.x); el.style.top = px(p.y);
@@ -740,17 +824,229 @@ function mapAction(a) {
   if (a === 'reset') Object.assign(MAP, { rot: -35, tilt: 56, zoom: 1 });
   if (a === 'edit') { MAP.edit = true; MAP.zoom = 1; }
   if (a === 'done') { MAP.edit = false; toast('Planta salva'); }
-  if (a === 'auto' && confirm('Reorganizar a planta automaticamente? As posições atuais serão perdidas.')) getLayout(true);
+  if (a === 'auto' && confirm('Reorganizar a planta automaticamente? As posições e os móveis atuais serão perdidos.')) { getLayout(true); MAP.sel = null; }
+  if (a === 'reset' && window.Casa3D && Casa3D.resetView) Casa3D.resetView();
+  if (a === 'addfurn') return openCatalog();
+  if (a === 'scan') return openScan();
+  if (a === 'unsel') MAP.sel = null;
+  if ((a === 'rotf' || a === 'delf') && MAP.sel) {
+    const L = getLayout(), list = L.furniture[MAP.sel.room] || [], f = list[MAP.sel.i];
+    if (f && a === 'rotf') { f.rotation = ((f.rotation || 0) + 90) % 360; }
+    if (f && a === 'delf') { list.splice(MAP.sel.i, 1); MAP.sel = null; }
+    store.set(layoutKey(), L);
+  }
+  if (a === 'done') MAP.sel = null;
   render();
+}
+
+const FURN_NAMES = { sofa: 'Sofá', armchair: 'Poltrona', bed: 'Cama', crib: 'Berço', nightstand: 'Criado-mudo', wardrobe: 'Guarda-roupa', dresser: 'Cômoda',
+  desk: 'Escrivaninha', chair: 'Cadeira', dining_table: 'Mesa de jantar', coffee_table: 'Mesa de centro', tv_stand: 'Rack', bookshelf: 'Estante', cabinet: 'Armário',
+  rug: 'Tapete', plant: 'Planta', floor_lamp: 'Luminária de chão', fridge: 'Geladeira', stove: 'Fogão', kitchen_counter: 'Bancada', sink: 'Pia',
+  microwave: 'Micro-ondas', washing_machine: 'Máquina de lavar', toilet: 'Vaso sanitário', shower: 'Box', bathtub: 'Banheira', bathroom_sink: 'Pia do banheiro',
+  mirror: 'Espelho', door: 'Porta', window: 'Janela', other: 'Outro' };
+const WALLISH = { door: 1, window: 1, mirror: 1 };
+function furnDefaults(type) { const d = (window.Casa3D && Casa3D.DEFAULTS && Casa3D.DEFAULTS[type]) || ['#9aa0aa', 0.6, 0.6, 0.6]; return { color: d[0], width: d[1], depth: d[2], height: d[3] }; }
+function openCatalog() {
+  const rooms = mapRooms();
+  const cur = MAP.lastRoom && rooms.find(r => r.id === MAP.lastRoom) ? MAP.lastRoom : rooms[0] && rooms[0].id;
+  openSheet(`<h2>Adicionar móvel</h2><p class="sub">Ele aparece no meio do cômodo; depois é só arrastar.</p>
+    <label class="field"><span>Cômodo</span><select id="furnRoom">${rooms.map(r => `<option value="${esc(r.id)}" ${r.id === cur ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select></label>
+    <div class="catalog">${Object.entries(FURN_NAMES).map(([k, n]) => `<button data-addf="${k}"><i style="background:${furnDefaults(k).color}"></i>${n}</button>`).join('')}</div>`);
+}
+function addFurniture(type) {
+  const rid = $('#furnRoom').value, L = getLayout(), r = L.rooms[rid]; if (!r) return;
+  MAP.lastRoom = rid;
+  const d = furnDefaults(type);
+  (L.furniture[rid] = L.furniture[rid] || []).push({ type, label: FURN_NAMES[type], x: snap(r.w / 2), y: snap(r.h / 2), rotation: 0, ...d });
+  MAP.sel = { room: rid, i: L.furniture[rid].length - 1 };
+  store.set(layoutKey(), L); closeSheet(); MAP.edit = true; render(); toast(`${FURN_NAMES[type]} adicionado`);
+}
+
+/* ----- Criar cômodo em 3D a partir de fotos (Claude) ----- */
+const SCAN = { room: null, photos: [], busy: false, error: '', result: null, resize: true };
+function openScan() {
+  const rooms = mapRooms();
+  if (!SCAN.room || !rooms.find(r => r.id === SCAN.room)) SCAN.room = (MAP.lastRoom && rooms.find(r => r.id === MAP.lastRoom)) ? MAP.lastRoom : rooms[0] && rooms[0].id;
+  SCAN.result = null; SCAN.error = '';
+  S.sheetDev = null; S.scanOpen = true; renderScan();
+}
+function renderScan() {
+  if (!S.scanOpen) return;
+  const rooms = mapRooms(), key = store.get('aikey', '');
+  const r = SCAN.result;
+  openSheet(`<h2>Criar cômodo com fotos</h2><p class="sub">A IA (Claude) olha as fotos, mede o cômodo e monta os móveis em 3D.</p>
+    <label class="field"><span>Cômodo</span><select id="scanRoom" ${SCAN.busy ? 'disabled' : ''}>${rooms.map(q => `<option value="${esc(q.id)}" ${q.id === SCAN.room ? 'selected' : ''}>${esc(q.name)}</option>`).join('')}</select></label>
+    <ul class="scan-steps"><li>Tire de 2 a 4 fotos, de cantos diferentes do cômodo.</li><li>Mostre o chão, as paredes e os móveis inteiros. Fotos claras ajudam.</li></ul>
+    <div class="photos">${SCAN.photos.map((p, i) => `<div class="ph"><img src="${p.url}" alt=""><button data-scanrm="${i}" aria-label="Remover">×</button></div>`).join('')}
+      ${SCAN.photos.length < 4 ? `<label class="ph" style="cursor:pointer">＋<input type="file" accept="image/*" multiple id="scanFile" hidden></label>` : ''}</div>
+    <label class="check"><input type="checkbox" id="scanResize" ${SCAN.resize ? 'checked' : ''}>Ajustar o tamanho do cômodo pelo que a IA medir</label>
+    ${key ? '' : `<label class="field"><span>Chave da API do Claude (só na primeira vez)</span><input id="scanKey" type="password" autocomplete="off" placeholder="sk-ant-..."></label>
+      <p style="color:var(--dim);font-size:13px;margin:6px 0 0">Crie em <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener" style="color:var(--accent)">platform.claude.com</a> → API Keys. O uso é cobrado na sua conta da Anthropic (cerca de US$ 0,10 a 0,30 por cômodo). A chave fica salva só neste aparelho.</p>`}
+    ${SCAN.error ? `<div class="err">${esc(SCAN.error)}</div>` : ''}
+    ${SCAN.busy ? `<div class="busy"><div class="ring"></div><div>Analisando as fotos e montando o 3D…<br><small style="color:var(--dim)">Pode levar até 1 minuto.</small></div></div>`
+      : r ? `<div class="panel" style="margin-top:14px"><h3>Pronto!</h3><p>Cômodo de ${fmtT(r.room_width_m)} × ${fmtT(r.room_depth_m)} m com ${r.furniture.length} itens:</p>
+          <div class="found">${r.furniture.map(f => `<span>${esc(f.label || FURN_NAMES[f.type])}</span>`).join('')}</div></div>
+          <button class="btn" data-act="scanview">Ver em 3D</button>`
+      : `<button class="btn ${SCAN.photos.length ? '' : 'disabled'}" data-act="scango">Gerar 3D</button>`}`);
+}
+function downscale(file, max) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+      const data = c.toDataURL('image/jpeg', 0.82);
+      resolve({ url: data, b64: data.split(',')[1] });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Não deu para abrir essa foto.')); };
+    img.src = url;
+  });
+}
+async function addScanFiles(files) {
+  for (const f of [...files].slice(0, 4 - SCAN.photos.length)) {
+    try { SCAN.photos.push(await downscale(f, 1280)); } catch (e) { SCAN.error = e.message; }
+  }
+  renderScan();
+}
+
+const AI_FURN_TYPES = Object.keys(FURN_NAMES);
+const AI_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  required: ['room_width_m', 'room_depth_m', 'floor', 'floor_color', 'wall_color', 'furniture', 'devices_seen'],
+  properties: {
+    room_width_m: { type: 'number', description: 'Medida do cômodo ao longo de x (metros)' },
+    room_depth_m: { type: 'number', description: 'Medida do cômodo ao longo de y (metros)' },
+    floor: { type: 'string', enum: ['wood', 'tile', 'carpet', 'concrete'] },
+    floor_color: { type: 'string', description: 'Cor principal do piso, #rrggbb' },
+    wall_color: { type: 'string', description: 'Cor das paredes, #rrggbb' },
+    furniture: { type: 'array', items: {
+      type: 'object', additionalProperties: false,
+      required: ['type', 'label', 'x', 'y', 'width', 'depth', 'height', 'rotation', 'color'],
+      properties: {
+        type: { type: 'string', enum: AI_FURN_TYPES }, label: { type: 'string' },
+        x: { type: 'number' }, y: { type: 'number' }, width: { type: 'number' }, depth: { type: 'number' }, height: { type: 'number' },
+        rotation: { type: 'integer', enum: [0, 90, 180, 270] }, color: { type: 'string' },
+      } } },
+    devices_seen: { type: 'array', items: {
+      type: 'object', additionalProperties: false, required: ['kind', 'x', 'y'],
+      properties: { kind: { type: 'string', enum: ['ac', 'tv', 'light'] }, x: { type: 'number' }, y: { type: 'number' } } } },
+  },
+};
+function scanPrompt(name, q) {
+  return `Estas fotos mostram um único cômodo de uma casa ("${name}"). Monte uma planta baixa aproximada para recriar o cômodo em 3D.
+
+Coordenadas: vista de cima, em metros. A origem (0, 0) é o canto superior esquerdo da planta. A parede que aparece de frente na primeira foto é a parede de cima (y = 0); x cresce para a direita e y cresce em direção a quem tirou a primeira foto.
+
+Para cada móvel ou objeto grande que aparece: x e y são o centro da peça; width é a medida ao longo de x e depth ao longo de y, antes de girar; height é a altura; rotation é o giro em graus no sentido horário visto de cima, sendo 0 quando a frente da peça aponta para y crescente (para baixo na planta). Portas, janelas e espelhos ficam junto da parede onde estão. Se várias fotos mostram o mesmo objeto, conte uma vez só.
+
+Use medidas típicas para estimar a escala (porta ≈ 0,8 m de largura e 2,1 m de altura; cama de casal ≈ 1,4 × 1,9 m; tomada ≈ 0,3 m do chão). label é o nome curto do item em português; color é a cor principal aproximada em #rrggbb. Use "other" para objetos sem tipo na lista.
+
+devices_seen: aparelhos visíveis de ar-condicionado, TV e lâmpadas/luminárias de teto, com a posição no chão logo abaixo de cada um.
+
+O tamanho cadastrado hoje é ${fmtT(q.w)} × ${fmtT(q.h)} m, mas pode estar errado: confie no que as fotos mostram.`;
+}
+function aiCall(body) {
+  const key = store.get('aikey', '');
+  if (NATIVE && NATIVE.ai) {
+    return new Promise(resolve => {
+      const id = 'a' + (++nativeSeq);
+      nativeCbs[id] = (status, text) => resolve({ status, text });
+      NATIVE.ai(id, key, JSON.stringify(body));
+    });
+  }
+  return fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2026-10-21',
+      'anthropic-beta': 'server-side-fallback-2026-07-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify(body),
+  }).then(async r => ({ status: r.status, text: await r.text() }), () => ({ status: 0, text: '' }));
+}
+async function runScan() {
+  const kf = $('#scanKey');
+  if (kf) { const k = kf.value.trim(); if (!k) { SCAN.error = 'Cole a chave da API do Claude.'; return renderScan(); } store.set('aikey', k); }
+  if (!SCAN.photos.length) return;
+  SCAN.busy = true; SCAN.error = ''; SCAN.result = null; renderScan();
+  const room = mapRooms().find(r => r.id === SCAN.room), L = getLayout(), q = L.rooms[SCAN.room];
+  const body = {
+    model: 'claude-opus-5-5', max_tokens: 16000, fallbacks: 'default',
+    output_config: { effort: 'high', format: { type: 'json_schema', schema: AI_SCHEMA } },
+    messages: [{ role: 'user', content: [
+      ...SCAN.photos.map(p => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: p.b64 } })),
+      { type: 'text', text: scanPrompt(room ? room.name : 'Cômodo', q) },
+    ] }],
+  };
+  try {
+    const { status, text } = await aiCall(body);
+    let j = {}; try { j = JSON.parse(text || '{}'); } catch {}
+    if (status === 0) throw new Error('Sem conexão com a internet.');
+    if (status === 401) { store.set('aikey', ''); throw new Error('A chave da API não foi aceita. Confira e cole de novo.'); }
+    if (status === 429 || status === 529 || status >= 500) throw new Error('O serviço está ocupado agora. Tente de novo em alguns segundos.');
+    if (status !== 200) throw new Error((j.error && j.error.message) || ('Erro ' + status));
+    if (j.stop_reason === 'refusal') throw new Error('A IA não conseguiu analisar essas fotos. Tente outras.');
+    if (j.stop_reason === 'max_tokens') throw new Error('A resposta ficou grande demais. Tente com menos fotos.');
+    const tb = (j.content || []).find(b => b.type === 'text');
+    const res = tb && JSON.parse(tb.text);
+    if (!res || !Array.isArray(res.furniture)) throw new Error('A resposta veio incompleta. Tente de novo.');
+    applyScan(SCAN.room, res);
+    SCAN.result = res;
+  } catch (e) { SCAN.error = e.message; }
+  SCAN.busy = false; renderScan();
+}
+function applyScan(rid, res) {
+  const L = getLayout(), q = L.rooms[rid]; if (!q) return;
+  const hex = c => /^#[0-9a-f]{6}$/i.test(c || '') ? c : null;
+  const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
+  if (SCAN.resize) { q.w = snap(Math.max(1.5, Math.min(15, num(res.room_width_m, q.w)))); q.h = snap(Math.max(1.5, Math.min(15, num(res.room_depth_m, q.h)))); }
+  const sx = SCAN.resize ? 1 : q.w / Math.max(1, num(res.room_width_m, q.w)), sy = SCAN.resize ? 1 : q.h / Math.max(1, num(res.room_depth_m, q.h));
+  q.floor = ['wood', 'tile', 'carpet', 'concrete'].includes(res.floor) ? res.floor : undefined;
+  q.floorColor = hex(res.floor_color) || undefined; q.wall = hex(res.wall_color) || undefined;
+  L.furniture[rid] = res.furniture.filter(f => AI_FURN_TYPES.includes(f.type)).slice(0, 60).map(f => {
+    const d = furnDefaults(f.type);
+    return { type: f.type, label: String(f.label || FURN_NAMES[f.type]).slice(0, 40),
+      x: Math.max(0, Math.min(q.w, num(f.x, q.w / 2) * sx)), y: Math.max(0, Math.min(q.h, num(f.y, q.h / 2) * sy)),
+      width: Math.max(0.1, Math.min(6, num(f.width, d.width))), depth: Math.max(0.02, Math.min(6, num(f.depth, d.depth))),
+      height: Math.max(0.01, Math.min(3, num(f.height, d.height))), rotation: [0, 90, 180, 270].includes(f.rotation) ? f.rotation : 0,
+      color: hex(f.color) || d.color };
+  });
+  // posiciona os aparelhos do cômodo onde a IA os viu
+  const used = new Set();
+  (res.devices_seen || []).forEach(sd => {
+    const dev = S.devices.find(d => devRoom(d) === rid && d.type === sd.kind && !used.has(d.id));
+    if (!dev) return; used.add(dev.id);
+    L.devices[dev.id] = { x: q.x + Math.max(0.2, Math.min(q.w - 0.2, num(sd.x, 1) * sx)), y: q.y + Math.max(0.2, Math.min(q.h - 0.2, num(sd.y, 1) * sy)) };
+  });
+  // aparelhos que ficaram fora do cômodo redimensionado voltam para dentro
+  S.devices.filter(d => devRoom(d) === rid).forEach(d => { const p = L.devices[d.id]; if (!p) return;
+    p.x = Math.max(q.x + 0.2, Math.min(q.x + q.w - 0.2, p.x)); p.y = Math.max(q.y + 0.2, Math.min(q.y + q.h - 0.2, p.y)); });
+  store.set(layoutKey(), L);
+}
+
+/* ----- dados para a vista 3D ----- */
+function map3dData() {
+  const L = getLayout();
+  const rooms = mapRooms().map(r => ({ id: r.id, name: r.name, ...L.rooms[r.id] }));
+  const devices = S.devices.map(d => { const p = L.devices[d.id];
+    return { id: d.id, type: d.type, room: devRoom(d), x: p.x, y: p.y, on: !!d.on, online: d.online !== false, level: d.level,
+      color: d.type === 'light' ? lightColor(d) : null, mode: d.acMode, name: d.name, icon: devIcon(d, d.online && d.on), glow: glowColor(d) }; });
+  return { rooms, devices, furniture: L.furniture || {} };
+}
+function mount3d() {
+  const slot = $('#slot3d'); if (!slot || !window.Casa3D || !Casa3D.supported) return;
+  Casa3D.mount(slot, map3dData(), {
+    onDevice: id => { S.sheetDev = id; renderSheet(); },
+    onRoom: id => { MAP.lastRoom = id; Casa3D.focusRoom(id); haptic(); },
+  });
 }
 
 /* ---------- Painel do aparelho ---------- */
 function openSheet(html) { $('#sheet').innerHTML = '<div class="grab"></div>' + html; $('#sheet').classList.add('show'); $('#scrim').classList.add('show'); }
-function closeSheet() { $('#sheet').classList.remove('show'); $('#scrim').classList.remove('show'); S.sheetDev = null; }
+function closeSheet() { $('#sheet').classList.remove('show'); $('#scrim').classList.remove('show'); S.sheetDev = null; S.scanOpen = false; }
 function roomName(id) { const r = S.rooms.find(r => r.id === id); return r ? r.name : 'Sem cômodo'; }
 function renderSheet() {
   const d = S.sheetDev && S.devices.find(x => x.id === S.sheetDev);
   if (!d) return;
+  S.scanOpen = false;
   const on = d.online && d.on;
   let body = '';
   if (d.type === 'ac') {
@@ -892,6 +1188,7 @@ function animateMain() { const m = $('#main'); m.classList.remove('enter'); void
 window.onBack = () => {
   if ($('#sheet').classList.contains('show')) { closeSheet(); return true; }
   if ($('#menu').classList.contains('show')) { $('#menu').classList.remove('show'); return true; }
+  if (S.page === 'map' && MAP.sel) { MAP.sel = null; render(); return true; }
   if (S.page === 'map' && MAP.edit) { MAP.edit = false; render(); return true; }
   if (S.searchOpen || S.query) { S.searchOpen = false; S.query = ''; render(); return true; }
   if (S.page !== 'devices') { S.page = 'devices'; render(); animateMain(); return true; }
@@ -904,6 +1201,12 @@ document.addEventListener('click', e => {
   const link = t.closest('a[href^="https://"]');
   if (link && NATIVE) { e.preventDefault(); NATIVE.openUrl(link.href); return; }
   if (!t.closest('#menu') && !t.closest('#moreBtn')) $('#menu').classList.remove('show');
+  const af = t.closest('[data-addf]');
+  if (af) { addFurniture(af.dataset.addf); return; }
+  const srm = t.closest('[data-scanrm]');
+  if (srm) { SCAN.photos.splice(Number(srm.dataset.scanrm), 1); SCAN.result = null; renderScan(); return; }
+  const fsel = t.closest('[data-furn]');
+  if (fsel && MAP.edit) { if (!MAP.moved) { const i = Number(fsel.dataset.fi); MAP.sel = MAP.sel && MAP.sel.room === fsel.dataset.furn && MAP.sel.i === i ? null : { room: fsel.dataset.furn, i }; render(); } else render(); return; }
   const mapBtn = t.closest('[data-map]');
   if (mapBtn) { mapAction(mapBtn.dataset.map); return; }
   const pin = t.closest('[data-pin]');
@@ -933,6 +1236,9 @@ document.addEventListener('click', e => {
       case 'alloff': allOff(); break;
       case 'settings': S.page = 'menu'; render(); break;
       case 'adddev': addDevice(); break;
+      case 'scango': runScan(); break;
+      case 'scanview': closeSheet(); S.page = 'map'; MAP.mode = '3d'; MAP.edit = false; MAP.sel = null; render(); setTimeout(() => window.Casa3D && Casa3D.focusRoom && Casa3D.focusRoom(SCAN.room), 120); SCAN.photos = []; SCAN.result = null; break;
+      case 'saveai': { const k = $('#aikeyM').value.trim(); store.set('aikey', k); toast(k ? 'Chave salva' : 'Chave removida'); render(); break; }
       case 'connect': {
         const tok = $('#tok').value.trim(); if (!tok) return toast('Cole o token primeiro');
         S.token = tok; S.mode = 'st'; store.set('token', tok); store.set('mode', 'st');
@@ -948,6 +1254,9 @@ document.addEventListener('input', e => {
   if (e.target.dataset.lvl) { const v = Number(e.target.value); e.target.style.setProperty('--p', v + '%'); const l = $('#lvl'); if (l) l.textContent = v + '%'; }
 });
 document.addEventListener('change', e => {
+  if (e.target.id === 'scanFile') { addScanFiles(e.target.files); return; }
+  if (e.target.id === 'scanRoom') { SCAN.room = e.target.value; return; }
+  if (e.target.id === 'scanResize') { SCAN.resize = e.target.checked; return; }
   if (e.target.dataset.lvl) { const d = S.devices.find(x => x.id === S.sheetDev); if (d) setLevel(d, Number(e.target.value)); }
 });
 $('#scrim').onclick = closeSheet;

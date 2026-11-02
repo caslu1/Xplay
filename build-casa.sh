@@ -11,7 +11,7 @@ SRC=casa-app
 OUT=build/casa
 
 rm -rf "$OUT" && mkdir -p "$OUT/gen" "$OUT/classes" "$OUT/assets"
-cp casa/index.html casa/icon.svg "$OUT/assets/"
+cp casa/index.html casa/icon.svg casa/three.min.js casa/casa3d.js "$OUT/assets/"
 
 aapt package -f -m -J "$OUT/gen" -M $SRC/AndroidManifest.xml -S $SRC/res -I "$ANDROID_JAR"
 
