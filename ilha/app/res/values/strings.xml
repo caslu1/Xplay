@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Ilha</string>
+    <string name="a11y_desc">Desenha a ilha ao redor da câmera frontal. O Ilha não lê nem guarda o conteúdo da sua tela: este serviço é usado apenas para mostrar a ilha por cima da barra de status.</string>
+</resources>
