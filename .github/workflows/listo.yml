@@ -1,0 +1,45 @@
+name: Listo
+
+on:
+  push:
+    paths:
+      - 'listo/**'
+      - '.github/workflows/listo.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq android-sdk-platform-23 aapt apksigner zipalign dalvik-exchange python3-pil
+
+      - name: Build APK
+        run: listo/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Listo-apk
+          path: listo/build/Listo.apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Screenshots on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash listo/tools/capture.sh
