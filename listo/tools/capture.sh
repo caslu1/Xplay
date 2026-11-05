@@ -23,18 +23,17 @@ adb install -r build/Listo.apk
 adb logcat -c
 adb shell am start -W -n $PKG/.MainActivity
 shot 01_calendar 5
-adb shell input tap 980 2000; shot 02_new_task 3
-adb shell input text "Estudar"; shot 03_typed 2
-tap "re:(?i)^salvar$"; shot 04_saved 3
-tap "Listas"; shot 05_lists 3
-tap "re:Tomate"; shot 06_checked 2
-adb shell input swipe 540 1800 540 600; shot 07_scrolled 2
-adb shell input tap 980 2000; shot 08_new_list 3
-adb shell input keyevent 4; adb shell input keyevent 4; sleep 1
-tap "Lista de estudos"; shot 08b_list_menu 2
-adb shell input keyevent 4; adb shell input keyevent 4
-tap "Calendário"; adb shell input swipe 900 900 150 900; shot 09_next_month 2
-
+tap "Listas"; shot 02_todo 3
+hold() {
+    adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 && adb pull /sdcard/ui.xml /tmp/ui.xml >/dev/null 2>&1
+    xy=$(python3 ../tools/screenshots/tap.py /tmp/ui.xml "$1") || { echo "not found: $1"; return 1; }
+    adb shell input swipe $xy $xy 1100
+}
+hold "Apresentação"
+adb exec-out screencap -p > "$OUT/03_mission_a.png"; echo "shot 03"
+sleep 0.4; adb exec-out screencap -p > "$OUT/04_mission_b.png"; echo "shot 04"
+shot 05_after 3
+tap "Calendário"; shot 06_calendar_done 2
 echo "=== crashes ==="
 adb logcat -d -s AndroidRuntime:E | tail -40
 for f in "$OUT"/*.png; do

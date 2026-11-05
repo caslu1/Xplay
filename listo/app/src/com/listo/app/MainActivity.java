@@ -75,6 +75,8 @@ public class MainActivity extends Activity {
 
     // lists state
     private LinearLayout listsBox;
+    private LinearLayout todoBox;
+    private FrameLayout root;
     private final Map<Long, EditText> addInputs = new HashMap<Long, EditText>();
 
     @Override
@@ -88,7 +90,7 @@ public class MainActivity extends Activity {
         selM = viewM = now.get(Calendar.MONTH);
         selD = now.get(Calendar.DAY_OF_MONTH);
 
-        FrameLayout root = new FrameLayout(this);
+        root = new FrameLayout(this);
         root.setBackgroundColor(Color.WHITE);
 
         LinearLayout column = new LinearLayout(this);
@@ -383,6 +385,7 @@ public class MainActivity extends Activity {
     }
 
     private void refreshCalendar() {
+        if (todoBox != null) refreshTodo();
         monthLabel.setText(MONTHS_SHORT[viewM] + " " + viewY);
         todayIcon.setLabel(String.valueOf(Calendar.getInstance().get(Calendar.DAY_OF_MONTH)));
         monthView.show(viewY, viewM, selY, selM, selD, store.busyDates());
@@ -438,6 +441,7 @@ public class MainActivity extends Activity {
                 t.done = !t.done;
                 store.save();
                 refreshCalendar();
+                if (t.done) celebrate(t);
             }
         });
         card.addView(check, new LinearLayout.LayoutParams(px(48), px(48)));
@@ -674,16 +678,153 @@ public class MainActivity extends Activity {
         col.setPadding(px(20), px(18), px(20), px(110));
         scroll.addView(col);
 
-        TextView h = text("Minhas listas", 30, 0xFF111111, true);
+        TextView h = text("Minhas tarefas", 30, 0xFF111111, true);
         col.addView(h);
-        TextView sub = text("Organize estudos, compras, filmes e o que mais quiser.", 14, 0xFF6B7684, false);
+        TextView sub = text("Tudo o que você tem a fazer, num só lugar.", 14, 0xFF6B7684, false);
         sub.setPadding(0, px(4), 0, px(6));
         col.addView(sub);
+
+        todoBox = new LinearLayout(this);
+        todoBox.setOrientation(LinearLayout.VERTICAL);
+        col.addView(todoBox);
 
         listsBox = new LinearLayout(this);
         listsBox.setOrientation(LinearLayout.VERTICAL);
         col.addView(listsBox);
         return scroll;
+    }
+
+    private int pendingCount() {
+        int n = 0;
+        for (Store.Task t : store.tasks) if (!t.done) n++;
+        return n;
+    }
+
+    private void celebrate(Store.Task t) {
+        int left = pendingCount();
+        String sub = left == 0 ? "Nenhuma tarefa pendente 🎉"
+                : (left == 1 ? "Falta só 1 tarefa" : "Faltam " + left + " tarefas");
+        Celebration.show(root, t.title, sub);
+    }
+
+    /** "Hoje", "Amanhã", "Ontem" or "Seg, 9 nov". */
+    private String dayName(String date) {
+        String[] p = date.split("-");
+        Calendar c = Calendar.getInstance();
+        c.clear();
+        c.set(Integer.parseInt(p[0]), Integer.parseInt(p[1]) - 1, Integer.parseInt(p[2]));
+        Calendar d = Calendar.getInstance();
+        if (date.equals(Store.key(d))) return "Hoje";
+        d.add(Calendar.DAY_OF_MONTH, 1);
+        if (date.equals(Store.key(d))) return "Amanhã";
+        d.add(Calendar.DAY_OF_MONTH, -2);
+        if (date.equals(Store.key(d))) return "Ontem";
+        String wd = WEEKDAYS[c.get(Calendar.DAY_OF_WEEK) - 1].substring(0, 3);
+        String m = MONTHS_SHORT[c.get(Calendar.MONTH)].replace(".", "").toLowerCase(Locale.ROOT);
+        String s = wd + ", " + c.get(Calendar.DAY_OF_MONTH) + " " + m;
+        if (c.get(Calendar.YEAR) != Calendar.getInstance().get(Calendar.YEAR)) s += " " + p[0];
+        return s;
+    }
+
+    /** The "A fazer" card: every unfinished calendar task, hold one to complete it. */
+    private void refreshTodo() {
+        todoBox.removeAllViews();
+        java.util.List<Store.Task> pending = new java.util.ArrayList<Store.Task>();
+        for (Store.Task t : store.tasks) if (!t.done) pending.add(t);
+        java.util.Collections.sort(pending, new java.util.Comparator<Store.Task>() {
+            @Override public int compare(Store.Task a, Store.Task b) {
+                int c = a.date.compareTo(b.date);
+                if (c != 0) return c;
+                String ta = a.time.isEmpty() ? "99" : a.time, tb = b.time.isEmpty() ? "99" : b.time;
+                c = ta.compareTo(tb);
+                return c != 0 ? c : b.priority - a.priority;
+            }
+        });
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackground(round(Color.WHITE, 22));
+        card.setElevation(px(5));
+        card.setPadding(px(14), px(16), px(14), px(14));
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-1, -2);
+        clp.topMargin = px(14);
+        clp.bottomMargin = px(4);
+        clp.rightMargin = px(8);
+        todoBox.addView(card, clp);
+
+        LinearLayout head = new LinearLayout(this);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.setPadding(px(4), 0, px(4), 0);
+        head.addView(text("A fazer", 19, 0xFF111111, true), new LinearLayout.LayoutParams(0, -2, 1));
+        TextView count = text(String.valueOf(pending.size()), 13, Color.WHITE, true);
+        count.setGravity(Gravity.CENTER);
+        count.setMinWidth(px(26));
+        count.setPadding(px(8), px(3), px(8), px(3));
+        count.setBackground(round(pending.isEmpty() ? 0xFF7FCB8E : ACCENT, 13));
+        head.addView(count);
+        card.addView(head);
+
+        TextView hint = text(pending.isEmpty() ? "Tudo feito! Adicione tarefas pelo calendário."
+                : "Segure uma tarefa para concluir a missão", 13, MUTED, false);
+        hint.setPadding(px(4), px(2), px(4), px(8));
+        card.addView(hint);
+
+        String today = Store.key(Calendar.getInstance());
+        for (final Store.Task t : pending) {
+            final HoldRow row = new HoldRow(this, 0xFFF5F7FA, 0xFFC5EBC8, px(12));
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setMinimumHeight(px(62));
+            LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(-1, -2);
+            rlp.topMargin = px(8);
+            row.setLayoutParams(rlp);
+
+            View bar = new View(this);
+            bar.setBackground(round(BAR_COLORS[t.priority], 3));
+            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(px(5), px(34));
+            blp.leftMargin = px(10);
+            row.addView(bar, blp);
+
+            LinearLayout texts = new LinearLayout(this);
+            texts.setOrientation(LinearLayout.VERTICAL);
+            texts.setPadding(px(12), px(10), px(4), px(10));
+            texts.addView(text(t.title, 16, TEXT, false));
+            boolean late = t.date.compareTo(today) < 0;
+            String when = (late ? "Atrasada · " : "") + dayName(t.date) + (t.time.isEmpty() ? "" : " · " + t.time);
+            TextView w = text(when, 12, late ? 0xFFE5533D : MUTED, late);
+            w.setPadding(0, px(2), 0, 0);
+            texts.addView(w);
+            row.addView(texts, new LinearLayout.LayoutParams(0, -2, 1));
+
+            if (t.priority > 0) {
+                Glyph flag = new Glyph(this, Glyph.FLAG, PRIORITY_COLORS[t.priority]);
+                flag.setFilled(true);
+                row.addView(flag, new LinearLayout.LayoutParams(px(44), px(44)));
+            }
+
+            row.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) {
+                    editTask(t);
+                }
+            });
+            row.setOnHoldComplete(new HoldRow.OnHoldComplete() {
+                @Override public void onHoldComplete(HoldRow r) {
+                    t.done = true;
+                    store.save();
+                    celebrate(t);
+                    r.animate().alpha(0f).translationX(r.getWidth()).setDuration(300).withEndAction(new Runnable() {
+                        @Override public void run() {
+                            refreshCalendar();
+                        }
+                    }).start();
+                }
+            });
+            card.addView(row);
+        }
+
+        TextView listsTitle = text("Minhas listas", 13, 0xFF6B7684, true);
+        listsTitle.setPadding(px(4), px(18), 0, 0);
+        todoBox.addView(listsTitle);
     }
 
     private void refreshLists() {
