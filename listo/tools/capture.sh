@@ -25,11 +25,13 @@ adb shell am start -W -n $PKG/.MainActivity
 shot 01_calendar 5
 adb shell input tap 980 2000; shot 02_new_task 3
 adb shell input text "Estudar"; shot 03_typed 2
-tap "Salvar"; shot 04_saved 3
+tap "re:(?i)^salvar$"; shot 04_saved 3
 tap "Listas"; shot 05_lists 3
-tap "Tomate"; shot 06_checked 2
+tap "re:Tomate"; shot 06_checked 2
 adb shell input swipe 540 1800 540 600; shot 07_scrolled 2
 adb shell input tap 980 2000; shot 08_new_list 3
+adb shell input keyevent 4; adb shell input keyevent 4; sleep 1
+tap "Lista de estudos"; shot 08b_list_menu 2
 adb shell input keyevent 4; adb shell input keyevent 4
 tap "Calendário"; adb shell input swipe 900 900 150 900; shot 09_next_month 2
 

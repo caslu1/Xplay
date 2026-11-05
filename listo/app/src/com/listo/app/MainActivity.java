@@ -24,7 +24,6 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.DatePicker;
 import android.widget.EditText;
 import android.widget.FrameLayout;
-import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -192,7 +191,7 @@ public class MainActivity extends Activity {
         Glyph g = new Glyph(this, glyph, MUTED);
         item.addView(g, new LinearLayout.LayoutParams(px(30), px(30)));
         TextView t = text(label, 11, MUTED, false);
-        item.addView(t);
+        item.addView(t, new LinearLayout.LayoutParams(-2, -2));
         clickable(item);
         item.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
@@ -572,12 +571,9 @@ public class MainActivity extends Activity {
         TextView pl = text("Prioridade", 13, MUTED, false);
         pl.setPadding(0, px(14), 0, px(6));
         form.addView(pl);
-        HorizontalScrollView hs = new HorizontalScrollView(this);
-        hs.setHorizontalScrollBarEnabled(false);
         final LinearLayout prios = new LinearLayout(this);
         prios.setOrientation(LinearLayout.HORIZONTAL);
-        hs.addView(prios);
-        form.addView(hs);
+        form.addView(prios, new LinearLayout.LayoutParams(-1, -2));
         final TextView[] pchips = new TextView[4];
         final Runnable paintPrio = new Runnable() {
             @Override public void run() {
@@ -599,8 +595,11 @@ public class MainActivity extends Activity {
                 }
             });
             pchips[i] = c;
-            LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(-2, -2);
-            clp.rightMargin = px(8);
+            c.setGravity(Gravity.CENTER);
+            c.setPadding(px(4), px(8), px(4), px(8));
+            c.setTextSize(13);
+            LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(0, -2, 1);
+            if (i < 3) clp.rightMargin = px(6);
             prios.addView(c, clp);
         }
         paintPrio.run();
