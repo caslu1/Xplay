@@ -1,8 +1,5 @@
 package com.listo.app;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -11,7 +8,6 @@ import android.graphics.RectF;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.ViewConfiguration;
-import android.view.animation.LinearInterpolator;
 import android.widget.LinearLayout;
 
 /**
@@ -34,7 +30,6 @@ public class HoldRow extends LinearLayout {
     private int bg;
     private int fillColor;
     private float progress;
-    private ValueAnimator anim;
     private OnHoldComplete listener;
     private float downX, downY;
     private long downAt;
@@ -70,30 +65,38 @@ public class HoldRow extends LinearLayout {
         super.onDraw(c);
     }
 
-    private void animateTo(final float target, long ms) {
-        if (anim != null) anim.cancel();
-        anim = ValueAnimator.ofFloat(progress, target);
-        anim.setDuration(ms);
-        anim.setInterpolator(new LinearInterpolator());
-        anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override public void onAnimationUpdate(ValueAnimator a) {
-                progress = (Float) a.getAnimatedValue();
-                invalidate();
+    // Progress runs on its own clock so holding works even with system animations turned off.
+    private float from, target;
+    private long animStart, animMs;
+    private boolean running;
+
+    private final Runnable tick = new Runnable() {
+        @Override public void run() {
+            if (!running) return;
+            float t = animMs <= 0 ? 1 : Math.min(1f, (android.os.SystemClock.uptimeMillis() - animStart) / (float) animMs);
+            progress = from + (target - from) * t;
+            invalidate();
+            if (t < 1) {
+                postOnAnimation(this);
+                return;
             }
-        });
-        if (target >= 1) {
-            anim.addListener(new AnimatorListenerAdapter() {
-                boolean cancelled;
-                @Override public void onAnimationCancel(Animator a) { cancelled = true; }
-                @Override public void onAnimationEnd(Animator a) {
-                    if (cancelled || finished) return;
-                    finished = true;
-                    performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-                    if (listener != null) listener.onHoldComplete(HoldRow.this);
-                }
-            });
+            running = false;
+            if (target >= 1 && !finished) {
+                finished = true;
+                performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                if (listener != null) listener.onHoldComplete(HoldRow.this);
+            }
         }
-        anim.start();
+    };
+
+    private void animateTo(float to, long ms) {
+        from = progress;
+        target = to;
+        animStart = android.os.SystemClock.uptimeMillis();
+        animMs = ms;
+        running = true;
+        removeCallbacks(tick);
+        postOnAnimation(tick);
     }
 
     @Override

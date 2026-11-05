@@ -1,6 +1,5 @@
 package com.listo.app;
 
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -10,7 +9,6 @@ import android.graphics.Typeface;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.LinearInterpolator;
 
 import java.util.Random;
 
@@ -29,7 +27,8 @@ public class Celebration extends View {
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private final RectF r = new RectF();
-    private final ValueAnimator anim;
+    private long start;
+    private boolean gone;
     private float ms;
 
     private final int n = 70;
@@ -41,7 +40,8 @@ public class Celebration extends View {
     public static void show(ViewGroup root, String title, String subtitle) {
         Celebration c = new Celebration(root.getContext(), title, subtitle);
         root.addView(c, new ViewGroup.LayoutParams(-1, -1));
-        c.anim.start();
+        c.start = android.os.SystemClock.uptimeMillis();
+        c.invalidate();
     }
 
     private Celebration(Context ctx, String title, String subtitle) {
@@ -62,20 +62,11 @@ public class Celebration extends View {
             col[i] = CONFETTI[rnd.nextInt(CONFETTI.length)];
             round[i] = rnd.nextInt(3) == 0;
         }
-        anim = ValueAnimator.ofFloat(0, DURATION);
-        anim.setDuration(DURATION);
-        anim.setInterpolator(new LinearInterpolator());
-        anim.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
-            @Override public void onAnimationUpdate(ValueAnimator a) {
-                ms = (Float) a.getAnimatedValue();
-                invalidate();
-                if (ms >= DURATION) dismiss();
-            }
-        });
     }
 
     private void dismiss() {
-        anim.cancel();
+        if (gone) return;
+        gone = true;
         ViewGroup parent = (ViewGroup) getParent();
         if (parent != null) parent.removeView(this);
     }
@@ -100,6 +91,13 @@ public class Celebration extends View {
 
     @Override
     protected void onDraw(Canvas c) {
+        // own clock, so it still plays when the system animation scale is off
+        ms = android.os.SystemClock.uptimeMillis() - start;
+        if (ms >= DURATION) {
+            post(new Runnable() { @Override public void run() { dismiss(); } });
+            return;
+        }
+        postInvalidateOnAnimation();
         float w = getWidth(), h = getHeight();
         float cx = w / 2, cy = h * 0.42f;
 

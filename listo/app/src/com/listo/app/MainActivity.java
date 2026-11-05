@@ -812,11 +812,12 @@ public class MainActivity extends Activity {
                     t.done = true;
                     store.save();
                     celebrate(t);
-                    r.animate().alpha(0f).translationX(r.getWidth()).setDuration(300).withEndAction(new Runnable() {
+                    r.animate().alpha(0f).translationX(r.getWidth()).setDuration(300).start();
+                    r.postDelayed(new Runnable() {
                         @Override public void run() {
                             refreshCalendar();
                         }
-                    }).start();
+                    }, 320);
                 }
             });
             card.addView(row);

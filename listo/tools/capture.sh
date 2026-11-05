@@ -27,11 +27,11 @@ tap "Listas"; shot 02_todo 3
 hold() {
     adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 && adb pull /sdcard/ui.xml /tmp/ui.xml >/dev/null 2>&1
     xy=$(python3 ../tools/screenshots/tap.py /tmp/ui.xml "$1") || { echo "not found: $1"; return 1; }
-    adb shell input swipe $xy $xy 1100
+    adb shell input swipe $xy $xy 1000
 }
 hold "Apresentação"
 adb exec-out screencap -p > "$OUT/03_mission_a.png"; echo "shot 03"
-sleep 0.4; adb exec-out screencap -p > "$OUT/04_mission_b.png"; echo "shot 04"
+sleep 0.6; adb exec-out screencap -p > "$OUT/04_mission_b.png"; echo "shot 04"
 shot 05_after 3
 tap "Calendário"; shot 06_calendar_done 2
 echo "=== crashes ==="
